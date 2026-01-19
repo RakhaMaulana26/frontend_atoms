@@ -4,10 +4,11 @@ import { ToastProvider } from './components/common/ToastContext';
 import ProtectedRoute from './components/layout/ProtectedRoute';
 import DashboardLayout from './components/layout/DashboardLayout';
 
+// Landing Page
+import LandingPage from './pages/LandingPage';
+
 // Auth Pages
-import LoginPage from './modules/auth/pages/LoginPage';
-import VerifyTokenPage from './modules/auth/pages/VerifyTokenPage';
-import SetPasswordPage from './modules/auth/pages/SetPasswordPage';
+import AuthPage from './modules/auth/pages/AuthPage';
 
 // Dashboard Pages
 import DashboardPage from './modules/dashboard/pages/DashboardPage';
@@ -22,10 +23,12 @@ function App() {
       <AuthProvider>
         <ToastProvider>
           <Routes>
-            {/* Public Routes */}
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/verify-token" element={<VerifyTokenPage />} />
-            <Route path="/set-password" element={<SetPasswordPage />} />
+            {/* Landing Page */}
+            <Route path="/" element={<LandingPage />} />
+            
+            {/* Public Routes - All auth flows in one page */}
+            <Route path="/login" element={<AuthPage />} />
+            <Route path="/auth" element={<AuthPage />} />
 
             {/* Protected Routes */}
             <Route
@@ -87,9 +90,8 @@ function App() {
               }
             />
 
-            {/* Default Route */}
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            {/* Fallback Route */}
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </ToastProvider>
       </AuthProvider>

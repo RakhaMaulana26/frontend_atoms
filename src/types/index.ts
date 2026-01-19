@@ -67,6 +67,14 @@ export interface SetPasswordResponse {
   action: 'activation' | 'reset';
 }
 
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ForgotPasswordResponse {
+  message: string;
+}
+
 // Shift Types
 export interface Shift {
   id: number;
