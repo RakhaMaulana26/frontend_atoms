@@ -16,6 +16,7 @@ export interface Employee {
   user_id: number;
   employee_type: 'CNS' | 'Support' | 'Manager';
   is_active: boolean;
+  user?: User;
   created_at: string;
   updated_at: string;
 }
@@ -94,14 +95,14 @@ export interface RosterPeriod {
   created_by: number;
   created_at: string;
   updated_at: string;
-  roster_days?: RosterDay[];
+  rosterDays?: RosterDay[];
 }
 
 export interface RosterDay {
   id: number;
   roster_period_id: number;
-  date: string;
-  manager_id: number;
+  work_date: string;
+  manager_id?: number;
   manager?: Employee;
   shift_assignments?: ShiftAssignment[];
   created_at: string;
@@ -122,15 +123,6 @@ export interface ShiftAssignment {
 export interface CreateRosterRequest {
   month: number;
   year: number;
-  days: Array<{
-    date: string;
-    manager_id: number;
-    shifts: {
-      pagi: number[];
-      siang: number[];
-      malam: number[];
-    };
-  }>;
 }
 
 // Shift Request Types

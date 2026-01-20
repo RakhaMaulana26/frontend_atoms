@@ -49,4 +49,12 @@ export const adminService = {
     const response = await apiClient.post<GenerateTokenResponse>(`/admin/users/${id}/generate-token`);
     return response.data;
   },
+
+  // Send Activation Code via Email
+  async sendActivationCodeEmail(id: number, token: string): Promise<{ message: string }> {
+    const response = await apiClient.post<{ message: string }>(`/admin/users/${id}/send-activation-code`, {
+      token
+    });
+    return response.data;
+  },
 };

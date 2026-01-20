@@ -4,8 +4,8 @@ import type { RosterPeriod, CreateRosterRequest } from '../../../types';
 export const rosterService = {
   // Create Roster
   async createRoster(data: CreateRosterRequest): Promise<RosterPeriod> {
-    const response = await apiClient.post<RosterPeriod>('/rosters', data);
-    return response.data;
+    const response = await apiClient.post<{message: string, data: RosterPeriod}>('/rosters', data);
+    return response.data.data;
   },
 
   // Get Roster Detail
@@ -16,8 +16,8 @@ export const rosterService = {
 
   // Publish Roster
   async publishRoster(id: number): Promise<RosterPeriod> {
-    const response = await apiClient.post<RosterPeriod>(`/rosters/${id}/publish`);
-    return response.data;
+    const response = await apiClient.post<{message: string, data: RosterPeriod}>(`/rosters/${id}/publish`);
+    return response.data.data;
   },
 
   // List Rosters (optional, not in docs but useful)

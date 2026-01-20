@@ -3,14 +3,14 @@ import type { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../modules/auth/core/AuthContext';
 import { 
-  LayoutDashboard, 
   Users, 
   Calendar, 
   RefreshCw, 
   Bell, 
   LogOut,
   Menu,
-  X 
+  X,
+  Home
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -30,7 +30,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   };
 
   const menuItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard', roles: ['all'] },
+    { icon: Home, label: 'Home', path: '/home', roles: ['all'] },
     { icon: Users, label: 'Users', path: '/admin/users', roles: ['admin'] },
     { icon: Calendar, label: 'Rosters', path: '/rosters', roles: ['admin', 'manager'] },
     { icon: RefreshCw, label: 'Shift Requests', path: '/shift-requests', roles: ['all'] },
