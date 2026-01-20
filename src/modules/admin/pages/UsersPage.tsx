@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import { useAuth } from '../../auth/core/AuthContext';
 import { useDataCache } from '../../../contexts/DataCacheContext';
+import PageHeader from '../../../components/layout/PageHeader';
 import { adminService } from '../repository/adminService';
 import { authService } from '../../auth/repository/authService';
 import { useDebounce } from '../../../hooks/useDebounce';
@@ -12,32 +12,16 @@ import Table from '../../../components/common/Table';
 import Modal from '../../../components/common/Modal';
 import Input from '../../../components/common/Input';
 import Select from '../../../components/common/Select';
-import Card from '../../../components/common/Card';
-import Breadcrumbs from '../../../components/common/Breadcrumbs';
-import { UserPlus, Edit, Trash2, RotateCcw, Key, Users, Bell, User as UserIcon, ChevronDown, LogOut, Search } from 'lucide-react';
+import { Edit, Trash2, RotateCcw, Key, Users, Search, Plus, LogOut } from 'lucide-react';
 
 const UsersPage: React.FC = () => {
-  const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { users: cachedUsers, isLoading: cacheLoading, isInitialized, addUser, updateUser: updateCachedUser, removeUser } = useDataCache();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRole, setSelectedRole] = useState('');
   const [selectedEmployeeType, setSelectedEmployeeType] = useState('');
-  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const userMenuRef = useRef<HTMLDivElement>(null);
-
-  // Show loading if cache is not initialized
-  if (!isInitialized) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-[#454D7C] mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading application data...</p>
-        </div>
-      </div>
-    );
-  }
   
+  // All useState hooks must be declared before any conditional returns
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isTokenModalOpen, setIsTokenModalOpen] = useState(false);
@@ -51,17 +35,6 @@ const UsersPage: React.FC = () => {
 
   // Debounce search query for client-side filtering
   const debouncedSearchQuery = useDebounce(searchQuery, 500);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
-        setIsUserMenuOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   // Filter users from cache based on search and filters
   const filteredUsers = useMemo(() => {
@@ -78,79 +51,6 @@ const UsersPage: React.FC = () => {
       return matchesSearch && matchesRole && matchesEmployeeType;
     });
   }, [cachedUsers, debouncedSearchQuery, selectedRole, selectedEmployeeType]);
-
-  const handleDelete = (user: User) => {
-    setSelectedUser(user);
-    setIsDeleteModalOpen(true);
-  };
-
-  const confirmDelete = async () => {
-    if (!selectedUser) return;
-
-    // Optimistic update: remove from cache first
-    removeUser(selectedUser.id);
-    setIsDeleteModalOpen(false);
-    const deletedUser = selectedUser;
-    setSelectedUser(null);
-    
-    try {
-      await adminService.deleteUser(deletedUser.id);
-      toast.success('User deleted successfully');
-      // No fetch - pure optimistic update!
-    } catch (error: any) {
-      // Rollback if failed - re-add user to cache
-      addUser(deletedUser);
-      toast.error('Failed to delete user');
-    }
-  };
-
-  const handleRestore = async (user: User) => {
-    // Optimistic update: restore di cache dulu
-    const restoredUser = { ...user, deleted_at: null };
-    updateCachedUser(user.id, restoredUser);
-    
-    try {
-      await adminService.restoreUser(user.id);
-      toast.success('User restored successfully');
-      // No fetch - pure optimistic update!
-    } catch (error: any) {
-      // Rollback jika gagal
-      updateCachedUser(user.id, user);
-      toast.error('Failed to restore user');
-    }
-  };
-
-  const handleGenerateToken = async (user: User) => {
-    try {
-      const response = await adminService.generateToken(user.id);
-      setGeneratedToken(response.token);
-      setSelectedUser(user);
-      setIsTokenModalOpen(true);
-      
-      const purpose = response.purpose || 'activation';
-      const message = purpose === 'activation' 
-        ? 'Activation code generated successfully!' 
-        : 'Password reset code generated successfully!';
-      
-      toast.success(message);
-    } catch (error: any) {
-      toast.error('Failed to generate token');
-    }
-  };
-
-  const handleSendTokenEmail = async () => {
-    if (!selectedUser) return;
-    
-    setIsSendingEmail(true);
-    try {
-      await adminService.sendActivationCodeEmail(selectedUser.id, generatedToken);
-      toast.success('Activation code sent to email successfully!');
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to send email');
-    } finally {
-      setIsSendingEmail(false);
-    }
-  };
 
   const handleCopyToken = useCallback(() => {
     navigator.clipboard.writeText(generatedToken);
@@ -245,129 +145,165 @@ const UsersPage: React.FC = () => {
         </div>
       ),
     },
-  ], [handleDelete, handleGenerateToken, handleRestore, setIsEditModalOpen, setSelectedUser]);
+  ], []);
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-[#454D7C] to-[#222E6A] text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between mb-4">
-            <Breadcrumbs items={[{ label: 'Personnel Management' }]} />
-            
-            <div className="flex items-center space-x-3">
-              <button 
-                onClick={() => navigate('/notifications')}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-              >
-                <Bell className="h-5 w-5" />
-              </button>
-              
-              {/* User Menu Dropdown */}
-              <div className="relative" ref={userMenuRef}>
-                <button 
-                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                  className="flex items-center space-x-2 hover:bg-white/10 px-3 py-2 rounded-lg transition-colors"
-                >
-                  <UserIcon className="h-5 w-5" />
-                  <span className="text-sm hidden sm:inline">{user?.name}</span>
-                  <ChevronDown className={`h-4 w-4 transition-transform ${isUserMenuOpen ? 'rotate-180' : ''}`} />
-                </button>
-
-                {/* Dropdown Menu */}
-                {isUserMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-50">
-                    <button
-                      onClick={() => {
-                        setIsUserMenuOpen(false);
-                        setIsProfileModalOpen(true);
-                      }}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
-                    >
-                      <UserIcon className="h-4 w-4" />
-                      Profile
-                    </button>
-                    <hr className="my-1" />
-                    <button
-                      onClick={() => {
-                        setIsUserMenuOpen(false);
-                        logout();
-                      }}
-                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                    >
-                      <LogOut className="h-4 w-4" />
-                      Logout
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-          
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="bg-white/20 backdrop-blur-sm p-3 rounded-xl">
-                <Users className="h-8 w-8 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold">User Management</h1>
-                <p className="text-sm opacity-90">Manage users and employees</p>
-              </div>
-            </div>
-            
-            <button
-              onClick={() => setIsCreateModalOpen(true)}
-              className="bg-white text-[#222E6A] hover:bg-gray-100 px-4 py-2 rounded-lg font-semibold transition-colors flex items-center shadow-md"
-            >
-              <UserPlus className="h-4 w-4 mr-2" />
-              Add User
-            </button>
-          </div>
+  // Show loading if cache is not initialized
+  if (!isInitialized) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-[#454D7C] mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading application data...</p>
         </div>
       </div>
+    );
+  }
 
-      {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Card>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+  const handleDelete = (user: User) => {
+    setSelectedUser(user);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!selectedUser) return;
+
+    // Optimistic update: remove from cache first
+    removeUser(selectedUser.id);
+    setIsDeleteModalOpen(false);
+    const deletedUser = selectedUser;
+    setSelectedUser(null);
+    
+    try {
+      await adminService.deleteUser(deletedUser.id);
+      toast.success('User deleted successfully');
+      // No fetch - pure optimistic update!
+    } catch (error: any) {
+      // Rollback if failed - re-add user to cache
+      addUser(deletedUser);
+      toast.error('Failed to delete user');
+    }
+  };
+
+  const handleRestore = async (user: User) => {
+    // Optimistic update: restore di cache dulu
+    const restoredUser = { ...user, deleted_at: null };
+    updateCachedUser(user.id, restoredUser);
+    
+    try {
+      await adminService.restoreUser(user.id);
+      toast.success('User restored successfully');
+      // No fetch - pure optimistic update!
+    } catch (error: any) {
+      // Rollback jika gagal
+      updateCachedUser(user.id, user);
+      toast.error('Failed to restore user');
+    }
+  };
+
+  const handleGenerateToken = async (user: User) => {
+    try {
+      const response = await adminService.generateToken(user.id);
+      setGeneratedToken(response.token);
+      setSelectedUser(user);
+      setIsTokenModalOpen(true);
+      
+      const purpose = response.purpose || 'activation';
+      const message = purpose === 'activation' 
+        ? 'Activation code generated successfully!' 
+        : 'Password reset code generated successfully!';
+      
+      toast.success(message);
+    } catch (error: any) {
+      toast.error('Failed to generate token');
+    }
+  };
+
+  const handleSendTokenEmail = async () => {
+    if (!selectedUser) return;
+    
+    setIsSendingEmail(true);
+    try {
+      await adminService.sendActivationCodeEmail(selectedUser.id, generatedToken);
+      toast.success('Activation code sent to email successfully!');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to send email');
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
+  return (
+    <PageHeader
+      title="Personnel Management"
+      subtitle="Manage system users and their permissions"
+      breadcrumbs={[
+        { label: 'Dashboard', href: '/dashboard' },
+        { label: 'Personnel Management', href: '/admin/users' }
+      ]}
+    >
+      {/* Header Actions */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Users className="h-8 w-8 text-[#222E6A]" />
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">User Management</h2>
+              <p className="text-gray-600 text-sm">
+                {filteredUsers.length} user{filteredUsers.length !== 1 ? 's' : ''} found
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-[#222E6A] hover:bg-[#1a2550] text-white rounded-lg transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            Add User
+          </button>
+        </div>
+      </div>
+        
+      {/* Search and Filters */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Input
             placeholder="Search by name or email..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            leftIcon={<Search className="h-4 w-4" />}
-          />
-          <Select
-            options={[
-              { value: '', label: 'All Roles' },
-              { value: 'admin', label: 'Admin' },
-              { value: 'manager', label: 'Manager' },
-              { value: 'gm', label: 'GM' },
-              { value: 'cns', label: 'CNS' },
-              { value: 'support', label: 'Support' },
-            ]}
-            value={selectedRole}
-            onChange={(e) => setSelectedRole(e.target.value)}
-          />
-          <Select
-            options={[
-              { value: '', label: 'All Employee Types' },
-              { value: 'CNS', label: 'CNS' },
-              { value: 'SUPPORT', label: 'SUPPORT' },
-              { value: 'MANAGER', label: 'MANAGER' },
-            ]}
-            value={selectedEmployeeType}
-            onChange={(e) => setSelectedEmployeeType(e.target.value)}
-          />
-        </div>
-
-        <Table
-          data={filteredUsers}
-          columns={columns}
-          keyExtractor={(user) => user.id}
-          isLoading={cacheLoading}
-          emptyMessage="No users found"
+          onChange={(e) => setSearchQuery(e.target.value)}
+          leftIcon={<Search className="h-4 w-4" />}
         />
-      </Card>
+        <Select
+          options={[
+            { value: '', label: 'All Roles' },
+            { value: 'admin', label: 'Admin' },
+            { value: 'manager', label: 'Manager' },
+            { value: 'gm', label: 'GM' },
+            { value: 'cns', label: 'CNS' },
+            { value: 'support', label: 'Support' },
+          ]}
+          value={selectedRole}
+          onChange={(e) => setSelectedRole(e.target.value)}
+        />
+        <Select
+          options={[
+            { value: '', label: 'All Employee Types' },
+            { value: 'CNS', label: 'CNS' },
+            { value: 'SUPPORT', label: 'SUPPORT' },
+            { value: 'MANAGER', label: 'MANAGER' },
+          ]}
+          value={selectedEmployeeType}
+          onChange={(e) => setSelectedEmployeeType(e.target.value)}
+        />
+      </div>
+      </div>
+
+      <Table
+        data={filteredUsers}
+        columns={columns}
+        keyExtractor={(user) => user.id}
+        isLoading={cacheLoading}
+        emptyMessage="No users found"
+      />
 
       {/* Create User Modal */}
       <CreateUserModal
@@ -590,8 +526,7 @@ const UsersPage: React.FC = () => {
           </div>
         </div>
       </Modal>
-      </div>
-    </div>
+    </PageHeader>
   );
 };
 

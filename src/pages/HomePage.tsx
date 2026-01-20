@@ -10,6 +10,7 @@ import Modal from '../components/common/Modal';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import Select from '../components/common/Select';
+import ActivityLogCard from '../components/activity/ActivityLogCard';
 import { 
   Calendar, 
   Users, 
@@ -21,8 +22,6 @@ import {
   ChevronDown,
   LogOut,
   Clock,
-  CheckCircle,
-  AlertTriangle,
   Activity,
   Settings,
   BarChart3,
@@ -53,10 +52,11 @@ const HomePage: React.FC = () => {
   const { user, logout } = useAuth();
   const { 
     unreadNotificationCount, 
-    systemStats, 
+    recentActivities,
     isLoading, 
     isInitialized,
-    loadingStates 
+    loadingStates,
+    refreshActivities
   } = useDataCache();
   const navigate = useNavigate();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -457,51 +457,43 @@ const HomePage: React.FC = () => {
         {/* Recent Activity */}
         <div className="mb-8">
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <Activity className="h-5 w-5 text-[#222E6A]" />
-              Recent Activity
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="flex items-start gap-4 p-3 bg-gradient-to-r from-[#222E6A]/5 to-[#454D7C]/5 rounded-lg border border-[#222E6A]/10">
-                <div className="flex-shrink-0 w-8 h-8 bg-[#222E6A] rounded-full flex items-center justify-center">
-                  <Calendar className="h-4 w-4 text-white" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-900">New roster created for February 2026</p>
-                  <p className="text-xs text-gray-600">2 hours ago by Admin</p>
-                </div>
-              </div>
-              
-              <div className="flex items-start gap-4 p-3 bg-gradient-to-r from-[#454D7C]/5 to-[#222E6A]/5 rounded-lg border border-[#454D7C]/10">
-                <div className="flex-shrink-0 w-8 h-8 bg-[#454D7C] rounded-full flex items-center justify-center">
-                  <Users className="h-4 w-4 text-white" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-900">5 new personnel added to the system</p>
-                  <p className="text-xs text-gray-600">1 day ago by HR Manager</p>
-                </div>
-              </div>
-              
-              <div className="flex items-start gap-4 p-3 bg-orange-50 rounded-lg">
-                <div className="flex-shrink-0 w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
-                  <AlertTriangle className="h-4 w-4 text-orange-600" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-900">Urgent maintenance required for Tower 2</p>
-                  <p className="text-xs text-gray-600">3 days ago by Maintenance Chief</p>
-                </div>
-              </div>
-              
-              <div className="flex items-start gap-4 p-3 bg-gradient-to-r from-purple-500/5 to-[#454D7C]/5 rounded-lg border border-purple-500/10">
-                <div className="flex-shrink-0 w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center">
-                  <Package className="h-4 w-4 text-white" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-900">Inventory update: 50 safety helmets restocked</p>
-                  <p className="text-xs text-gray-600">1 week ago by Supply Manager</p>
-                </div>
-              </div>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <Activity className="h-5 w-5 text-[#222E6A]" />
+                Recent Activity
+              </h3>
+              <button
+                onClick={refreshActivities}
+                className="text-sm text-[#222E6A] hover:text-[#1a2550] transition-colors"
+                disabled={loadingStates.activities}
+              >
+                {loadingStates.activities ? 'Refreshing...' : 'Refresh'}
+              </button>
             </div>
+            
+            {loadingStates.activities ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="flex items-center gap-3 text-gray-600">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#222E6A]"></div>
+                  Loading activities...
+                </div>
+              </div>
+            ) : recentActivities.length === 0 ? (
+              <div className="text-center py-8">
+                <Activity className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                <p className="text-gray-600">No recent activities</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {recentActivities.slice(0, 3).map((activity) => (
+                  <ActivityLogCard 
+                    key={activity.id} 
+                    activity={activity} 
+                    isCompact={true}
+                  />
+                ))}
+              </div>
+            )}
             
             <button 
               onClick={() => navigate('/activity-log')}

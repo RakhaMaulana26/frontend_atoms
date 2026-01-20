@@ -1,14 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import Card from '../../../components/common/Card';
-import Button from '../../../components/common/Button';
 import Input from '../../../components/common/Input';
-import Breadcrumbs from '../../../components/common/Breadcrumbs';
-import { Calendar, Plus, Bell, User, X } from 'lucide-react';
-import { useAuth } from '../../auth/core/AuthContext';
+import PageHeader from '../../../components/layout/PageHeader';
+import { Calendar, Plus, X } from 'lucide-react';
+import { useDataCache } from '../../../contexts/DataCacheContext';
 import { rosterService } from '../repository/rosterService';
-import type { RosterPeriod, CreateRosterRequest } from '../../../types';
 
 // Create Roster Modal Component
 const CreateRosterModal: React.FC<{
@@ -151,32 +148,16 @@ const CreateRosterModal: React.FC<{
 };
 
 const RostersPage: React.FC = () => {
-  const [rosters, setRosters] = useState<RosterPeriod[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const { 
+    rosters, 
+    loadingStates,
+    refreshRosters 
+  } = useDataCache();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const navigate = useNavigate();
-  const { user } = useAuth();
-
-  useEffect(() => {
-    loadRosters();
-  }, []);
-
-  const loadRosters = async () => {
-    setIsLoading(true);
-    try {
-      const data = await rosterService.getRosters();
-      setRosters(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error('Failed to load rosters:', error);
-      toast.error('Failed to load rosters');
-      setRosters([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleCreateSuccess = () => {
-    loadRosters(); // Reload rosters after successful creation
+    refreshRosters(); // Refresh cached rosters after successful creation
   };
 
   const openCreateModal = () => {
@@ -188,56 +169,39 @@ const RostersPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-[#454D7C] to-[#222E6A] text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between mb-4">
-            <Breadcrumbs items={[{ label: 'Rostering' }]} />
-            
-            <div className="flex items-center space-x-3">
-              <button 
-                onClick={() => navigate('/notifications')}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-              >
-                <Bell className="h-5 w-5" />
-              </button>
-              <button 
-                onClick={() => navigate('/home')}
-                className="flex items-center space-x-2 hover:bg-white/10 px-3 py-2 rounded-lg transition-colors"
-              >
-                <User className="h-5 w-5" />
-                <span className="text-sm hidden sm:inline">{user?.name}</span>
-              </button>
+    <PageHeader
+      title="Roster Management"
+      subtitle="Create and manage work schedules and rosters"
+      breadcrumbs={[
+        { label: 'Dashboard', href: '/dashboard' },
+        { label: 'Roster Management', href: '/rosters' }
+      ]}
+    >
+      {/* Header Actions */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Calendar className="h-8 w-8 text-[#222E6A]" />
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">Manage Rosters</h2>
+              <p className="text-gray-600 text-sm">
+                {rosters.length} roster{rosters.length !== 1 ? 's' : ''} available
+              </p>
             </div>
           </div>
-          
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="bg-white/20 backdrop-blur-sm p-3 rounded-xl">
-                <Calendar className="h-8 w-8 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold">Rosters</h1>
-                <p className="text-sm opacity-90">Manage monthly shift rosters</p>
-              </div>
-            </div>
-            
-            <button 
-              onClick={openCreateModal}
-              className="bg-white text-[#222E6A] hover:bg-gray-100 px-4 py-2 rounded-lg font-semibold transition-colors flex items-center shadow-md"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Create Roster
-            </button>
-          </div>
+          <button
+            onClick={openCreateModal}
+            className="flex items-center gap-2 px-4 py-2 bg-[#222E6A] hover:bg-[#1a2550] text-white rounded-lg transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            Create Roster
+          </button>
         </div>
       </div>
 
-      {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Card>
-        {isLoading ? (
+      {/* Rosters List */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        {loadingStates.rosters ? (
           <div className="text-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#454D7C] mx-auto"></div>
             <p className="mt-4 text-gray-600">Loading rosters...</p>
@@ -253,50 +217,49 @@ const RostersPage: React.FC = () => {
             </p>
             <button 
               onClick={openCreateModal}
-              className="bg-[#222E6A] hover:bg-[#1a2550] text-white px-6 py-3 rounded-xl font-semibold transition-colors shadow-md hover:shadow-lg inline-flex items-center"
+            className="bg-[#222E6A] hover:bg-[#1a2550] text-white px-6 py-3 rounded-xl font-semibold transition-colors shadow-md hover:shadow-lg inline-flex items-center"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Create First Roster
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {rosters.map((roster) => (
+            <div 
+              key={roster.id}
+              className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors cursor-pointer"
+              onClick={() => navigate(`/rosters/${roster.id}`)}
             >
-              <Plus className="h-4 w-4 mr-2" />
-              Create First Roster
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {rosters.map((roster) => (
-              <div 
-                key={roster.id}
-                className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors cursor-pointer"
-                onClick={() => navigate(`/rosters/${roster.id}`)}
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-900">
-                      {new Date(0, roster.month - 1).toLocaleString('default', { month: 'long' })} {roster.year}
-                    </h3>
-                    <p className="text-sm text-gray-600">
-                      Status: <span className={`font-medium ${
-                        roster.status === 'published' ? 'text-green-600' : 'text-yellow-600'
-                      }`}>
-                        {roster.status.charAt(0).toUpperCase() + roster.status.slice(1)}
-                      </span>
-                    </p>
-                    {roster.published_at && (
-                      <p className="text-xs text-gray-500">
-                        Published: {new Date(roster.published_at).toLocaleDateString()}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Calendar className="h-5 w-5 text-gray-400" />
-                    <span className="text-sm text-gray-500">
-                      {roster.rosterDays?.length || 0} days
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900">
+                    {new Date(0, roster.month - 1).toLocaleString('default', { month: 'long' })} {roster.year}
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    Status: <span className={`font-medium ${
+                      roster.status === 'published' ? 'text-green-600' : 'text-yellow-600'
+                    }`}>
+                      {roster.status.charAt(0).toUpperCase() + roster.status.slice(1)}
                     </span>
-                  </div>
+                  </p>
+                  {roster.published_at && (
+                    <p className="text-xs text-gray-500">
+                      Published: {new Date(roster.published_at).toLocaleDateString()}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Calendar className="h-5 w-5 text-gray-400" />
+                  <span className="text-sm text-gray-500">
+                    {roster.rosterDays?.length || 0} days
+                  </span>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
-      </Card>
+            </div>
+          ))}
+        </div>
+      )}
       </div>
       
       {/* Create Roster Modal */}
@@ -305,7 +268,7 @@ const RostersPage: React.FC = () => {
         onClose={closeCreateModal}
         onSuccess={handleCreateSuccess}
       />
-    </div>
+    </PageHeader>
   );
 };
 

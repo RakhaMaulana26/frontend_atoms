@@ -14,6 +14,7 @@ import InventoryPage from './pages/InventoryPage';
 import PersonnelPage from './pages/PersonnelPage';
 import DashboardPage from './pages/DashboardPage';
 import SettingsPage from './pages/SettingsPage';
+import ActivityPage from './pages/ActivityPage';
 
 // Auth Pages
 import AuthPage from './modules/auth/pages/AuthPage';
@@ -211,7 +212,7 @@ function App() {
             path="/activity-log"
             element={
               <ProtectedRoute>
-                <HomePage />
+                <ActivityPage />
               </ProtectedRoute>
             }
           />
@@ -241,14 +242,6 @@ function App() {
           />
 
           {/* Activity and Support Routes */}
-          <Route
-            path="/activity-log"
-            element={
-              <ProtectedRoute>
-                <HomePage />
-              </ProtectedRoute>
-            }
-          />
           <Route
             path="/support"
             element={

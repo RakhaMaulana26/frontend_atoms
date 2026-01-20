@@ -19,7 +19,7 @@ const Breadcrumbs: React.FC<BreadcrumbsProps> = ({ items }) => {
     <nav className="flex items-center space-x-2 text-sm">
       <button
         onClick={() => navigate('/home')}
-        className="flex items-center text-white hover:text-gray-200 transition-colors"
+        className="flex items-center text-gray-700 hover:text-gray-900 transition-colors"
       >
         <Home className="h-4 w-4" />
       </button>
@@ -30,19 +30,19 @@ const Breadcrumbs: React.FC<BreadcrumbsProps> = ({ items }) => {
         
         return (
           <React.Fragment key={index}>
-            <ChevronRight className="h-4 w-4 text-white/60" />
+            <ChevronRight className="h-4 w-4 text-gray-500" />
             {hasLink ? (
               <button
                 onClick={() => {
                   if (item.path) navigate(item.path);
                   else if (item.href) navigate(item.href);
                 }}
-                className="text-white hover:text-gray-200 transition-colors"
+                className="text-gray-700 hover:text-gray-900 transition-colors"
               >
                 {item.label}
               </button>
             ) : (
-              <span className={isLast ? 'text-white font-semibold' : 'text-white/80'}>
+              <span className={isLast ? 'text-gray-900 font-semibold' : 'text-gray-600'}>
                 {item.label}
               </span>
             )}

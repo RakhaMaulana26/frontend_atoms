@@ -1,15 +1,19 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import type { User, Notification, RosterPeriod } from '../types';
+import type { ActivityLog, ActivityLogStatistics } from '../services/activityLogService';
 import { adminService } from '../modules/admin/repository/adminService';
 import { notificationService } from '../modules/notifications/repository/notificationService';
 import { rosterService } from '../modules/roster/repository/rosterService';
+import { activityLogService } from '../services/activityLogService';
 import { useAuth } from '../modules/auth/core/AuthContext';
 
 interface DataCacheContextType {
   users: User[];
   notifications: Notification[];
   rosters: RosterPeriod[];
+  recentActivities: ActivityLog[];
+  activityStatistics: ActivityLogStatistics | null;
   unreadNotificationCount: number;
   isLoading: boolean;
   isInitialized: boolean;
@@ -17,6 +21,7 @@ interface DataCacheContextType {
     users: boolean;
     notifications: boolean;
     rosters: boolean;
+    activities: boolean;
   };
   systemStats: {
     totalUsers: number;
@@ -27,6 +32,8 @@ interface DataCacheContextType {
   loadUsers: () => Promise<void>;
   loadNotifications: () => Promise<void>;
   loadRosters: () => Promise<void>;
+  loadRecentActivities: () => Promise<void>;
+  loadActivityStatistics: () => Promise<void>;
   loadAllData: () => Promise<void>;
   addUser: (user: User) => void;
   updateUser: (userId: number, updatedUser: User) => void;
@@ -37,6 +44,7 @@ interface DataCacheContextType {
   markAllNotificationsAsRead: () => void;
   refreshNotifications: () => Promise<void>;
   refreshRosters: () => Promise<void>;
+  refreshActivities: () => Promise<void>;
 }
 
 const DataCacheContext = createContext<DataCacheContextType | undefined>(undefined);
@@ -45,12 +53,15 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
   const [users, setUsers] = useState<User[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [rosters, setRosters] = useState<RosterPeriod[]>([]);
+  const [recentActivities, setRecentActivities] = useState<ActivityLog[]>([]);
+  const [activityStatistics, setActivityStatistics] = useState<ActivityLogStatistics | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [loadingStates, setLoadingStates] = useState({
     users: false,
     notifications: false,
-    rosters: false
+    rosters: false,
+    activities: false
   });
   const { isAuthenticated } = useAuth();
 
@@ -125,6 +136,43 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
     }
   }, [isAuthenticated]);
 
+  // Load recent activities data
+  const loadRecentActivities = useCallback(async () => {
+    if (!isAuthenticated) return;
+    
+    setLoadingStates(prev => ({ ...prev, activities: true }));
+    try {
+      const response = await activityLogService.getRecentActivities();
+      if (response && response.data && Array.isArray(response.data)) {
+        setRecentActivities(response.data);
+      } else {
+        setRecentActivities([]);
+      }
+    } catch (error) {
+      console.error('Failed to load activities cache:', error);
+      setRecentActivities([]);
+    } finally {
+      setLoadingStates(prev => ({ ...prev, activities: false }));
+    }
+  }, [isAuthenticated]);
+
+  // Load activity statistics
+  const loadActivityStatistics = useCallback(async () => {
+    if (!isAuthenticated) return;
+    
+    try {
+      const response = await activityLogService.getStatistics();
+      if (response && response.data) {
+        setActivityStatistics(response.data);
+      } else {
+        setActivityStatistics(null);
+      }
+    } catch (error) {
+      console.error('Failed to load activity statistics:', error);
+      setActivityStatistics(null);
+    }
+  }, [isAuthenticated]);
+
   // Load all data
   const loadAllData = useCallback(async () => {
     if (!isAuthenticated) return;
@@ -134,7 +182,9 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
       await Promise.all([
         loadUsers(),
         loadNotifications(),
-        loadRosters()
+        loadRosters(),
+        loadRecentActivities(),
+        loadActivityStatistics()
       ]);
       setIsInitialized(true);
     } catch (error) {
@@ -142,7 +192,7 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
     } finally {
       setIsLoading(false);
     }
-  }, [isAuthenticated, loadUsers, loadNotifications, loadRosters]);
+  }, [isAuthenticated, loadUsers, loadNotifications, loadRosters, loadRecentActivities, loadActivityStatistics]);
 
   // Auto-load when user authenticated
   useEffect(() => {
@@ -234,12 +284,40 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
     }
   }, [isAuthenticated]);
 
+  // Refresh activities from server
+  const refreshActivities = useCallback(async () => {
+    if (!isAuthenticated) return;
+    
+    try {
+      const [activitiesResponse, statisticsResponse] = await Promise.all([
+        activityLogService.getRecentActivities(),
+        activityLogService.getStatistics()
+      ]);
+
+      if (activitiesResponse && activitiesResponse.data && Array.isArray(activitiesResponse.data)) {
+        setRecentActivities(activitiesResponse.data);
+      } else {
+        setRecentActivities([]);
+      }
+
+      if (statisticsResponse && statisticsResponse.data) {
+        setActivityStatistics(statisticsResponse.data);
+      } else {
+        setActivityStatistics(null);
+      }
+    } catch (error) {
+      console.error('Failed to refresh activities:', error);
+    }
+  }, [isAuthenticated]);
+
   return (
     <DataCacheContext.Provider
       value={{
         users,
         notifications,
         rosters,
+        recentActivities,
+        activityStatistics,
         unreadNotificationCount,
         isLoading,
         isInitialized,
@@ -248,6 +326,8 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
         loadUsers,
         loadNotifications,
         loadRosters,
+        loadRecentActivities,
+        loadActivityStatistics,
         loadAllData,
         addUser,
         updateUser,
@@ -258,6 +338,7 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
         markAllNotificationsAsRead,
         refreshNotifications,
         refreshRosters,
+        refreshActivities,
       }}
     >
       {children}
