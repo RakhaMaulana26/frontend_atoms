@@ -19,7 +19,22 @@ import {
   Bell,
   User as UserIcon,
   ChevronDown,
-  LogOut
+  LogOut,
+  Clock,
+  CheckCircle,
+  AlertTriangle,
+  Activity,
+  Settings,
+  BarChart3,
+  Mail,
+  Phone,
+  MapPin,
+  Globe,
+  Twitter,
+  Facebook,
+  Instagram,
+  Linkedin,
+  ArrowUp
 } from 'lucide-react';
 
 interface FeatureCategory {
@@ -36,7 +51,13 @@ interface FeatureCategory {
 
 const HomePage: React.FC = () => {
   const { user, logout } = useAuth();
-  const { unreadNotificationCount } = useDataCache();
+  const { 
+    unreadNotificationCount, 
+    systemStats, 
+    isLoading, 
+    isInitialized,
+    loadingStates 
+  } = useDataCache();
   const navigate = useNavigate();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
@@ -57,49 +78,49 @@ const HomePage: React.FC = () => {
 
   const categories: FeatureCategory[] = [
     {
-      id: 'rostering',
-      title: 'Rostering',
-      description: 'Manage employee shift schedules and rostering',
-      icon: Calendar,
-      color: 'bg-[#454D7C]',
-      gradient: 'from-[#454D7C] to-[#222E6A]',
-      link: '/rosters',
+      id: 'personnel',
+      title: 'Personnel Administration',
+      description: 'Manage employee records, roles, and organizational structure',
+      icon: Users,
+      color: 'bg-[#222E6A]',
+      gradient: 'bg-gradient-to-br from-[#222E6A] to-[#454D7C]',
+      link: '/personnel',
+      allowedRoles: ['admin', 'hr', 'manager']
     },
     {
-      id: 'personnel',
-      title: 'Personnel Management',
-      description: 'Manage personnel and employee data',
-      icon: Users,
+      id: 'roster',
+      title: 'Personnel & Rostering',
+      description: 'Create and manage work schedules and shift assignments',
+      icon: Calendar,
       color: 'bg-[#454D7C]',
-      gradient: 'from-[#454D7C] to-[#222E6A]',
-      link: '/admin/users',
-      badge: 'Admin',
-      allowedRoles: ['admin'],
+      gradient: 'bg-gradient-to-br from-[#454D7C] to-[#222E6A]',
+      link: '/roster'
+    },
+    {
+      id: 'inventory',
+      title: 'Supply & Administration',
+      description: 'Track inventory, manage supplies and administrative resources',
+      icon: Package,
+      color: 'bg-[#222E6A]',
+      gradient: 'bg-gradient-to-br from-[#222E6A]/80 to-[#454D7C]/80',
+      link: '/inventory',
+      allowedRoles: ['admin', 'manager', 'supervisor']
     },
     {
       id: 'maintenance',
       title: 'Maintenance & Operation',
-      description: 'Equipment maintenance and operational management',
+      description: 'Schedule maintenance tasks and operational procedures',
       icon: Wrench,
       color: 'bg-[#454D7C]',
-      gradient: 'from-[#454D7C] to-[#222E6A]',
+      gradient: 'bg-gradient-to-br from-[#454D7C]/80 to-[#222E6A]/80',
       link: '/maintenance',
-    },
-    {
-      id: 'inventory',
-      title: 'Inventory Management',
-      description: 'Manage company inventory and assets',
-      icon: Package,
-      color: 'bg-[#454D7C]',
-      gradient: 'from-[#454D7C] to-[#222E6A]',
-      link: '/inventory',
-    },
+      badge: 'New',
+      allowedRoles: ['admin', 'manager', 'maintenance']
+    }
   ];
 
-  // Filter categories based on user role - memoized to avoid recalculation
   const filteredCategories = useMemo(() => {
     return categories.filter((category) => {
-      // If category has allowedRoles, check if user role is in the list
       if (category.allowedRoles && category.allowedRoles.length > 0) {
         return user?.role && category.allowedRoles.includes(user.role);
       }
@@ -108,77 +129,155 @@ const HomePage: React.FC = () => {
   }, [user?.role, categories]);
 
   const handleCategoryClick = useCallback((category: FeatureCategory) => {
-    navigate(category.link);
-  }, [navigate]);
+    // Only navigate if system is initialized and not loading critical data
+    if (isInitialized && !isLoading) {
+      navigate(category.link);
+    }
+  }, [navigate, isInitialized, isLoading]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-[#454D7C] to-[#222E6A] text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
+    <div className="min-h-screen bg-gray-50 relative">
+      {/* Global Loading Overlay */}
+      {isLoading && !isInitialized && (
+        <div className="fixed inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-12 h-12 border-4 border-[#222E6A] border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-lg font-medium text-gray-900">Loading AIRNAV System...</p>
+            <p className="text-sm text-gray-600">Initializing data and services</p>
+          </div>
+        </div>
+      )}
+
+      {/* Modern Header */}
+      <div className="bg-white shadow-sm border-b sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between py-4">
+            {/* Logo and Welcome */}
             <div className="flex items-center space-x-4">
-              <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center">
-                <span className="text-2xl font-bold text-[#222E6A]">
+              <div className="w-12 h-12 bg-gradient-to-r from-[#454D7C] to-[#222E6A] rounded-xl flex items-center justify-center shadow-lg">
+                <span className="text-white text-xl font-bold">
                   {user?.name?.charAt(0).toUpperCase() || 'A'}
                 </span>
               </div>
               <div>
-                <h1 className="text-xl font-bold">Welcome,</h1>
-                <p className="text-sm opacity-90">{user?.name || 'User'}</p>
-                <span className="inline-block mt-1 px-3 py-0.5 bg-white/20 rounded-full text-xs font-medium">
-                  {user?.role?.toUpperCase() || 'MEMBER'}
-                </span>
+                <h1 className="text-xl font-bold text-gray-900">AIRNAV Control</h1>
+                <p className="text-sm text-gray-500">Welcome back, {user?.name || 'User'}</p>
               </div>
             </div>
             
+            {/* Header Actions */}
             <div className="flex items-center space-x-3">
+              <div className="hidden md:flex items-center space-x-2 bg-gray-50 rounded-lg px-3 py-2">
+                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                <span className="text-sm font-medium text-gray-700">System Online</span>
+              </div>
+              
               <button 
                 onClick={() => navigate('/notifications')}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors relative"
+                className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
-                <Bell className="h-6 w-6" />
+                <Bell className="h-6 w-6 text-gray-600" />
                 {unreadNotificationCount > 0 && (
-                  <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-medium">
+                    {unreadNotificationCount}
+                  </span>
                 )}
               </button>
               
-              {/* User Menu Dropdown */}
+              {/* User Menu */}
               <div className="relative" ref={userMenuRef}>
                 <button 
                   onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                  className="p-2 hover:bg-white/10 rounded-lg transition-colors flex items-center gap-2"
+                  className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-lg transition-colors"
                 >
-                  <UserIcon className="h-6 w-6" />
-                  <ChevronDown className={`h-4 w-4 transition-transform ${isUserMenuOpen ? 'rotate-180' : ''}`} />
+                  <div className="w-8 h-8 bg-[#222E6A] rounded-full flex items-center justify-center">
+                    <UserIcon className="h-4 w-4 text-white" />
+                  </div>
+                  <span className="hidden md:block text-sm font-medium text-gray-700">{user?.role?.toUpperCase()}</span>
+                  <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${isUserMenuOpen ? 'rotate-180' : ''}`} />
                 </button>
 
-                {/* Dropdown Menu */}
                 {isUserMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-50">
+                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-50">
+                    <div className="px-4 py-3 border-b border-gray-100">
+                      <p className="text-sm font-medium text-gray-900">{user?.name}</p>
+                      <p className="text-xs text-gray-500">{user?.email}</p>
+                    </div>
                     <button
                       onClick={() => {
                         setIsUserMenuOpen(false);
                         setIsProfileModalOpen(true);
                       }}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3"
                     >
                       <UserIcon className="h-4 w-4" />
-                      Profile
+                      Profile Settings
                     </button>
-                    <hr className="my-1" />
+                    <button
+                      onClick={() => navigate('/settings')}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3"
+                    >
+                      <Settings className="h-4 w-4" />
+                      Preferences
+                    </button>
+                    <hr className="my-2" />
                     <button
                       onClick={() => {
                         setIsUserMenuOpen(false);
                         setIsLogoutConfirmOpen(true);
                       }}
-                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-3"
                     >
                       <LogOut className="h-4 w-4" />
-                      Logout
+                      Sign Out
                     </button>
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Hero Section */}
+      <div className="relative bg-gradient-to-r from-[#454D7C] to-[#222E6A] text-white">
+        <div className="absolute inset-0 overflow-hidden">
+          <img 
+            src="/assets/image/image15.png" 
+            alt="AIRNAV Control Tower"
+            className="w-full h-full object-cover opacity-20"
+            loading="lazy"
+          />
+        </div>
+        
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            <div>
+              <h1 className="text-4xl md:text-5xl font-bold mb-6">
+                Integrated Aviation
+                <span className="text-blue-300"> Management</span>
+              </h1>
+              <p className="text-xl opacity-90 mb-8 leading-relaxed">
+                Streamline operations with our comprehensive system for personnel management, 
+                roster scheduling, maintenance tracking, and inventory control.
+              </p>
+              <div className="flex flex-wrap gap-4">
+                <button 
+                  onClick={() => isInitialized && navigate('/roster')}
+                  disabled={!isInitialized || isLoading}
+                  className={`px-8 py-4 rounded-xl font-semibold transition-all flex items-center gap-2 shadow-lg ${
+                    isInitialized && !isLoading
+                      ? 'bg-white text-[#222E6A] hover:bg-gray-100'
+                      : 'bg-white/50 text-gray-400 cursor-not-allowed'
+                  }`}
+                >
+                  {isLoading ? (
+                    <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <Calendar className="h-5 w-5" />
+                  )}
+                  {isLoading ? 'Loading...' : 'View Roster'}
+                </button>
               </div>
             </div>
           </div>
@@ -187,86 +286,371 @@ const HomePage: React.FC = () => {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Welcome Card */}
-        <div className="bg-white rounded-2xl shadow-sm p-6 mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            AIRNAV Management System
+
+        {/* System Modules Grid - Moved to top for easier access */}
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+            <BarChart3 className="h-6 w-6 text-[#222E6A]" />
+            System Modules
           </h2>
-          <p className="text-gray-600">
-            Integrated system for managing rostering, personnel, maintenance, and inventory
-          </p>
-        </div>
-
-        {/* Category Title */}
-        <div className="mb-6">
-          <h3 className="text-lg font-semibold text-gray-900">Select Category</h3>
-          <p className="text-sm text-gray-600">Access available features</p>
-        </div>
-
-        {/* Categories Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {filteredCategories.map((category) => {
-            const Icon = category.icon;
-            
-            return (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {filteredCategories.map((category) => (
               <div
                 key={category.id}
                 onClick={() => handleCategoryClick(category)}
-                className="group cursor-pointer"
+                className="group relative bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-xl hover:shadow-[#222E6A]/10 hover:border-[#222E6A]/20 transition-all duration-300 cursor-pointer overflow-hidden"
               >
-                <div className="bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 overflow-hidden h-full">
-                  {/* Icon Section with Gradient */}
-                  <div className={`bg-gradient-to-br ${category.gradient} p-6 relative`}>
-                    <div className="flex items-center justify-between">
-                      <div className="bg-white/20 backdrop-blur-sm p-4 rounded-xl">
-                        <Icon className="h-8 w-8 text-white" />
-                      </div>
-                      {category.badge && (
-                        <span className="px-3 py-1 bg-white/90 text-xs font-semibold rounded-full text-gray-700">
-                          {category.badge}
-                        </span>
-                      )}
-                    </div>
+                {/* Background gradient */}
+                <div className={`absolute inset-0 ${category.gradient} opacity-0 group-hover:opacity-10 transition-opacity duration-300`} />
+                
+                {/* Badge */}
+                {category.badge && (
+                  <div className="absolute top-4 right-4">
+                    <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-gradient-to-r from-[#222E6A] to-[#454D7C] text-white rounded-full">
+                      {category.badge}
+                    </span>
+                  </div>
+                )}
+                
+                <div className="relative z-10">
+                  <div className={`inline-flex p-3 rounded-xl ${category.color} mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg`}>
+                    <category.icon className="h-6 w-6 text-white" />
                   </div>
                   
-                  {/* Content Section */}
-                  <div className="p-6">
-                    <h3 className="text-lg font-bold text-gray-900 mb-2 group-hover:text-[#454D7C] transition-colors">
-                      {category.title}
-                    </h3>
-                    <p className="text-sm text-gray-600 mb-4 line-clamp-2">
-                      {category.description}
-                    </p>
-                    
-                    <div className="flex items-center text-[#454D7C] text-sm font-medium group-hover:text-[#222E6A]">
-                      <span>Open</span>
-                      <ChevronRight className="h-4 w-4 ml-1 group-hover:translate-x-1 transition-transform" />
-                    </div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2 group-hover:text-[#222E6A] transition-colors">
+                    {category.title}
+                  </h3>
+                  
+                  <p className="text-sm text-gray-600 mb-4 line-clamp-2">
+                    {category.description}
+                  </p>
+                  
+                  <div className="flex items-center text-[#222E6A] text-sm font-medium group-hover:gap-2 transition-all">
+                    <span>Access Module</span>
+                    <ChevronRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
                   </div>
                 </div>
               </div>
-            );
-          })}
+            ))}
+          </div>
         </div>
 
-        {/* Info Banner */}
-        <div className="mt-8 bg-gradient-to-r from-[#454D7C] to-[#222E6A] rounded-2xl p-6 text-white">
-          <div className="flex flex-col sm:flex-row items-center justify-between">
-            <div className="mb-4 sm:mb-0">
-              <h3 className="text-xl font-bold mb-2">Need Help?</h3>
-              <p className="text-sm opacity-90">
-                Contact our support team for further assistance
-              </p>
+        {/* Today's Schedule Banner */}
+        <div className="bg-gradient-to-r from-[#454D7C] to-[#222E6A] rounded-2xl p-8 text-white relative overflow-hidden mb-8">
+          {/* Animated Background Pattern */}
+          <div className="absolute inset-0 opacity-20">
+            <div className="absolute top-0 left-0 w-full h-full">
+              <div className="absolute top-4 left-8 w-16 h-16 bg-white/10 rounded-full blur-xl animate-pulse"></div>
+              <div className="absolute top-12 right-16 w-8 h-8 bg-white/15 rounded-full blur-lg"></div>
+              <div className="absolute bottom-8 left-12 w-12 h-12 bg-white/12 rounded-full blur-md animate-pulse delay-1000"></div>
+              <div className="absolute bottom-16 right-8 w-6 h-6 bg-white/18 rounded-full blur-sm"></div>
+              <div className="absolute top-1/2 left-1/4 w-20 h-20 bg-white/8 rounded-full blur-2xl animate-pulse delay-500"></div>
+              <div className="absolute top-1/3 right-1/3 w-14 h-14 bg-white/10 rounded-full blur-lg animate-pulse delay-2000"></div>
             </div>
+          </div>
+          
+          {/* Geometric Pattern Overlay */}
+          <div className="absolute inset-0 opacity-10">
+            <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+              <defs>
+                <pattern id="waves" width="40" height="20" patternUnits="userSpaceOnUse">
+                  <path d="M0,10 Q10,0 20,10 T40,10" fill="none" stroke="white" strokeWidth="0.5" opacity="0.4"/>
+                  <path d="M0,15 Q10,5 20,15 T40,15" fill="none" stroke="white" strokeWidth="0.3" opacity="0.3"/>
+                </pattern>
+                <pattern id="curvedlines" width="30" height="30" patternUnits="userSpaceOnUse">
+                  <path d="M0,15 Q15,5 30,15 Q15,25 0,15" fill="none" stroke="white" strokeWidth="0.4" opacity="0.2"/>
+                </pattern>
+                <pattern id="dots" width="25" height="25" patternUnits="userSpaceOnUse">
+                  <circle cx="12.5" cy="12.5" r="1" fill="white" opacity="0.15"/>
+                  <circle cx="6" cy="6" r="0.5" fill="white" opacity="0.1"/>
+                  <circle cx="18" cy="18" r="0.8" fill="white" opacity="0.12"/>
+                </pattern>
+              </defs>
+              <rect width="100%" height="100%" fill="url(#waves)" />
+              <rect width="100%" height="100%" fill="url(#curvedlines)" />
+              <rect width="100%" height="100%" fill="url(#dots)" />
+            </svg>
+          </div>
+          
+          {/* Wave Animation Overlay */}
+          <div className="absolute inset-0 opacity-8">
+            <svg className="w-full h-full animate-pulse" viewBox="0 0 1000 400" preserveAspectRatio="none">
+              <path 
+                d="M0,100 Q250,50 500,100 T1000,100 L1000,0 L0,0 Z" 
+                fill="rgba(255,255,255,0.05)"
+                className="animate-pulse"
+              />
+              <path 
+                d="M0,200 Q250,150 500,200 T1000,200 L1000,100 L0,100 Z" 
+                fill="rgba(255,255,255,0.03)"
+                style={{ animationDelay: '1s' }}
+                className="animate-pulse"
+              />
+              <path 
+                d="M0,300 Q250,250 500,300 T1000,300 L1000,200 L0,200 Z" 
+                fill="rgba(255,255,255,0.02)"
+                style={{ animationDelay: '2s' }}
+                className="animate-pulse"
+              />
+            </svg>
+          </div>
+          
+          {/* Flowing Wave Pattern */}
+          <div className="absolute inset-0 opacity-5">
+            <div className="absolute inset-0" style={{
+              backgroundImage: `
+                radial-gradient(circle at 25% 25%, rgba(255,255,255,0.1) 2px, transparent 2px),
+                radial-gradient(circle at 75% 75%, rgba(255,255,255,0.08) 1px, transparent 1px),
+                repeating-linear-gradient(
+                  0deg,
+                  transparent,
+                  transparent 15px,
+                  rgba(255,255,255,0.03) 15px,
+                  rgba(255,255,255,0.03) 16px
+                )
+              `,
+              backgroundSize: '50px 50px, 30px 30px, 100% 100%'
+            }}></div>
+          </div>
+          
+          {/* Main Content */}
+          <div className="relative z-10">
+            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between">
+              <div className="mb-6 lg:mb-0">
+                <h3 className="text-2xl font-bold mb-2 flex items-center gap-2">
+                  <Clock className="h-6 w-6" />
+                  Today's Schedule
+                </h3>
+                <p className="text-lg opacity-90">
+                  {new Date().toLocaleDateString('en-US', { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                  })}
+                </p>
+                <div className="mt-4 flex items-center gap-4 text-sm">
+                  <span className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-green-400 rounded-full"></div>
+                    On Schedule
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-yellow-400 rounded-full"></div>
+                    7:00AM - 13:00PM
+                  </span>
+                </div>
+              </div>
+              
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => navigate('/roster')}
+                  className="bg-white text-[#222E6A] px-6 py-3 rounded-xl font-semibold hover:bg-gray-100 transition-colors flex items-center gap-2"
+                >
+                  <Calendar className="h-5 w-5" />
+                  View Full Roster
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Recent Activity */}
+        <div className="mb-8">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <Activity className="h-5 w-5 text-[#222E6A]" />
+              Recent Activity
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex items-start gap-4 p-3 bg-gradient-to-r from-[#222E6A]/5 to-[#454D7C]/5 rounded-lg border border-[#222E6A]/10">
+                <div className="flex-shrink-0 w-8 h-8 bg-[#222E6A] rounded-full flex items-center justify-center">
+                  <Calendar className="h-4 w-4 text-white" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-900">New roster created for February 2026</p>
+                  <p className="text-xs text-gray-600">2 hours ago by Admin</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-4 p-3 bg-gradient-to-r from-[#454D7C]/5 to-[#222E6A]/5 rounded-lg border border-[#454D7C]/10">
+                <div className="flex-shrink-0 w-8 h-8 bg-[#454D7C] rounded-full flex items-center justify-center">
+                  <Users className="h-4 w-4 text-white" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-900">5 new personnel added to the system</p>
+                  <p className="text-xs text-gray-600">1 day ago by HR Manager</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-4 p-3 bg-orange-50 rounded-lg">
+                <div className="flex-shrink-0 w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
+                  <AlertTriangle className="h-4 w-4 text-orange-600" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-900">Urgent maintenance required for Tower 2</p>
+                  <p className="text-xs text-gray-600">3 days ago by Maintenance Chief</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-4 p-3 bg-gradient-to-r from-purple-500/5 to-[#454D7C]/5 rounded-lg border border-purple-500/10">
+                <div className="flex-shrink-0 w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center">
+                  <Package className="h-4 w-4 text-white" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-900">Inventory update: 50 safety helmets restocked</p>
+                  <p className="text-xs text-gray-600">1 week ago by Supply Manager</p>
+                </div>
+              </div>
+            </div>
+            
             <button 
-              onClick={() => navigate('/support')}
-              className="bg-white text-[#222E6A] px-6 py-3 rounded-xl font-semibold hover:bg-gray-100 transition-colors"
+              onClick={() => navigate('/activity-log')}
+              className="w-full mt-6 py-3 text-sm font-medium text-[#222E6A] hover:text-white hover:bg-[#222E6A] rounded-lg transition-colors border border-[#222E6A] hover:border-[#222E6A]"
             >
-              Contact Support
+              View All Activities
             </button>
           </div>
         </div>
       </div>
+
+      {/* Footer */}
+      <footer className="bg-gradient-to-r from-[#454D7C] to-[#222E6A] text-white relative overflow-hidden">
+        <div className="absolute inset-0 opacity-10">
+          <img 
+            src="/assets/image/image14.png" 
+            alt="Background"
+            className="w-full h-full object-cover"
+          />
+        </div>
+        
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="py-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {/* Company Info */}
+            <div className="lg:col-span-2">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+                  <span className="text-white text-xl font-bold">A</span>
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold">AIRNAV Management</h3>
+                  <p className="text-sm opacity-80">Integrated Aviation Solutions</p>
+                </div>
+              </div>
+              <p className="text-sm opacity-90 leading-relaxed mb-6 max-w-md">
+                Comprehensive aviation management system designed to streamline operations, 
+                enhance safety protocols, and optimize resource allocation for modern aviation facilities.
+              </p>
+              <div className="flex items-center gap-4">
+                <button className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors">
+                  <Facebook className="h-5 w-5" />
+                </button>
+                <button className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors">
+                  <Twitter className="h-5 w-5" />
+                </button>
+                <button className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors">
+                  <Instagram className="h-5 w-5" />
+                </button>
+                <button className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors">
+                  <Linkedin className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Links */}
+            <div>
+              <h4 className="text-lg font-semibold mb-4">Quick Links</h4>
+              <div className="space-y-3">
+                <button 
+                  onClick={() => navigate('/roster')}
+                  className="block text-sm opacity-90 hover:opacity-100 hover:text-blue-300 transition-colors"
+                >
+                  Personnel & Rostering
+                </button>
+                <button 
+                  onClick={() => navigate('/personnel')}
+                  className="block text-sm opacity-90 hover:opacity-100 hover:text-blue-300 transition-colors"
+                >
+                  Personnel Administration
+                </button>
+                <button 
+                  onClick={() => navigate('/maintenance')}
+                  className="block text-sm opacity-90 hover:opacity-100 hover:text-blue-300 transition-colors"
+                >
+                  Maintenance & Operation
+                </button>
+                <button 
+                  onClick={() => navigate('/inventory')}
+                  className="block text-sm opacity-90 hover:opacity-100 hover:text-blue-300 transition-colors"
+                >
+                  Supply & Administration
+                </button>
+                <button 
+                  onClick={() => navigate('/support')}
+                  className="block text-sm opacity-90 hover:opacity-100 hover:text-blue-300 transition-colors"
+                >
+                  Support Center
+                </button>
+              </div>
+            </div>
+
+            {/* Contact Info */}
+            <div>
+              <h4 className="text-lg font-semibold mb-4">Contact Info</h4>
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <MapPin className="h-4 w-4 flex-shrink-0 opacity-80" />
+                  <span className="text-sm opacity-90">
+                    Jakarta Aviation Hub<br />
+                    Indonesia Aviation Authority
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Phone className="h-4 w-4 flex-shrink-0 opacity-80" />
+                  <span className="text-sm opacity-90">+62 21 xxxx-xxxx</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Mail className="h-4 w-4 flex-shrink-0 opacity-80" />
+                  <span className="text-sm opacity-90">info@airnav.co.id</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Globe className="h-4 w-4 flex-shrink-0 opacity-80" />
+                  <span className="text-sm opacity-90">www.airnav.co.id</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom Bar */}
+          <div className="border-t border-white/10 py-6">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+              <div className="text-sm opacity-80">
+                © 2026 AIRNAV Management System. All rights reserved.
+              </div>
+              <div className="flex items-center gap-6 text-sm">
+                <button 
+                  onClick={() => navigate('/privacy')}
+                  className="opacity-80 hover:opacity-100 hover:text-blue-300 transition-colors"
+                >
+                  Privacy Policy
+                </button>
+                <button 
+                  onClick={() => navigate('/terms')}
+                  className="opacity-80 hover:opacity-100 hover:text-blue-300 transition-colors"
+                >
+                  Terms of Service
+                </button>
+                <button 
+                  onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                  className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors flex items-center gap-2"
+                >
+                  <ArrowUp className="h-4 w-4" />
+                  Top
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </footer>
 
       {/* Profile Modal */}
       <ProfileModal
@@ -276,10 +660,6 @@ const HomePage: React.FC = () => {
         onChangePassword={() => {
           setIsProfileModalOpen(false);
           setIsChangePasswordModalOpen(true);
-        }}
-        onLogout={() => {
-          setIsProfileModalOpen(false);
-          setIsLogoutConfirmOpen(true);
         }}
       />
 
@@ -344,8 +724,7 @@ const ProfileModal: React.FC<{
   onClose: () => void;
   user: User | null;
   onChangePassword: () => void;
-  onLogout: () => void;
-}> = ({ isOpen, onClose, user, onChangePassword, onLogout }) => {
+}> = ({ isOpen, onClose, user, onChangePassword }) => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -372,7 +751,6 @@ const ProfileModal: React.FC<{
 
     setIsLoading(true);
     
-    // OPTIMISTIC UPDATE: Update UI first before API call
     const optimisticUser: User = {
       ...user,
       name: formData.name,
@@ -384,11 +762,9 @@ const ProfileModal: React.FC<{
       } : undefined,
     };
     
-    // Update context immediately
     updateUser(optimisticUser);
     
     try {
-      // Send to backend in background
       const updatedUser = await adminService.updateUser(user.id, {
         name: formData.name,
         email: formData.email,
@@ -397,108 +773,81 @@ const ProfileModal: React.FC<{
         is_active: user.is_active,
       });
       
-      // Update again with real data from server
       updateUser(updatedUser);
-      
-      toast.success('Profile updated successfully');
+      toast.success('Profile updated successfully!');
       onClose();
     } catch (error: any) {
-      toast.error('Failed to update profile');
-      // Rollback to original data if failed
       updateUser(user);
+      console.error('Error updating profile:', error);
+      toast.error(error?.response?.data?.message || 'Failed to update profile');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const isAdmin = user?.role === 'admin';
-
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="My Profile" size="md">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="bg-gray-50 p-4 rounded-lg mb-4">
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-gradient-to-r from-[#454D7C] to-[#222E6A] flex items-center justify-center text-white text-2xl font-bold">
-              {user?.name?.charAt(0).toUpperCase()}
-            </div>
-            <div>
-              <h3 className="font-semibold text-lg">{user?.name}</h3>
-              <p className="text-sm text-gray-600">{user?.email}</p>
-              <span className="inline-block mt-1 px-2 py-1 rounded-full text-xs font-semibold bg-[#D8DAED] text-[#222E6A]">
-                {user?.role?.toUpperCase()}
-              </span>
-            </div>
+    <Modal isOpen={isOpen} onClose={onClose} title="Profile Settings" size="md">
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
+          <div className="w-16 h-16 bg-[#222E6A] rounded-full flex items-center justify-center">
+            <span className="text-white text-2xl font-bold">
+              {user?.name?.charAt(0).toUpperCase() || 'U'}
+            </span>
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">{user?.name}</h3>
+            <p className="text-sm text-gray-500">{user?.email}</p>
           </div>
         </div>
 
         <Input
-          label="Name"
+          label="Full Name"
+          type="text"
           value={formData.name}
           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          disabled={!isAdmin}
           required
         />
+
         <Input
-          label="Email"
+          label="Email Address"
           type="email"
           value={formData.email}
           onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-          disabled={!isAdmin}
           required
         />
+
         <Select
           label="Role"
-          options={[
-            { value: 'admin', label: 'Admin' },
-            { value: 'manager', label: 'Manager' },
-            { value: 'gm', label: 'GM' },
-            { value: 'cns', label: 'CNS' },
-          ]}
           value={formData.role}
           onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-          disabled={!isAdmin}
+          options={[
+            { value: 'admin', label: 'Administrator' },
+            { value: 'manager', label: 'Manager' },
+            { value: 'supervisor', label: 'Supervisor' },
+            { value: 'staff', label: 'Staff' },
+          ]}
+          required
         />
+
         <Select
           label="Employee Type"
-          options={[
-            { value: 'CNS', label: 'CNS' },
-            { value: 'Support', label: 'Support' },
-            { value: 'Manager', label: 'Manager' },
-          ]}
           value={formData.employee_type}
           onChange={(e) => setFormData({ ...formData, employee_type: e.target.value })}
-          disabled={!isAdmin}
+          options={[
+            { value: 'pilot', label: 'Pilot' },
+            { value: 'air_traffic_controller', label: 'Air Traffic Controller' },
+            { value: 'maintenance', label: 'Maintenance' },
+            { value: 'ground_crew', label: 'Ground Crew' },
+            { value: 'administrative', label: 'Administrative' },
+          ]}
         />
 
-        <div className="border-t pt-4 mt-4 space-y-3">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onChangePassword}
-            className="w-full"
-          >
+        <div className="flex gap-4 pt-4">
+          <Button type="button" variant="outline" onClick={onChangePassword} className="flex-1">
             Change Password
           </Button>
-
-          {isAdmin && (
-            <Button
-              type="submit"
-              variant="primary"
-              isLoading={isLoading}
-              className="w-full"
-            >
-              Save Changes
-            </Button>
-          )}
-
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onLogout}
-            className="w-full text-red-600 border-red-600 hover:bg-red-50"
-          >
-            <LogOut className="h-4 w-4 mr-2" />
-            Logout
+          <Button type="submit" variant="primary" isLoading={isLoading} className="flex-1">
+            Save Changes
           </Button>
         </div>
       </form>
@@ -520,43 +869,38 @@ const ChangePasswordModal: React.FC<{
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
+    
     if (formData.new_password !== formData.new_password_confirmation) {
       toast.error('New passwords do not match');
       return;
     }
 
     if (formData.new_password.length < 8) {
-      toast.error('Password must be at least 8 characters');
+      toast.error('New password must be at least 8 characters long');
       return;
     }
 
     setIsLoading(true);
     try {
       await authService.changePassword(formData);
-      toast.success('Password changed successfully');
-      onClose();
+      toast.success('Password changed successfully!');
       setFormData({
         current_password: '',
         new_password: '',
         new_password_confirmation: '',
       });
+      onClose();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to change password');
+      console.error('Error changing password:', error);
+      toast.error(error?.response?.data?.message || 'Failed to change password');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Change Password" size="md">
+    <Modal isOpen={isOpen} onClose={onClose} title="Change Password" size="sm">
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
-          <p className="text-sm text-yellow-800">
-            <strong>Note:</strong> Your password must be at least 8 characters long.
-          </p>
-        </div>
-
         <Input
           label="Current Password"
           type="password"

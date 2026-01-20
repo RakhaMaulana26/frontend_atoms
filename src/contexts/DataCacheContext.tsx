@@ -1,18 +1,33 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import type { ReactNode } from 'react';
-import type { User, Notification } from '../types';
+import type { User, Notification, RosterPeriod } from '../types';
 import { adminService } from '../modules/admin/repository/adminService';
 import { notificationService } from '../modules/notifications/repository/notificationService';
+import { rosterService } from '../modules/roster/repository/rosterService';
 import { useAuth } from '../modules/auth/core/AuthContext';
 
 interface DataCacheContextType {
   users: User[];
   notifications: Notification[];
+  rosters: RosterPeriod[];
   unreadNotificationCount: number;
   isLoading: boolean;
   isInitialized: boolean;
+  loadingStates: {
+    users: boolean;
+    notifications: boolean;
+    rosters: boolean;
+  };
+  systemStats: {
+    totalUsers: number;
+    activeUsers: number;
+    totalRosters: number;
+    pendingTasks: number;
+  };
   loadUsers: () => Promise<void>;
   loadNotifications: () => Promise<void>;
+  loadRosters: () => Promise<void>;
+  loadAllData: () => Promise<void>;
   addUser: (user: User) => void;
   updateUser: (userId: number, updatedUser: User) => void;
   removeUser: (userId: number) => void;
@@ -21,6 +36,7 @@ interface DataCacheContextType {
   markNotificationAsRead: (id: number) => void;
   markAllNotificationsAsRead: () => void;
   refreshNotifications: () => Promise<void>;
+  refreshRosters: () => Promise<void>;
 }
 
 const DataCacheContext = createContext<DataCacheContextType | undefined>(undefined);
@@ -28,25 +44,62 @@ const DataCacheContext = createContext<DataCacheContextType | undefined>(undefin
 export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [users, setUsers] = useState<User[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [rosters, setRosters] = useState<RosterPeriod[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [loadingStates, setLoadingStates] = useState({
+    users: false,
+    notifications: false,
+    rosters: false
+  });
   const { isAuthenticated } = useAuth();
 
   // Calculate unread notifications count
   const unreadNotificationCount = notifications.filter(n => !n.is_read).length;
 
+  // Calculate system stats
+  const systemStats = {
+    totalUsers: users.length,
+    activeUsers: users.filter(u => u.is_active).length,
+    totalRosters: rosters.length,
+    pendingTasks: notifications.filter(n => !n.is_read && n.type === 'task').length
+  };
+
   // Load users data when first time or when user login
   const loadUsers = useCallback(async () => {
     if (!isAuthenticated) return;
     
-    setIsLoading(true);
+    setLoadingStates(prev => ({ ...prev, users: true }));
     try {
       const response = await adminService.getUsers({});
       setUsers(response.data);
     } catch (error) {
       console.error('Failed to load users cache:', error);
     } finally {
-      setIsLoading(false);
+      setLoadingStates(prev => ({ ...prev, users: false }));
+    }
+  }, [isAuthenticated]);
+
+  // Load rosters data
+  const loadRosters = useCallback(async () => {
+    if (!isAuthenticated) return;
+    
+    setLoadingStates(prev => ({ ...prev, rosters: true }));
+    try {
+      const response: any = await rosterService.getRosters();
+      // Handle direct array response
+      if (Array.isArray(response)) {
+        setRosters(response);
+      } else if (response?.data && Array.isArray(response.data)) {
+        setRosters(response.data);
+      } else {
+        setRosters([]);
+      }
+    } catch (error) {
+      console.error('Failed to load rosters cache:', error);
+      setRosters([]);
+    } finally {
+      setLoadingStates(prev => ({ ...prev, rosters: false }));
     }
   }, [isAuthenticated]);
 
@@ -54,6 +107,7 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
   const loadNotifications = useCallback(async () => {
     if (!isAuthenticated) return;
     
+    setLoadingStates(prev => ({ ...prev, notifications: true }));
     try {
       const response = await notificationService.getNotifications();
       
@@ -66,20 +120,36 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
     } catch (error) {
       console.error('Failed to load notifications cache:', error);
       setNotifications([]);
+    } finally {
+      setLoadingStates(prev => ({ ...prev, notifications: false }));
     }
   }, [isAuthenticated]);
+
+  // Load all data
+  const loadAllData = useCallback(async () => {
+    if (!isAuthenticated) return;
+    
+    setIsLoading(true);
+    try {
+      await Promise.all([
+        loadUsers(),
+        loadNotifications(),
+        loadRosters()
+      ]);
+      setIsInitialized(true);
+    } catch (error) {
+      console.error('Failed to load initial data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isAuthenticated, loadUsers, loadNotifications, loadRosters]);
 
   // Auto-load when user authenticated
   useEffect(() => {
     if (isAuthenticated && !isInitialized) {
-      Promise.all([
-        loadUsers(),
-        loadNotifications()
-      ]).then(() => {
-        setIsInitialized(true);
-      });
+      loadAllData();
     }
-  }, [isAuthenticated, isInitialized, loadUsers, loadNotifications]);
+  }, [isAuthenticated, isInitialized, loadAllData]);
 
   // Add new user to cache
   const addUser = useCallback((user: User) => {
@@ -145,16 +215,40 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
     }
   }, [isAuthenticated]);
 
+  // Refresh rosters from server
+  const refreshRosters = useCallback(async () => {
+    if (!isAuthenticated) return;
+    
+    try {
+      const response: any = await rosterService.getRosters();
+      // Handle direct array response
+      if (Array.isArray(response)) {
+        setRosters(response);
+      } else if (response?.data && Array.isArray(response.data)) {
+        setRosters(response.data);
+      } else {
+        setRosters([]);
+      }
+    } catch (error) {
+      console.error('Failed to refresh rosters:', error);
+    }
+  }, [isAuthenticated]);
+
   return (
     <DataCacheContext.Provider
       value={{
         users,
         notifications,
+        rosters,
         unreadNotificationCount,
         isLoading,
         isInitialized,
+        loadingStates,
+        systemStats,
         loadUsers,
         loadNotifications,
+        loadRosters,
+        loadAllData,
         addUser,
         updateUser,
         removeUser,
@@ -163,6 +257,7 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
         markNotificationAsRead,
         markAllNotificationsAsRead,
         refreshNotifications,
+        refreshRosters,
       }}
     >
       {children}

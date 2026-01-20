@@ -11,6 +11,9 @@ import LandingPage from './pages/LandingPage';
 import HomePage from './pages/HomePage';
 import MaintenancePage from './pages/MaintenancePage';
 import InventoryPage from './pages/InventoryPage';
+import PersonnelPage from './pages/PersonnelPage';
+import DashboardPage from './pages/DashboardPage';
+import SettingsPage from './pages/SettingsPage';
 
 // Auth Pages
 import AuthPage from './modules/auth/pages/AuthPage';
@@ -45,6 +48,66 @@ function App() {
             }
           />
 
+          {/* Personnel Routes */}
+          <Route
+            path="/personnel"
+            element={
+              <ProtectedRoute>
+                <UsersPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Dashboard Routes */}
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <HomePage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Settings Routes */}
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <HomePage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Personnel Routes */}
+          <Route
+            path="/personnel"
+            element={
+              <ProtectedRoute>
+                <PersonnelPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Dashboard Routes */}
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Settings Routes */}
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <SettingsPage />
+              </ProtectedRoute>
+            }
+          />
+
           {/* Admin Routes */}
           <Route
             path="/admin/users"
@@ -56,6 +119,36 @@ function App() {
           />
 
           {/* Roster Routes */}
+          <Route            path="/roster"
+            element={
+              <ProtectedRoute>
+                <RostersPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/roster/create"
+            element={
+              <ProtectedRoute>
+                <RostersPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route            path="/roster"
+            element={
+              <ProtectedRoute>
+                <RostersPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/roster/create"
+            element={
+              <ProtectedRoute>
+                <RostersPage />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/rosters"
             element={
@@ -109,6 +202,74 @@ function App() {
             element={
               <ProtectedRoute>
                 <InventoryPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Activity and Support Routes - Temporary placeholders */}
+          <Route
+            path="/activity-log"
+            element={
+              <ProtectedRoute>
+                <HomePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/support"
+            element={
+              <ProtectedRoute>
+                <HomePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/quick-start"
+            element={
+              <ProtectedRoute>
+                <HomePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/check-in"
+            element={
+              <ProtectedRoute>
+                <HomePage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Activity and Support Routes */}
+          <Route
+            path="/activity-log"
+            element={
+              <ProtectedRoute>
+                <HomePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/support"
+            element={
+              <ProtectedRoute>
+                <HomePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/quick-start"
+            element={
+              <ProtectedRoute>
+                <HomePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/check-in"
+            element={
+              <ProtectedRoute>
+                <HomePage />
               </ProtectedRoute>
             }
           />
