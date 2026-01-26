@@ -10,6 +10,7 @@ interface ModalProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
   footer?: ReactNode;
   headerVariant?: 'primary' | 'danger';
+  headerClassName?: string;
 }
 
 const Modal: React.FC<ModalProps> = ({
@@ -20,6 +21,7 @@ const Modal: React.FC<ModalProps> = ({
   size = 'md',
   footer,
   headerVariant = 'primary',
+  headerClassName,
 }) => {
   useEffect(() => {
     if (isOpen) {
@@ -58,7 +60,7 @@ const Modal: React.FC<ModalProps> = ({
         >
           {/* Header */}
           {title && (
-            <div className={`flex items-center justify-between px-6 py-4 rounded-t-lg ${
+            <div className={headerClassName || `flex items-center justify-between px-6 py-4 rounded-t-lg ${
               headerVariant === 'danger' 
                 ? 'bg-gradient-to-r from-red-600 to-red-700' 
                 : 'bg-gradient-to-r from-[#454D7C] to-[#222E6A]'

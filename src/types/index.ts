@@ -3,8 +3,11 @@ export interface User {
   id: number;
   name: string;
   email: string;
-  role: 'admin' | 'cns' | 'support' | 'manager' | 'gm';
+  role: 'Admin' | 'Cns' | 'Support' | 'Manager Teknik' | 'General Manager';
+  role_name?: string;
+  grade?: number;
   is_active: boolean;
+  last_login?: string;
   employee?: Employee;
   created_at: string;
   updated_at: string;
@@ -14,12 +17,49 @@ export interface User {
 export interface Employee {
   id: number;
   user_id: number;
-  employee_type: 'CNS' | 'Support' | 'Manager';
+  employee_type: 'Administrator' | 'CNS' | 'Support' | 'Manager Teknik' | 'General Manager';
+  employee_type_name?: string;
   is_active: boolean;
   user?: User;
   created_at: string;
   updated_at: string;
 }
+
+// Role Constants
+export const USER_ROLES = {
+  ADMIN: 'Admin',
+  CNS: 'Cns',
+  SUPPORT: 'Support',
+  MANAGER_TEKNIK: 'Manager Teknik',
+  GENERAL_MANAGER: 'General Manager'
+} as const;
+
+export const USER_ROLE_LABELS = {
+  [USER_ROLES.ADMIN]: 'Administrator',
+  [USER_ROLES.CNS]: 'CNS',
+  [USER_ROLES.SUPPORT]: 'Support',
+  [USER_ROLES.MANAGER_TEKNIK]: 'Manager Teknik',
+  [USER_ROLES.GENERAL_MANAGER]: 'General Manager'
+} as const;
+
+// Employee Type Constants
+export const EMPLOYEE_TYPES = {
+  ADMIN: 'Administrator',
+  CNS: 'CNS',
+  SUPPORT: 'Support',
+  MANAGER_TEKNIK: 'Manager Teknik',
+  GENERAL_MANAGER: 'General Manager'
+} as const;
+
+export const EMPLOYEE_TYPE_LABELS = {
+  [EMPLOYEE_TYPES.ADMIN]: 'Administrator',
+  [EMPLOYEE_TYPES.CNS]: 'CNS',
+  [EMPLOYEE_TYPES.SUPPORT]: 'Support',
+  [EMPLOYEE_TYPES.MANAGER_TEKNIK]: 'Manager Teknik',
+  [EMPLOYEE_TYPES.GENERAL_MANAGER]: 'General Manager'
+} as const;
+
+export type EmployeeType = typeof EMPLOYEE_TYPES[keyof typeof EMPLOYEE_TYPES];
 
 // Authentication Types
 export interface LoginCredentials {
@@ -175,16 +215,18 @@ export interface Notification {
 export interface CreateUserRequest {
   name: string;
   email: string;
-  role: 'admin' | 'cns' | 'support' | 'manager' | 'gm';
-  employee_type: 'CNS' | 'Support' | 'Manager';
+  role: 'Admin' | 'Cns' | 'Support' | 'Manager Teknik' | 'General Manager';
+  employee_type: 'Administrator' | 'CNS' | 'Support' | 'Manager Teknik' | 'General Manager';
+  grade?: number;
   is_active: boolean;
 }
 
 export interface UpdateUserRequest {
   name?: string;
   email?: string;
-  role?: 'admin' | 'cns' | 'support' | 'manager' | 'gm';
-  employee_type?: 'CNS' | 'Support' | 'Manager';
+  role?: 'Admin' | 'Cns' | 'Support' | 'Manager Teknik' | 'General Manager';
+  employee_type?: 'Administrator' | 'CNS' | 'Support' | 'Manager Teknik' | 'General Manager';
+  grade?: number;
   is_active?: boolean;
 }
 

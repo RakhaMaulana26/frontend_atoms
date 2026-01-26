@@ -79,13 +79,13 @@ const HomePage: React.FC = () => {
   const categories: FeatureCategory[] = [
     {
       id: 'personnel',
-      title: 'Personnel Administration',
+      title: 'Employee Management',
       description: 'Manage employee records, roles, and organizational structure',
       icon: Users,
       color: 'bg-[#222E6A]',
       gradient: 'bg-gradient-to-br from-[#222E6A] to-[#454D7C]',
       link: '/personnel',
-      allowedRoles: ['admin', 'hr', 'manager']
+      allowedRoles: ['Admin']
     },
     {
       id: 'roster',
@@ -104,7 +104,7 @@ const HomePage: React.FC = () => {
       color: 'bg-[#222E6A]',
       gradient: 'bg-gradient-to-br from-[#222E6A]/80 to-[#454D7C]/80',
       link: '/inventory',
-      allowedRoles: ['admin', 'manager', 'supervisor']
+      allowedRoles: ['Admin', 'Manager Teknik', 'General Manager']
     },
     {
       id: 'maintenance',
@@ -115,7 +115,7 @@ const HomePage: React.FC = () => {
       gradient: 'bg-gradient-to-br from-[#454D7C]/80 to-[#222E6A]/80',
       link: '/maintenance',
       badge: 'New',
-      allowedRoles: ['admin', 'manager', 'maintenance']
+      allowedRoles: ['Admin', 'Manager Teknik']
     }
   ];
 
@@ -562,7 +562,7 @@ const HomePage: React.FC = () => {
                   onClick={() => navigate('/personnel')}
                   className="block text-sm opacity-90 hover:opacity-100 hover:text-blue-300 transition-colors"
                 >
-                  Personnel Administration
+                  Employee Management
                 </button>
                 <button 
                   onClick={() => navigate('/maintenance')}
@@ -608,6 +608,32 @@ const HomePage: React.FC = () => {
                   <Globe className="h-4 w-4 flex-shrink-0 opacity-80" />
                   <span className="text-sm opacity-90">www.airnav.co.id</span>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Collaboration Section */}
+          <div className="border-t border-white/10 py-8">
+            <div className="text-center mb-6">
+              <h4 className="text-lg font-semibold mb-2">In Collaboration With</h4>
+              <p className="text-sm opacity-80">Supporting partnerships for aviation excellence</p>
+            </div>
+            <div className="flex items-center justify-center gap-8 md:gap-12">
+              <div className="flex items-center gap-3 p-4 bg-white/10 backdrop-blur-sm rounded-xl hover:bg-white/15 transition-colors">
+                <img 
+                  src="/assets/icon/logopens.svg" 
+                  alt="PENS Logo" 
+                  className="h-8 w-auto"
+                />
+                <span className="text-sm font-medium opacity-90">PENS</span>
+              </div>
+              <div className="flex items-center gap-3 p-4 bg-white/10 backdrop-blur-sm rounded-xl hover:bg-white/15 transition-colors">
+                <img 
+                  src="/assets/icon/logougm.svg" 
+                  alt="UGM Logo" 
+                  className="h-8 w-auto"
+                />
+                <span className="text-sm font-medium opacity-90">UGM</span>
               </div>
             </div>
           </div>

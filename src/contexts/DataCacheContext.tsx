@@ -36,8 +36,8 @@ interface DataCacheContextType {
   loadActivityStatistics: () => Promise<void>;
   loadAllData: () => Promise<void>;
   addUser: (user: User) => void;
-  updateUser: (userId: number, updatedUser: User) => void;
-  removeUser: (userId: number) => void;
+  updateUser: (userId: number | string, updatedUser: User) => void;
+  removeUser: (userId: number | string) => void;
   replaceUser: (tempId: number, realUser: User) => void;
   refreshUsers: () => Promise<void>;
   markNotificationAsRead: (id: number) => void;
@@ -207,13 +207,13 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
   }, []);
 
   // Update existing user in cache
-  const updateUser = useCallback((userId: number, updatedUser: User) => {
-    setUsers(prev => prev.map(u => u.id === userId ? updatedUser : u));
+  const updateUser = useCallback((userId: number | string, updatedUser: User) => {
+    setUsers(prev => prev.map(u => String(u.id) === String(userId) ? updatedUser : u));
   }, []);
 
   // Remove user from cache
-  const removeUser = useCallback((userId: number) => {
-    setUsers(prev => prev.filter(u => u.id !== userId));
+  const removeUser = useCallback((userId: number | string) => {
+    setUsers(prev => prev.filter(u => String(u.id) !== String(userId)));
   }, []);
 
   // Replace temporary user with real user (for optimistic create)

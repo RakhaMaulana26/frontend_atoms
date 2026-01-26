@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, ArrowLeft, User, Bell, Users, ArrowRightLeft, Home, ChevronRight } from 'lucide-react';
+import LoadingScreen from '../../../components/common/LoadingScreen';
 
 // Mock types
 interface ShiftAssignment {
@@ -185,12 +186,11 @@ const RosterDetailPage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-[#454D7C] mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading roster details...</p>
-        </div>
-      </div>
+      <LoadingScreen 
+        title="Loading Roster Details"
+        subtitle="Please wait while we fetch roster information..."
+        icon={Calendar}
+      />
     );
   }
 

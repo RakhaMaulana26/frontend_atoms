@@ -3,7 +3,9 @@ export { default as Avatar } from './ui/Avatar';
 export { default as Button } from './ui/Button';
 export { default as Card } from './ui/Card';
 export { default as StatsCard } from './ui/StatsCard';
-export { default as LoadingSpinner } from './ui/LoadingSpinner';
+
+// Common Components
+export { default as LoadingScreen } from './common/LoadingScreen';
 
 // Layout Components
 export { default as Header } from './layout/Header';

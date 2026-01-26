@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Activity, Search, Filter, Calendar, RefreshCw, TrendingUp, Clock, Hash } from 'lucide-react';
 import Card from '../components/ui/Card';
-import LoadingSpinner from '../components/ui/LoadingSpinner';
 import ActivityLogCard from '../components/activity/ActivityLogCard';
 import PageHeader from '../components/layout/PageHeader';
+import LoadingScreen from '../components/common/LoadingScreen';
 import { useDataCache } from '../contexts/DataCacheContext';
 import { activityLogService, type ActivityLog, type ActivityLogFilters, type ActivityLogStatistics } from '../services/activityLogService';
 
@@ -130,21 +130,11 @@ const ActivityPage: React.FC = () => {
   // Show loading state for initial load only
   if (isLoading && activities.length === 0) {
     return (
-      <PageHeader
-        title="Activity Log"
-        subtitle="Track all system activities and user actions"
-        breadcrumbs={[
-          { label: 'Dashboard', href: '/dashboard' },
-          { label: 'Activity Log', href: '/activity-log' }
-        ]}
-      >
-        <div className="flex items-center justify-center py-12">
-          <div className="text-center">
-            <LoadingSpinner size="lg" />
-            <p className="mt-4 text-gray-600">Loading activity data...</p>
-          </div>
-        </div>
-      </PageHeader>
+      <LoadingScreen 
+        title="Loading Activity Log"
+        subtitle="Please wait while we fetch activity data..."
+        icon={Activity}
+      />
     );
   }
 
@@ -319,7 +309,7 @@ const ActivityPage: React.FC = () => {
 
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
-            <LoadingSpinner size="lg" />
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#222E6A]"></div>
             <span className="ml-3 text-gray-600">Loading activities...</span>
           </div>
         ) : error ? (
