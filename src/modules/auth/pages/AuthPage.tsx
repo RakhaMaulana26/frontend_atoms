@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../core/AuthContext';
-import { useToast } from '../../../components/common/ToastContext';
+import { toast } from 'react-toastify';
 import { authService } from '../repository/authService';
 import AirnavLogo from '../../../assets/Airnav.svg';
 import { ChevronLeft, Eye, EyeOff, Mail, CheckCircle, KeyRound } from 'lucide-react';
@@ -15,7 +15,6 @@ const AuthPage: React.FC = () => {
   // Login state
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   
   // Activate state
@@ -38,24 +37,24 @@ const AuthPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   const { login } = useAuth();
-  const { showToast } = useToast();
+  
   const navigate = useNavigate();
 
   // Login Handler
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
-      showToast('Please fill in all fields', 'error');
+      toast.error('Please fill in all fields');
       return;
     }
     setIsLoading(true);
     try {
       await login({ email, password });
-      showToast('Login successful!', 'success');
-      navigate('/dashboard');
+      toast.success('Login successful!');
+      navigate('/home');
     } catch (error: any) {
       const message = error.response?.data?.message || 'Login failed. Please check your credentials.';
-      showToast(message, 'error');
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -65,7 +64,7 @@ const AuthPage: React.FC = () => {
   const handleActivate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activationCode || activationCode.trim().length === 0) {
-      showToast('Please enter your activation code', 'error');
+      toast.error('Please enter your activation code');
       return;
     }
     setIsLoading(true);
@@ -74,14 +73,14 @@ const AuthPage: React.FC = () => {
       if (response.valid) {
         setVerifiedToken(activationCode.trim());
         setIsNewUser(!response.user?.has_password);
-        showToast('Code verified! Please set your password.', 'success');
+        toast.success('Code verified! Please set your password.');
         setCurrentView('set-password');
       } else {
-        showToast('Invalid or expired code', 'error');
+        toast.error('Invalid or expired code');
       }
     } catch (error: any) {
       const message = error.response?.data?.message || 'Code verification failed';
-      showToast(message, 'error');
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -91,21 +90,21 @@ const AuthPage: React.FC = () => {
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!forgotEmail) {
-      showToast('Please enter your email address', 'error');
+      toast.error('Please enter your email address');
       return;
     }
     if (!/\S+@\S+\.\S+/.test(forgotEmail)) {
-      showToast('Please enter a valid email address', 'error');
+      toast.error('Please enter a valid email address');
       return;
     }
     setIsLoading(true);
     try {
       const response = await authService.forgotPassword({ email: forgotEmail });
-      showToast(response.message, 'success');
+      toast.success(response.message);
       setCurrentView('forgot-password-success');
     } catch (error: any) {
       const message = error.response?.data?.message || 'Failed to send reset code. Please try again.';
-      showToast(message, 'error');
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -115,7 +114,7 @@ const AuthPage: React.FC = () => {
   const handleResetCode = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!resetCode || resetCode.trim().length !== 6) {
-      showToast('Please enter a valid 6-digit code', 'error');
+      toast.error('Please enter a valid 6-digit code');
       return;
     }
     setIsLoading(true);
@@ -124,14 +123,14 @@ const AuthPage: React.FC = () => {
       if (response.valid) {
         setVerifiedToken(resetCode.trim());
         setIsNewUser(false);
-        showToast('Code verified! Please enter your new password.', 'success');
+        toast.success('Code verified! Please enter your new password.');
         setCurrentView('set-password');
       } else {
-        showToast('Invalid or expired code', 'error');
+        toast.error('Invalid or expired code');
       }
     } catch (error: any) {
       const message = error.response?.data?.message || 'Code verification failed';
-      showToast(message, 'error');
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -141,15 +140,15 @@ const AuthPage: React.FC = () => {
   const handleSetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPassword || !confirmPassword) {
-      showToast('Please fill in all fields', 'error');
+      toast.error('Please fill in all fields');
       return;
     }
     if (newPassword !== confirmPassword) {
-      showToast('Passwords do not match', 'error');
+      toast.error('Passwords do not match');
       return;
     }
     if (newPassword.length < 8) {
-      showToast('Password must be at least 8 characters', 'error');
+      toast.error('Password must be at least 8 characters');
       return;
     }
     setIsLoading(true);
@@ -162,7 +161,7 @@ const AuthPage: React.FC = () => {
       const message = isNewUser 
         ? 'Account activated successfully! You can now log in.' 
         : 'Password reset successfully! You can now log in with your new password.';
-      showToast(message, 'success');
+      toast.success(message);
       // Reset all states
       setCurrentView('login');
       setActiveTab('login');
@@ -176,7 +175,7 @@ const AuthPage: React.FC = () => {
       setVerifiedToken('');
     } catch (error: any) {
       const message = error.response?.data?.message || 'Failed to set password';
-      showToast(message, 'error');
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -345,16 +344,7 @@ const AuthPage: React.FC = () => {
                 </button>
               </div>
             </div>
-            <div className="flex items-center justify-between text-sm">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="w-4 h-4 rounded border-[#7B8199] text-[#2C3558] focus:ring-[#2C3558] cursor-pointer"
-                />
-                <span className="text-[#5A6382]">Remember me</span>
-              </label>
+            <div className="flex items-center justify-end text-sm">
               <button
                 type="button"
                 onClick={() => setCurrentView('forgot-password')}

@@ -1,10 +1,26 @@
 import apiClient from '../../../lib/api';
 import type { Notification } from '../../../types';
 
+// Define paginated response type
+interface PaginatedResponse<T> {
+  current_page: number;
+  data: T[];
+  first_page_url: string;
+  from: number;
+  last_page: number;
+  last_page_url: string;
+  next_page_url: string | null;
+  path: string;
+  per_page: number;
+  prev_page_url: string | null;
+  to: number;
+  total: number;
+}
+
 export const notificationService = {
   // Get Notifications
-  async getNotifications(): Promise<Notification[]> {
-    const response = await apiClient.get<Notification[]>('/notifications');
+  async getNotifications(): Promise<PaginatedResponse<Notification>> {
+    const response = await apiClient.get<PaginatedResponse<Notification>>('/notifications');
     return response.data;
   },
 

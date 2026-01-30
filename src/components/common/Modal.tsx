@@ -9,6 +9,8 @@ interface ModalProps {
   children: ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl';
   footer?: ReactNode;
+  headerVariant?: 'primary' | 'danger';
+  headerClassName?: string;
 }
 
 const Modal: React.FC<ModalProps> = ({
@@ -18,6 +20,8 @@ const Modal: React.FC<ModalProps> = ({
   children,
   size = 'md',
   footer,
+  headerVariant = 'primary',
+  headerClassName,
 }) => {
   useEffect(() => {
     if (isOpen) {
@@ -51,16 +55,20 @@ const Modal: React.FC<ModalProps> = ({
       {/* Modal */}
       <div className="flex min-h-screen items-center justify-center p-4">
         <div
-          className={`relative bg-white rounded-lg shadow-xl ${sizeClasses[size]} w-full`}
+          className={`relative bg-white rounded-lg shadow-xl ${sizeClasses[size]} w-full overflow-hidden`}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
           {title && (
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
+            <div className={headerClassName || `flex items-center justify-between px-6 py-4 rounded-t-lg ${
+              headerVariant === 'danger' 
+                ? 'bg-gradient-to-r from-red-600 to-red-700' 
+                : 'bg-gradient-to-r from-[#454D7C] to-[#222E6A]'
+            }`}>
+              <h2 className="text-xl font-semibold text-white">{title}</h2>
               <button
                 onClick={onClose}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                className="text-white hover:text-gray-200 transition-colors"
               >
                 <X className="h-6 w-6" />
               </button>
@@ -72,7 +80,7 @@ const Modal: React.FC<ModalProps> = ({
 
           {/* Footer */}
           {footer && (
-            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 rounded-b-lg">
+            <div className="px-6 py-4 bg-[#D8DAED]/30 border-t border-gray-200 rounded-b-lg">
               {footer}
             </div>
           )}

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/core/AuthContext';
 import Card from '../../../components/common/Card';
 import Button from '../../../components/common/Button';
-import { Users, Calendar, RefreshCw, Bell } from 'lucide-react';
+import { Users, Calendar, RefreshCw, Bell, Wrench, Package } from 'lucide-react';
 
 const DashboardPage: React.FC = () => {
   const { user } = useAuth();
@@ -16,7 +16,7 @@ const DashboardPage: React.FC = () => {
       icon: Users,
       color: 'bg-blue-500',
       link: '/admin/users',
-      roles: ['admin'],
+      roles: ['Admin'],
     },
     {
       title: 'Active Rosters',
@@ -24,7 +24,7 @@ const DashboardPage: React.FC = () => {
       icon: Calendar,
       color: 'bg-green-500',
       link: '/rosters',
-      roles: ['admin', 'manager'],
+      roles: ['Admin', 'Manager Teknik', 'General Manager'],
     },
     {
       title: 'Pending Requests',
@@ -81,18 +81,44 @@ const DashboardPage: React.FC = () => {
 
       {/* Quick Actions */}
       <Card title="Quick Actions">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {user?.role === 'admin' && (
-            <Button
-              variant="primary"
-              onClick={() => navigate('/admin/users')}
-              className="w-full"
-            >
-              <Users className="h-4 w-4 mr-2" />
-              Manage Users
-            </Button>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {user?.role === 'Admin' && (
+            <>
+              <Button
+                variant="primary"
+                onClick={() => navigate('/admin/users')}
+                className="w-full"
+              >
+                <Users className="h-4 w-4 mr-2" />
+                Manage Users
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => navigate('/personnel')}
+                className="w-full"
+              >
+                <Users className="h-4 w-4 mr-2" />
+                Personnel Management
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => navigate('/maintenance')}
+                className="w-full"
+              >
+                <Wrench className="h-4 w-4 mr-2" />
+                Maintenance
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => navigate('/inventory')}
+                className="w-full"
+              >
+                <Package className="h-4 w-4 mr-2" />
+                Inventory
+              </Button>
+            </>
           )}
-          {(user?.role === 'admin' || user?.role === 'manager') && (
+          {(user?.role === 'Admin' || user?.role === 'Manager Teknik' || user?.role === 'General Manager') && (
             <Button
               variant="primary"
               onClick={() => navigate('/rosters')}
