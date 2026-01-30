@@ -1,32 +1,16 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Settings } from 'lucide-react';
+import { Settings } from 'lucide-react';
+import PageHeader from '../components/layout/PageHeader';
 
 const SettingsPage: React.FC = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <button 
-                onClick={() => navigate('/home')}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <ArrowLeft className="h-6 w-6" />
-              </button>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">System Settings</h1>
-                <p className="text-gray-600">Configure system preferences and user settings</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
+    <PageHeader
+      title="System Settings"
+      subtitle="Configure system preferences and user settings"
+    >
       {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center">
@@ -43,7 +27,7 @@ const SettingsPage: React.FC = () => {
           </button>
         </div>
       </div>
-    </div>
+    </PageHeader>
   );
 };
 

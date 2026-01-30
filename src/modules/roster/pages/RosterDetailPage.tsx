@@ -1,100 +1,62 @@
-'use client';
+/**
+ * RosterDetailPage - Refactored with Backend Integration
+ * 
+ * Features:
+ * - Real backend API integration via rosterService
+ * - Separated components for better maintainability
+ * - Loading and error states
+ * - Three views: Calendar, Weekly Staff, Shift Swap Requests
+ */
 
-import React, { useState } from 'react';
-import { Calendar, Users, ArrowRightLeft, Printer } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
+import { Calendar, Users, ArrowRightLeft } from 'lucide-react';
 import PageHeader from '../../../components/layout/PageHeader';
+import { rosterService } from '../repository/rosterService';
+import type { RosterPeriod, RosterDay, Shift } from '../types/roster';
+import RosterCalendarView from '../components/RosterCalendarView';
+import ShiftSwapRequestsTable from '../components/ShiftSwapRequestsTable';
+// Temporary: Import moved inline due to TypeScript cache issue
+// import { RosterWeekView } from '../components/RosterWeekView';
+import ShiftAssignmentCard from '../components/ShiftAssignmentCard';
 
-// Mock types
-interface ShiftAssignment {
-  id: number;
-  employee?: {
-    id: number;
-    user?: {
-      name: string;
-    };
-  };
-  shift?: {
-    code: string;
-  };
-}
+type TabType = 'calendar' | 'staff' | 'swap';
 
-interface RosterDay {
-  work_date: string;
-  shift_assignments?: ShiftAssignment[];
-}
-
-interface RosterPeriod {
-  id: number;
-  month: number;
-  year: number;
-  status: string;
-  rosterDays?: RosterDay[];
-}
-
-// Mock data
-const mockRoster: RosterPeriod = {
-  id: 1,
-  month: 1,
-  year: 2026,
-  status: 'published',
-  rosterDays: Array.from({ length: 31 }, (_, i) => {
-    const shiftCodes = ['pagi', 'siang', 'malam', 'off'];
-    const shiftCode = shiftCodes[i % 4];
-    return {
-      work_date: `2026-01-${String(i + 1).padStart(2, '0')}`,
-      shift_assignments: shiftCode === 'off' ? [] : [
-        {
-          id: i + 1,
-          employee: { id: i + 1, user: { name: `Employee ${i + 1}` } },
-          shift: { code: shiftCode }
-        }
-      ]
-    };
-  })
-};
-
-// Mock staff data with positions
-const mockStaffData = [
-  { id: 1, name: 'Michael', position: 'Technical Manager', avatar: '👨‍💼', rank: 1 },
-  { id: 2, name: 'Arif', position: 'CNG Technician', avatar: '👨‍🔧', rank: 2 },
-  { id: 3, name: 'Dika', position: 'CNG Technician', avatar: '👨‍🔧', rank: 2 },
-  { id: 4, name: 'Reza', position: 'CNG Technician', avatar: '👨‍🔧', rank: 2 },
-  { id: 5, name: 'Fajar', position: 'CNG Technician', avatar: '👨‍🔧', rank: 2 },
-  { id: 6, name: 'Aldi', position: 'Support Technician', avatar: '👨‍💻', rank: 3 },
-  { id: 7, name: 'Yusuf', position: 'Support Technician', avatar: '👨‍💻', rank: 3 },
+// Mock shifts data - TODO: Fetch from backend (/shifts endpoint)
+const mockShifts: Shift[] = [
+  { id: 1, shift_name: 'Shift 1 - Morning', start_time: '07:00:00', end_time: '15:00:00' },
+  { id: 2, shift_name: 'Shift 2 - Afternoon', start_time: '13:00:00', end_time: '19:00:00' },
+  { id: 3, shift_name: 'Shift 3 - Night', start_time: '19:00:00', end_time: '07:00:00' }
 ];
 
-// Mock shift swap request data
+// Mock swap requests - TODO: Fetch from backend (/shift-swap-requests endpoint)
 const mockShiftSwapRequests = [
   {
     id: 1,
     type: 'Swap Request',
-    employee: { name: 'Arif', position: 'CNG Technician' },
+    employee: { name: 'Budi', position: 'CNS Technician' },
     originalShift: 'Morning (07:00 - 15:00)',
-    requestedShift: 'Afternoon (13:00 - 19:00)',
-    submittedDate: '2026-01-20',
-    status: 'Pending',
-    statusColor: 'bg-yellow-100 text-yellow-800'
+    requestedShift: 'Night (19:00 - 07:00)',
+    submittedDate: '2026-01-18',
+    status: 'Approved' as const
   },
   {
     id: 2,
     type: 'Swap Request',
-    employee: { name: 'Dika', position: 'CNG Technician' },
+    employee: { name: 'Siti', position: 'CNS Technician' },
     originalShift: 'Afternoon (13:00 - 19:00)',
-    requestedShift: 'Night (19:00 - 07:00)',
+    requestedShift: 'Morning (07:00 - 15:00)',
     submittedDate: '2026-01-19',
-    status: 'Approved',
-    statusColor: 'bg-green-100 text-green-800'
+    status: 'Rejected' as const
   },
   {
     id: 3,
-    type: 'Swap Request',
-    employee: { name: 'Reza', position: 'CNG Technician' },
-    originalShift: 'Morning (07:00 - 15:00)',
-    requestedShift: 'Off',
-    submittedDate: '2026-01-18',
-    status: 'Rejected',
-    statusColor: 'bg-red-100 text-red-800'
+    type: 'Overtime Request',
+    employee: { name: 'Joko', position: 'Support Technician' },
+    originalShift: 'Night (19:00 - 07:00)',
+    requestedShift: 'Morning (07:00 - 15:00)',
+    submittedDate: '2026-01-20',
+    status: 'Pending' as const
   },
   {
     id: 4,
@@ -103,61 +65,180 @@ const mockShiftSwapRequests = [
     originalShift: 'Night (19:00 - 07:00)',
     requestedShift: 'Morning (07:00 - 15:00)',
     submittedDate: '2026-01-21',
-    status: 'Pending',
-    statusColor: 'bg-yellow-100 text-yellow-800'
+    status: 'Pending' as const
   }
 ];
 
+// Temporary inline component - will be moved back to separate file after TS cache refresh
+const RosterWeekView: React.FC<{
+  weekDays: Date[];
+  selectedDate: Date;
+  onDateSelect: (date: Date) => void;
+  onNavigateWeek: (direction: 'prev' | 'next') => void;
+  rosterDay?: RosterDay;
+  shifts: Shift[];
+  isReadOnly?: boolean;
+  onAddStaff?: (shiftId: number) => void;
+  onRemoveStaff?: (assignmentId: number) => void;
+}> = ({
+  weekDays,
+  selectedDate,
+  onDateSelect,
+  onNavigateWeek,
+  rosterDay,
+  shifts,
+  isReadOnly = false,
+  onAddStaff,
+  onRemoveStaff
+}) => {
+  const formatDayName = (date: Date) => date.toLocaleDateString('en-US', { weekday: 'short' });
+  const isSameDay = (d1: Date, d2: Date) => d1.getDate() === d2.getDate() && d1.getMonth() === d2.getMonth() && d1.getFullYear() === d2.getFullYear();
+  const getShiftColor = (name: string): string => {
+    const n = name.toLowerCase();
+    if (n.includes('morning') || n.includes('pagi')) return 'bg-blue-500';
+    if (n.includes('afternoon') || n.includes('siang')) return 'bg-yellow-400';
+    if (n.includes('night') || n.includes('malam')) return 'bg-green-500';
+    return 'bg-purple-500';
+  };
+  const getUserInitials = (name: string) => {
+    const parts = name.split(' ');
+    return parts.length >= 2 ? parts[0][0] + parts[1][0] : name.substring(0, 2).toUpperCase();
+  };
+
+  return (
+    <div className="bg-white rounded-3xl shadow-lg border border-gray-100 p-4 sm:p-6 lg:p-8">
+      <div className="flex items-center justify-between mb-6 sm:mb-8">
+        <button onClick={() => onNavigateWeek('prev')} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+          <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <h3 className="text-lg sm:text-xl font-bold text-gray-900">This Week</h3>
+        <button onClick={() => onNavigateWeek('next')} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+          <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      </div>
+      <div className="grid grid-cols-7 gap-1 mb-6 sm:mb-8">
+        {weekDays.map((day, idx) => {
+          const isSelected = isSameDay(day, selectedDate);
+          const isToday = isSameDay(day, new Date());
+          return (
+            <button key={idx} onClick={() => onDateSelect(day)}
+              className={`flex flex-col items-center justify-center py-2 px-1 sm:py-3 sm:px-2 rounded-lg transition-all ${
+                isSelected ? 'bg-[#222E6A] text-white shadow-lg' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+              } ${isToday && !isSelected ? 'ring-2 ring-blue-400' : ''}`}>
+              <span className="text-xs font-medium mb-0.5">{formatDayName(day)}</span>
+              <span className="text-lg sm:text-xl font-bold">{day.getDate()}</span>
+            </button>
+          );
+        })}
+      </div>
+      {rosterDay?.manager_duties && rosterDay.manager_duties.length > 0 && rosterDay.manager_duties[0].employee?.user && (
+        <div className="mb-4 sm:mb-6">
+          <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-orange-50 to-pink-50 rounded-xl border border-orange-100">
+            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center text-white font-bold text-lg">
+              {getUserInitials(rosterDay.manager_duties[0].employee.user.name)}
+            </div>
+            <div>
+              <h4 className="font-bold text-gray-900 text-base">{rosterDay.manager_duties[0].employee.user.name}</h4>
+              <p className="text-sm text-gray-600">{rosterDay.manager_duties[0].duty_type}</p>
+            </div>
+          </div>
+        </div>
+      )}
+      {rosterDay && (!rosterDay.manager_duties || rosterDay.manager_duties.length === 0) && !isReadOnly && (
+        <div className="mb-4 sm:mb-6">
+          <div className="flex items-center gap-3 p-3 bg-yellow-50 rounded-xl border border-yellow-200">
+            <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <p className="text-sm text-yellow-800">No manager assigned to this day yet</p>
+          </div>
+        </div>
+      )}
+      {rosterDay ? (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+          {shifts.map((shift) => {
+            const assignments = rosterDay.shift_assignments?.filter(a => a.shift_id === shift.id) || [];
+            return (
+              <ShiftAssignmentCard key={shift.id} shift={shift} assignments={assignments}
+                backgroundColor={getShiftColor(shift.shift_name)} isReadOnly={isReadOnly}
+                onAddStaff={onAddStaff ? () => onAddStaff(shift.id) : undefined}
+                onRemoveStaff={onRemoveStaff}
+              />
+            );
+          })}
+        </div>
+      ) : (
+        <div className="text-center text-gray-400 py-8">
+          <svg className="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          <p className="text-lg font-medium">Select a date to view roster</p>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const RosterDetailPage: React.FC = () => {
-  const [roster] = useState<RosterPeriod>(mockRoster);
-  const [activeTab, setActiveTab] = useState<'calendar' | 'staff' | 'swap'>('calendar');
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date(2026, 0, 16)); // Default: Jan 16, 2026 (Wednesday)
+  const { id } = useParams<{ id: string }>();
+  const [activeTab, setActiveTab] = useState<TabType>('calendar');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [roster, setRoster] = useState<RosterPeriod | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedRosterDay, setSelectedRosterDay] = useState<RosterDay | null>(null);
+
+  // Fetch roster details on mount
+  useEffect(() => {
+    if (!id) return;
+    
+    const fetchRosterDetails = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await rosterService.getRoster(Number(id));
+        setRoster(data);
+        
+        // Set initial selected date to first day of roster
+        if (data.roster_days && data.roster_days.length > 0) {
+          const firstDay = data.roster_days[0];
+          setSelectedDate(new Date(firstDay.work_date));
+        }
+      } catch (err) {
+        console.error('Failed to fetch roster:', err);
+        setError('Failed to load roster details. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRosterDetails();
+  }, [id]);
+
+  // Update selected roster day when date changes
+  useEffect(() => {
+    if (!roster || !roster.roster_days) return;
+    
+    const dateStr = selectedDate.toISOString().split('T')[0]; // "YYYY-MM-DD"
+    const rosterDay = roster.roster_days.find(d => d.work_date === dateStr);
+    setSelectedRosterDay(rosterDay || null);
+  }, [selectedDate, roster]);
 
   const getMonthName = (month: number) => {
     return new Date(0, month - 1).toLocaleString('default', { month: 'long' });
   };
 
-  const getDaysInMonth = (year: number, month: number) => {
-    return new Date(year, month, 0).getDate();
-  };
-
-  const getFirstDayOfMonth = (year: number, month: number) => {
-    return new Date(year, month - 1, 1).getDay();
-  };
-
-  const getShiftColor = (shiftCode: string): string => {
-    switch (shiftCode) {
-      case 'pagi':
-        return 'bg-blue-500';
-      case 'siang':
-        return 'bg-yellow-400';
-      case 'malam':
-        return 'bg-green-500';
-      default:
-        return 'bg-red-500';
-    }
-  };
-
-  const getShiftLabel = (shiftCode: string): string => {
-    switch (shiftCode) {
-      case 'pagi':
-        return 'Morning Shift (07.00 - 15.00)';
-      case 'siang':
-        return 'Afternoon Shift (13.00 - 19.00)';
-      case 'malam':
-        return 'Night Shift (19.00 - 07.00)';
-      default:
-        return 'Off Day';
-    }
-  };
-
-  const getDaysInWeek = (date: Date) => {
+  const getDaysInWeek = (date: Date): Date[] => {
     const start = new Date(date);
     const day = start.getDay();
     const diff = start.getDate() - day + (day === 0 ? -6 : 1); // Adjust to Monday
     const monday = new Date(start.setDate(diff));
     
-    const week = [];
+    const week: Date[] = [];
     for (let i = 0; i < 7; i++) {
       const current = new Date(monday);
       current.setDate(monday.getDate() + i);
@@ -166,277 +247,67 @@ const RosterDetailPage: React.FC = () => {
     return week;
   };
 
-  const formatDayName = (date: Date) => {
-    return date.toLocaleDateString('en-US', { weekday: 'short' });
-  };
-
-  const isSameDay = (date1: Date, date2: Date) => {
-    return date1.getDate() === date2.getDate() &&
-           date1.getMonth() === date2.getMonth() &&
-           date1.getFullYear() === date2.getFullYear();
-  };
-
   const navigateWeek = (direction: 'prev' | 'next') => {
     const newDate = new Date(selectedDate);
     newDate.setDate(selectedDate.getDate() + (direction === 'next' ? 7 : -7));
     setSelectedDate(newDate);
   };
 
-  const getStaffByShift = (shiftCode: string) => {
-    // Sort by rank (manager first, then technicians, then support)
-    return [...mockStaffData].sort((a, b) => a.rank - b.rank);
+  const handlePrint = () => {
+    window.print();
   };
 
-  const renderRosteredStaff = () => {
-    const weekDays = getDaysInWeek(selectedDate);
-    const shifts = ['pagi', 'siang', 'malam'];
-
+  // Loading state
+  if (loading) {
     return (
-      <div className="bg-white rounded-3xl shadow-lg border border-gray-100 p-4 sm:p-6 lg:p-8">
-        {/* Week Navigation */}
-        <div className="flex items-center justify-between mb-6 sm:mb-8">
-          <button
-            onClick={() => navigateWeek('prev')}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          
-          <h3 className="text-lg sm:text-xl font-bold text-gray-900">This Week</h3>
-          
-          <button
-            onClick={() => navigateWeek('next')}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-        </div>
-
-        {/* Week Days Selector - Responsive Grid */}
-        <div className="grid grid-cols-7 sm:grid-cols-14 gap-1 mb-6 sm:mb-8 overflow-x-auto">
-          {weekDays.map((day, index) => {
-            const isSelected = isSameDay(day, selectedDate);
-            const isToday = isSameDay(day, new Date());
-            
-            return (
-              <button
-                key={index}
-                onClick={() => setSelectedDate(day)}
-                className={`flex flex-col items-center justify-center py-2 px-1 sm:py-3 sm:px-2 rounded-lg transition-all text-center ${
-                  isSelected
-                    ? 'bg-[#222E6A] text-white shadow-lg'
-                    : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                <span className="text-xs font-medium mb-0.5">{formatDayName(day)}</span>
-                <span className="text-lg sm:text-xl font-bold">{day.getDate()}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Selected Day Info */}
-        <div className="mb-4 sm:mb-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center text-2xl">
-              👨‍💼
-            </div>
-            <div>
-              <h4 className="font-bold text-gray-900 text-lg">Michael</h4>
-              <p className="text-sm text-gray-500">Technical Manager</p>
+      <PageHeader
+        title="Roster Detail"
+        subtitle="Loading..."
+        breadcrumbs={[
+          { label: 'Rosters', href: '/rosters' },
+          { label: 'Loading...' }
+        ]}
+      >
+        <div className="min-h-screen bg-gray-50 py-8">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-center py-16">
+              <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-[#222E6A]"></div>
             </div>
           </div>
         </div>
-
-        {/* Shifts */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
-          {shifts.map((shiftCode, index) => {
-            const staff = getStaffByShift(shiftCode);
-            const bgColor = getShiftColor(shiftCode);
-            
-            return (
-              <div key={index} className="border-2 border-gray-200 rounded-2xl overflow-hidden">
-                {/* Shift Header */}
-                <div className={`${bgColor} text-white px-4 py-3 font-bold text-center`}>
-                  {getShiftLabel(shiftCode)}
-                </div>
-                
-                {/* Staff List */}
-                <div className="p-4 space-y-3 bg-white">
-                  {staff.map((person) => (
-                    <div key={person.id} className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg transition-colors">
-                      <div className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-xl flex-shrink-0">
-                        {person.avatar}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-gray-900 text-sm truncate">{person.name}</p>
-                        <p className="text-xs text-gray-500 truncate">{person.position}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      </PageHeader>
     );
-  };
+  }
 
-  const renderCalendar = () => {
-    const daysInMonth = getDaysInMonth(roster.year, roster.month);
-    const firstDay = getFirstDayOfMonth(roster.year, roster.month);
-    const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1);
-
-    // Get previous month days count
-    const prevMonthDays = getDaysInMonth(roster.year, roster.month === 1 ? 12 : roster.month - 1);
-    const prevMonthEmptyDays = Array.from(
-      { length: firstDay },
-      (_, i) => prevMonthDays - firstDay + i + 1
-    );
-
-    // Create a map of dates to shift codes
-    const dateShiftMap = new Map<number, string>();
-    roster.rosterDays?.forEach(day => {
-      const dateObj = new Date(day.work_date);
-      const dayOfMonth = dateObj.getDate();
-      if (day.shift_assignments && day.shift_assignments.length > 0) {
-        const shiftCode = day.shift_assignments[0].shift?.code || 'off';
-        dateShiftMap.set(dayOfMonth, shiftCode);
-      } else {
-        dateShiftMap.set(dayOfMonth, 'off');
-      }
-    });
-
-    // Group days into weeks
-    const weeks = [];
-    let currentWeek: (number | null | string)[] = [];
-    
-    // Add previous month days
-    prevMonthEmptyDays.forEach(day => {
-      currentWeek.push(`prev-${day}`);
-    });
-    
-    // Add current month days
-    for (const day of daysArray) {
-      if (currentWeek.length === 7) {
-        weeks.push([...currentWeek]);
-        currentWeek = [];
-      }
-      currentWeek.push(day);
-    }
-    
-    // Fill remaining slots in last week with next month placeholder
-    let nextMonthDay = 1;
-    while (currentWeek.length < 7) {
-      currentWeek.push(`next-${nextMonthDay}`);
-      nextMonthDay++;
-    }
-    weeks.push(currentWeek);
-
+  // Error state
+  if (error || !roster) {
     return (
-      <>
-        {/* Print View Button - Outside calendar container */}
-        <div className="flex justify-end mb-4">
-          <button className="flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-gray-100 rounded-lg transition-colors font-medium text-gray-900 shadow-md border border-gray-200">
-            <Printer className="h-5 w-5" />
-            <span>Print View</span>
-          </button>
-        </div>
-
-        <div className="rounded-3xl p-4 sm:p-6 lg:p-10 shadow-lg border border-gray-100" style={{ backgroundColor: '#222E6A' }}>
-          {/* Header */}
-          <div className="flex items-center justify-center mb-6 sm:mb-8 lg:mb-10">
-            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white">{getMonthName(roster.month)}</h2>
-          </div>
-
-          {/* Calendar Grid */}
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse space-y-3">
-              <thead>
-                <tr>
-                  <th className="text-center font-semibold text-white text-xs py-2 px-1 sm:py-4 sm:px-3 w-8 sm:w-12"></th>
-                  {['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map(day => (
-                    <th key={day} className="text-center font-semibold text-white text-xs sm:text-sm py-2 px-1 sm:py-4 sm:px-3">
-                      {day}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {weeks.map((week, weekIndex) => (
-                  <tr key={`week-${weekIndex}`}>
-                    <td className="text-center py-2 px-1 sm:py-5 sm:px-3">
-                      <div className="w-8 h-8 sm:w-12 sm:h-12 flex items-center justify-center rounded-lg font-bold text-white text-xs sm:text-sm" style={{ backgroundColor: '#454D7C' }}>
-                        {weekIndex + 1}
-                      </div>
-                    </td>
-                    {week.map((dayValue, dayIndex) => {
-                      let content = null;
-
-                      if (typeof dayValue === 'string') {
-                        const dayNum = parseInt(dayValue.split('-')[1]);
-                        content = (
-                          <div className="w-10 h-10 sm:w-16 sm:h-16 flex items-center justify-center rounded-lg font-bold text-xs sm:text-base bg-gray-100 text-gray-400 cursor-default mx-auto">
-                            {dayNum}
-                          </div>
-                        );
-                      } else if (typeof dayValue === 'number') {
-                        const shiftCode = dateShiftMap.get(dayValue) || 'off';
-                        const bgColor = getShiftColor(shiftCode);
-                        content = (
-                          <div
-                            className={`w-10 h-10 sm:w-16 sm:h-16 flex items-center justify-center rounded-lg font-bold text-white text-xs sm:text-base cursor-pointer hover:shadow-xl transition-shadow mx-auto ${bgColor}`}
-                          >
-                            {dayValue}
-                          </div>
-                        );
-                      }
-
-                      return (
-                        <td key={`${weekIndex}-${dayIndex}`} className="text-center py-2 px-1 sm:py-5 sm:px-3">
-                          {content}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      <PageHeader
+        title="Roster Detail"
+        subtitle="Error"
+        breadcrumbs={[
+          { label: 'Rosters', href: '/rosters' },
+          { label: 'Error' }
+        ]}
+      >
+        <div className="min-h-screen bg-gray-50 py-8">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+              <svg className="w-12 h-12 text-red-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <p className="text-red-800 font-medium">{error || 'Roster not found'}</p>
+            </div>
           </div>
         </div>
-
-        {/* Legend - Terpisah dari container kalender */}
-        <div className="flex items-center justify-center gap-16 mt-8 flex-wrap">
-          <div className="flex items-center gap-3">
-            <div className="w-6 h-6 bg-blue-500 rounded" />
-            <span className="text-sm font-medium text-black">Morning</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="w-6 h-6 bg-yellow-400 rounded" />
-            <span className="text-sm font-medium text-black">Afternoon</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="w-6 h-6 bg-green-500 rounded" />
-            <span className="text-sm font-medium text-black">Night</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="w-6 h-6 bg-red-500 rounded" />
-            <span className="text-sm font-medium text-black">Off</span>
-          </div>
-        </div>
-      </>
+      </PageHeader>
     );
-  };
+  }
 
   return (
     <PageHeader
-      title="Work Schedule"
-      subtitle={`${getMonthName(roster.month)} ${roster.year}`}
+      title="Roster Detail"
+      subtitle={`${getMonthName(roster.month)} ${roster.year} - ${roster.status === 'published' ? 'Published' : 'Draft'}`}
       breadcrumbs={[
         { label: 'Rosters', href: '/rosters' },
         { label: `${getMonthName(roster.month)} ${roster.year}` }
@@ -444,6 +315,7 @@ const RosterDetailPage: React.FC = () => {
     >
       <div className="min-h-screen bg-gray-50 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Tab Navigation */}
           <div className="flex items-center justify-center mb-8">
             <div className="inline-flex items-center p-1.5 bg-white rounded-2xl shadow-lg border border-gray-200">
               <button
@@ -484,161 +356,33 @@ const RosterDetailPage: React.FC = () => {
             </div>
           </div>
 
+          {/* Tab Content */}
           <div>
-            {activeTab === 'calendar' && renderCalendar()}
+            {activeTab === 'calendar' && (
+              <RosterCalendarView
+                roster={roster}
+                shifts={mockShifts}
+                onPrint={handlePrint}
+              />
+            )}
 
             {activeTab === 'staff' && (
-              renderRosteredStaff()
+              <RosterWeekView
+                weekDays={getDaysInWeek(selectedDate)}
+                selectedDate={selectedDate}
+                onDateSelect={setSelectedDate}
+                onNavigateWeek={navigateWeek}
+                rosterDay={selectedRosterDay || undefined}
+                shifts={mockShifts}
+                isReadOnly={roster.status === 'published'}
+              />
             )}
 
             {activeTab === 'swap' && (
-              <div>
-                {/* Request Button */}
-                <div className="mb-6">
-                  <button className="flex items-center gap-2 px-4 py-2.5 bg-[#222E6A] hover:bg-[#1a235c] rounded-lg transition-colors font-medium text-white">
-                    <span className="text-xl">+</span>
-                    <span>Request Shift Swap</span>
-                  </button>
-                </div>
-
-                {/* Shift Swap Request List */}
-                <div className="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden">
-                  {/* Header */}
-                  <div className="p-6 border-b border-gray-200">
-                    <h3 className="text-xl font-bold text-gray-900 mb-2">Shift Swap Request List</h3>
-                    <p className="text-sm text-gray-600">The following is a list of submitted requests and their verification status</p>
-                  </div>
-
-                  {/* Filter and Search Section */}
-                  <div className="p-6 bg-[#222E6A]">
-                    <div className="flex items-center gap-4 flex-wrap">
-                      <div className="flex items-center gap-2">
-                        <span className="text-white text-sm font-medium">Items per page</span>
-                        <select className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 font-medium">
-                          <option>25</option>
-                          <option>50</option>
-                          <option>100</option>
-                        </select>
-                      </div>
-                      <div className="ml-auto">
-                        <input
-                          type="text"
-                          placeholder="Search"
-                          className="px-4 py-2 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Table */}
-                  <div className="relative">
-                    <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-                      <div className="inline-block min-w-full">
-                        <table className="w-full">
-                          <thead>
-                            <tr className="bg-[#454D7C]">
-                              <th className="px-6 py-4 text-left text-white font-semibold text-sm">
-                                <div className="flex items-center gap-2">
-                                  <span>Requests Type</span>
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4" />
-                                  </svg>
-                                </div>
-                              </th>
-                              <th className="px-6 py-4 text-left text-white font-semibold text-sm">
-                                <div className="flex items-center gap-2">
-                                  <span>Name & Position</span>
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4" />
-                                  </svg>
-                                </div>
-                              </th>
-                              <th className="px-6 py-4 text-left text-white font-semibold text-sm">
-                                <div className="flex items-center gap-2">
-                                  <span>Orig. Shift</span>
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4" />
-                                  </svg>
-                                </div>
-                              </th>
-                              <th className="px-6 py-4 text-left text-white font-semibold text-sm">
-                                <div className="flex items-center gap-2">
-                                  <span>Req Shift</span>
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4" />
-                                  </svg>
-                                </div>
-                              </th>
-                              <th className="px-6 py-4 text-left text-white font-semibold text-sm">
-                                <div className="flex items-center gap-2">
-                                  <span>Submitted</span>
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4" />
-                                  </svg>
-                                </div>
-                              </th>
-                              <th className="px-6 py-4 text-left text-white font-semibold text-sm">
-                                <div className="flex items-center gap-2">
-                                  <span>Status</span>
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4" />
-                                  </svg>
-                                </div>
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {mockShiftSwapRequests.map((request) => (
-                              <tr key={request.id} className="border-t border-gray-200 hover:bg-gray-50">
-                                <td className="px-6 py-4 text-sm text-gray-900 font-medium">{request.type}</td>
-                                <td className="px-6 py-4 text-sm text-gray-900">
-                                  <div>
-                                    <p className="font-medium">{request.employee.name}</p>
-                                    <p className="text-xs text-gray-500">{request.employee.position}</p>
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4 text-sm text-gray-900">{request.originalShift}</td>
-                                <td className="px-6 py-4 text-sm text-gray-900">{request.requestedShift}</td>
-                                <td className="px-6 py-4 text-sm text-gray-900">{request.submittedDate}</td>
-                                <td className="px-6 py-4 text-sm">
-                                  <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${request.statusColor}`}>
-                                    {request.status}
-                                  </span>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                    {/* Scroll Indicator for Mobile */}
-                    <div className="lg:hidden flex items-center justify-center py-2 bg-gray-50 border-t border-gray-200">
-                      <svg className="w-5 h-5 text-gray-400 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-                      </svg>
-                      <span className="ml-2 text-xs text-gray-500 font-medium">Swipe to see more</span>
-                    </div>
-                  </div>
-
-                  {/* Pagination */}
-                  <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Showing 1 to 4 of 4 entries</span>
-                    <div className="flex items-center gap-2">
-                      <button className="px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                        </svg>
-                      </button>
-                      <button className="px-3 py-2 bg-[#222E6A] text-white rounded-lg font-medium">1</button>
-                      <button className="px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <ShiftSwapRequestsTable
+                requests={mockShiftSwapRequests}
+                onRequestNew={() => console.log('Request new shift swap')}
+              />
             )}
           </div>
         </div>

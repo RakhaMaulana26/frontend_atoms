@@ -11,8 +11,6 @@ import LandingPage from './pages/LandingPage';
 import HomePage from './pages/HomePage';
 import MaintenancePage from './pages/MaintenancePage';
 import InventoryPage from './pages/InventoryPage';
-import PersonnelPage from './pages/PersonnelPage';
-import DashboardPage from './pages/DashboardPage';
 import SettingsPage from './pages/SettingsPage';
 import ActivityPage from './pages/ActivityPage';
 
@@ -49,52 +47,12 @@ function App() {
             }
           />
 
-          {/* Personnel Routes */}
+          {/* Personnel/Employee Management Routes */}
           <Route
             path="/personnel"
             element={
               <ProtectedRoute>
                 <UsersPage />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* Dashboard Routes */}
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <HomePage />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* Settings Routes */}
-          <Route
-            path="/settings"
-            element={
-              <ProtectedRoute>
-                <HomePage />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* Personnel Routes */}
-          <Route
-            path="/personnel"
-            element={
-              <ProtectedRoute>
-                <PersonnelPage />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* Dashboard Routes */}
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <DashboardPage />
               </ProtectedRoute>
             }
           />
@@ -120,22 +78,8 @@ function App() {
           />
 
           {/* Roster Routes */}
-          <Route            path="/roster"
-            element={
-              <ProtectedRoute>
-                <RostersPage />
-              </ProtectedRoute>
-            }
-          />
           <Route
-            path="/roster/create"
-            element={
-              <ProtectedRoute>
-                <RostersPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route            path="/roster"
+            path="/roster"
             element={
               <ProtectedRoute>
                 <RostersPage />
@@ -207,7 +151,7 @@ function App() {
             }
           />
 
-          {/* Activity and Support Routes - Temporary placeholders */}
+          {/* Activity Log Routes */}
           <Route
             path="/activity-log"
             element={
@@ -217,52 +161,10 @@ function App() {
             }
           />
           <Route
-            path="/support"
+            path="/activity-logs"
             element={
               <ProtectedRoute>
-                <HomePage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/quick-start"
-            element={
-              <ProtectedRoute>
-                <HomePage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/check-in"
-            element={
-              <ProtectedRoute>
-                <HomePage />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* Activity and Support Routes */}
-          <Route
-            path="/support"
-            element={
-              <ProtectedRoute>
-                <HomePage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/quick-start"
-            element={
-              <ProtectedRoute>
-                <HomePage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/check-in"
-            element={
-              <ProtectedRoute>
-                <HomePage />
+                <ActivityPage />
               </ProtectedRoute>
             }
           />
