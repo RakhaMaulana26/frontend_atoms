@@ -154,6 +154,9 @@ const RostersPage: React.FC = () => {
     refreshRosters 
   } = useDataCache();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'published'>('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [yearFilter, setYearFilter] = useState<'all' | number>('all');
   const navigate = useNavigate();
 
   const handleCreateSuccess = () => {
@@ -168,6 +171,33 @@ const RostersPage: React.FC = () => {
     setIsCreateModalOpen(false);
   };
 
+  const badgeByStatus: Record<string, string> = {
+    published: 'bg-green-100 text-green-700',
+    draft: 'bg-yellow-100 text-yellow-800',
+    default: 'bg-gray-100 text-gray-700'
+  };
+
+  const draftCount = rosters.filter(r => r.status === 'draft').length;
+  const publishedCount = rosters.filter(r => r.status === 'published').length;
+
+  const uniqueYears = Array.from(new Set(rosters.map(r => r.year))).sort((a, b) => a - b);
+
+  const lastUpdated = rosters.reduce<string | null>((acc, r) => {
+    const ts = (r as any).updated_at || (r as any).published_at || (r as any).created_at;
+    if (!ts) return acc;
+    const time = new Date(ts).getTime();
+    if (!acc) return ts;
+    return time > new Date(acc).getTime() ? ts : acc;
+  }, null);
+
+  const filteredRosters = rosters.filter(r => {
+    const matchStatus = statusFilter === 'all' ? true : r.status === statusFilter;
+    const matchYear = yearFilter === 'all' ? true : r.year === yearFilter;
+    const monthYear = `${new Date(0, r.month - 1).toLocaleString('default', { month: 'long' })} ${r.year}`;
+    const matchSearch = monthYear.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchStatus && matchYear && matchSearch;
+  });
+
   return (
     <PageHeader
       title="Roster Management"
@@ -178,88 +208,151 @@ const RostersPage: React.FC = () => {
       ]}
     >
       {/* Header Actions */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
-        <div className="flex items-center justify-between">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 sm:p-6 mb-6">
+        <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <Calendar className="h-8 w-8 text-[#222E6A]" />
             <div>
               <h2 className="text-xl font-semibold text-gray-900">Manage Rosters</h2>
-              <p className="text-gray-600 text-sm">
-                {rosters.length} roster{rosters.length !== 1 ? 's' : ''} available
-              </p>
+              <p className="text-gray-600 text-sm">{rosters.length} roster{rosters.length !== 1 ? 's' : ''} available</p>
             </div>
           </div>
-          <button
-            onClick={openCreateModal}
-            className="flex items-center gap-2 px-4 py-2 bg-[#222E6A] hover:bg-[#1a2550] text-white rounded-lg transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            Create Roster
+          <div className="flex items-center gap-3">
+            <button className="hidden sm:inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-gray-800 hover:bg-gray-50 transition-colors">
+              <span>Print Schedule</span>
+            </button>
+            <button
+              onClick={openCreateModal}
+              className="flex items-center gap-2 px-4 py-2 bg-[#222E6A] hover:bg-[#1a2550] text-white rounded-lg transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              Create New Roster
+            </button>
+          </div>
+        </div>
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-3 text-sm font-medium text-gray-800">
+          <div className="flex items-center justify-between border rounded-lg px-3 py-2">
+            <span>Year</span>
+            <select
+              className="border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none"
+              value={yearFilter === 'all' ? '' : yearFilter}
+              onChange={(e) => setYearFilter(e.target.value === '' ? 'all' : parseInt(e.target.value))}
+            >
+              <option value="">All</option>
+              {uniqueYears.map(y => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center justify-between border rounded-lg px-3 py-2">
+            <span>Draft Rosters</span>
+            <span className="text-gray-900 font-semibold">{draftCount}</span>
+          </div>
+          <div className="flex items-center justify-between border rounded-lg px-3 py-2">
+            <span>Published Rosters</span>
+            <span className="text-gray-900 font-semibold">{publishedCount}</span>
+          </div>
+          <div className="flex items-center justify-between border rounded-lg px-3 py-2">
+            <span>Last Update</span>
+            <span className="text-gray-600 text-xs sm:text-sm">{lastUpdated ? new Date(lastUpdated).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-5 mb-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
+          <div className="flex items-center gap-2 text-sm font-semibold text-gray-800">
+            <span>Filter:</span>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as 'all' | 'draft' | 'published')}
+              className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none"
+            >
+              <option value="all">All Status</option>
+              <option value="published">Published</option>
+              <option value="draft">Draft</option>
+            </select>
+          </div>
+          <div className="flex-1 w-full">
+            <input
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              type="text"
+              placeholder="Search month or year..."
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none"
+            />
+          </div>
+          <button className="inline-flex sm:hidden items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-gray-800 hover:bg-gray-50 transition-colors w-full sm:w-auto justify-center">
+            <span>Print Schedule</span>
           </button>
         </div>
       </div>
 
-      {/* Rosters List */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      {/* Rosters Grid */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 sm:p-6">
         {loadingStates.rosters ? (
           <div className="text-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#454D7C] mx-auto"></div>
             <p className="mt-4 text-gray-600">Loading rosters...</p>
           </div>
-        ) : rosters.length === 0 ? (
+        ) : filteredRosters.length === 0 ? (
           <div className="text-center py-12">
             <div className="bg-[#D8DAED] w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
               <Calendar className="h-10 w-10 text-[#454D7C]" />
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No Rosters Yet</h3>
-            <p className="text-gray-600 mb-6">
-              Create your first roster to get started with shift management
-            </p>
-            <button 
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No Rosters Found</h3>
+            <p className="text-gray-600 mb-6">Try adjusting filters or create a new roster.</p>
+            <button
               onClick={openCreateModal}
-            className="bg-[#222E6A] hover:bg-[#1a2550] text-white px-6 py-3 rounded-xl font-semibold transition-colors shadow-md hover:shadow-lg inline-flex items-center"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Create First Roster
-          </button>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {rosters.map((roster) => (
-            <div 
-              key={roster.id}
-              className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors cursor-pointer"
-              onClick={() => navigate(`/rosters/${roster.id}`)}
+              className="bg-[#222E6A] hover:bg-[#1a2550] text-white px-6 py-3 rounded-xl font-semibold transition-colors shadow-md hover:shadow-lg inline-flex items-center"
             >
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-medium text-gray-900">
-                    {new Date(0, roster.month - 1).toLocaleString('default', { month: 'long' })} {roster.year}
-                  </h3>
-                  <p className="text-sm text-gray-600">
-                    Status: <span className={`font-medium ${
-                      roster.status === 'published' ? 'text-green-600' : 'text-yellow-600'
-                    }`}>
-                      {roster.status.charAt(0).toUpperCase() + roster.status.slice(1)}
+              <Plus className="h-4 w-4 mr-2" />
+              Create Roster
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {filteredRosters.map((roster) => {
+              const label = `${new Date(0, roster.month - 1).toLocaleString('default', { month: 'long' })} ${roster.year}`;
+              const badge = badgeByStatus[roster.status] || badgeByStatus.default;
+              return (
+                <div
+                  key={roster.id}
+                  className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <p className="text-sm font-semibold text-gray-900">{label}</p>
+                    <span className={`text-xs font-semibold px-2 py-1 rounded ${badge}`}>
+                      {roster.status ? roster.status.charAt(0).toUpperCase() + roster.status.slice(1) : 'Draft'}
                     </span>
-                  </p>
-                  {roster.published_at && (
-                    <p className="text-xs text-gray-500">
-                      Published: {new Date(roster.published_at).toLocaleDateString()}
-                    </p>
-                  )}
+                  </div>
+                  <div className="text-xs text-gray-700 space-y-1 mb-4">
+                    <p>Staffing Coverage: 100%</p>
+                    <p>Last Edited: {(roster as any).updated_at ? new Date((roster as any).updated_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'}</p>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      onClick={() => navigate(`/rosters/${roster.id}`)}
+                      className="text-xs border border-gray-300 rounded px-2 py-1.5 text-gray-800 hover:bg-gray-50"
+                    >
+                      View
+                    </button>
+                    <button
+                      onClick={() => navigate(`/rosters/${roster.id}/edit`)}
+                      className="text-xs border border-gray-300 rounded px-2 py-1.5 text-gray-800 hover:bg-gray-50"
+                    >
+                      Edit
+                    </button>
+                    <button className="text-xs border border-gray-300 rounded px-2 py-1.5 text-gray-800 hover:bg-gray-50">
+                      Publish
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Calendar className="h-5 w-5 text-gray-400" />
-                  <span className="text-sm text-gray-500">
-                    {roster.rosterDays?.length || 0} days
-                  </span>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+              );
+            })}
+          </div>
+        )}
       </div>
       
       {/* Create Roster Modal */}
