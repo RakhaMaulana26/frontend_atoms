@@ -135,6 +135,115 @@ export const rosterService = {
     return response.data;
   },
 
+  /**
+   * Import roster from Google Spreadsheet URL
+   * POST /rosters/import-url
+   */
+  async importRosterFromUrl(spreadsheetUrl: string, useAI: boolean = false): Promise<{
+    message: string;
+    data: {
+      roster_period: RosterPeriod;
+      month: number;
+      year: number;
+      stats: {
+        employees_processed: number;
+        employees_created: number;
+        assignments_created: number;
+        assignments_skipped: number;
+        errors: string[];
+      };
+    };
+  }> {
+    const response = await apiClient.post('/rosters/import-url', {
+      spreadsheet_url: spreadsheetUrl,
+      use_ai: useAI,
+    }, {
+      timeout: useAI ? 300000 : 60000, // 5 minutes for AI, 1 minute for standard
+    });
+    return response.data;
+  },
+
+  /**
+   * Update roster period
+   * PUT /rosters/:id
+   */
+  async updateRoster(rosterId: number, data: { month?: number; year?: number }): Promise<{
+    message: string;
+    data: RosterPeriod;
+  }> {
+    const response = await apiClient.put(`/rosters/${rosterId}`, data);
+    return response.data;
+  },
+
+  /**
+   * Delete roster period
+   * DELETE /rosters/:id
+   */
+  async deleteRoster(rosterId: number): Promise<{ message: string }> {
+    const response = await apiClient.delete(`/rosters/${rosterId}`);
+    return response.data;
+  },
+
+  /**
+   * Sync roster from linked Google Spreadsheet
+   * POST /rosters/:id/sync
+   */
+  async syncRoster(rosterId: number): Promise<{
+    message: string;
+    data: {
+      roster_period: RosterPeriod;
+      stats: {
+        employees_processed: number;
+        employees_created: number;
+        assignments_updated: number;
+        assignments_created: number;
+        assignments_deleted: number;
+        errors: string[];
+      };
+    };
+  }> {
+    const response = await apiClient.post(`/rosters/${rosterId}/sync`, {}, {
+      timeout: 60000, // 1 minute timeout
+    });
+    return response.data;
+  },
+
+  /**
+   * Update spreadsheet URL for roster
+   * PUT /rosters/:id/spreadsheet-url
+   */
+  async updateSpreadsheetUrl(rosterId: number, spreadsheetUrl: string): Promise<{
+    message: string;
+    data: RosterPeriod;
+  }> {
+    const response = await apiClient.put(`/rosters/${rosterId}/spreadsheet-url`, {
+      spreadsheet_url: spreadsheetUrl,
+    });
+    return response.data;
+  },
+
+  /**
+   * Push roster data to Google Spreadsheet (two-way sync)
+   * POST /rosters/:id/push
+   */
+  async pushToSpreadsheet(rosterId: number): Promise<{
+    message: string;
+    data: {
+      roster_period: RosterPeriod;
+      sync_result: {
+        success: boolean;
+        updated_cells: number;
+        rows: number;
+        columns: number;
+      };
+    };
+  }> {
+    const response = await apiClient.post(`/rosters/${rosterId}/push`, {}, {
+      timeout: 60000, // 1 minute timeout
+    });
+    return response.data;
+  },
+
   // Helper functions
   helpers: {
     /**

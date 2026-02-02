@@ -65,6 +65,8 @@ export interface RosterPeriod {
   month: number; // 1-12
   year: number;
   status: 'draft' | 'published';
+  spreadsheet_url?: string | null; // Linked Google Spreadsheet URL
+  last_synced_at?: string | null;  // Last sync timestamp
   created_at: string;
   updated_at: string;
   roster_days?: RosterDay[];

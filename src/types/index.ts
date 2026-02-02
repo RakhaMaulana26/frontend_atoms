@@ -131,6 +131,8 @@ export interface RosterPeriod {
   month: number;
   year: number;
   status: 'draft' | 'published';
+  spreadsheet_url?: string | null; // Linked Google Spreadsheet URL
+  last_synced_at?: string | null;  // Last sync timestamp
   published_at?: string | null;
   created_by: number;
   created_at: string;

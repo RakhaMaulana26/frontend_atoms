@@ -82,10 +82,14 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
     
     setLoadingStates(prev => ({ ...prev, users: true }));
     try {
-      const response = await adminService.getUsers({});
-      setUsers(response.data);
+      // Request all users without pagination for caching
+      const response = await adminService.getUsers({ all: 'true' });
+      // Handle both array and pagination response
+      const usersData = Array.isArray(response) ? response : (response.data || []);
+      setUsers(usersData);
     } catch (error) {
       console.error('Failed to load users cache:', error);
+      setUsers([]);
     } finally {
       setLoadingStates(prev => ({ ...prev, users: false }));
     }

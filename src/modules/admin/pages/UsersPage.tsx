@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { toast } from 'react-toastify';
 import { useAuth } from '../../auth/core/AuthContext';
 import { useDataCache } from '../../../contexts/DataCacheContext';
@@ -11,16 +11,18 @@ import Table from '../../../components/common/Table';
 import Modal from '../../../components/common/Modal';
 import Input from '../../../components/common/Input';
 import Select from '../../../components/common/Select';
-import { Edit, Trash2, RotateCcw, Key, Users, Search, Plus, MoreVertical } from 'lucide-react';
+import { Edit, Trash2, RotateCcw, Key, Users, Search, Plus, MoreVertical, ChevronLeft, ChevronRight } from 'lucide-react';
 import LoadingScreen from '../../../components/common/LoadingScreen';
 import { CreateUserModal, EditUserModal, TokenModal } from '../components';
 
 const UsersPage: React.FC = () => {
   const { logout } = useAuth();
-  const { users: cachedUsers, isInitialized, addUser, updateUser: updateCachedUser, removeUser } = useDataCache();
+  const { users: cachedUsers, refreshUsers, loadingStates } = useDataCache();
+  const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRole, setSelectedRole] = useState('');
   const [selectedEmployeeType, setSelectedEmployeeType] = useState('');
+  const perPage = 15;
   
   // Modal states
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -51,47 +53,79 @@ const UsersPage: React.FC = () => {
   }, []);
 
   // Debounce search query
-  const debouncedSearchQuery = useDebounce(searchQuery, 500);
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
-  // Filter users from cache
+  // Filter and sort users on client-side
   const filteredUsers = useMemo(() => {
-    return cachedUsers.filter(user => {
-      const matchesSearch = !debouncedSearchQuery || 
-        user.name.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
-        user.email.toLowerCase().includes(debouncedSearchQuery.toLowerCase());
-      
-      const matchesRole = !selectedRole || user.role === selectedRole;
-      const matchesEmployeeType = !selectedEmployeeType || 
-        user.employee?.employee_type === selectedEmployeeType;
-      
-      return matchesSearch && matchesRole && matchesEmployeeType;
-    });
+    let filtered = [...cachedUsers];
+
+    // Apply search filter
+    if (debouncedSearchQuery) {
+      const query = debouncedSearchQuery.toLowerCase();
+      filtered = filtered.filter(user => 
+        user.name.toLowerCase().includes(query) ||
+        user.email.toLowerCase().includes(query)
+      );
+    }
+
+    // Apply role filter
+    if (selectedRole) {
+      filtered = filtered.filter(user => user.role === selectedRole);
+    }
+
+    // Apply employee type filter
+    if (selectedEmployeeType) {
+      filtered = filtered.filter(user => 
+        user.employee?.employee_type?.toLowerCase() === selectedEmployeeType.toLowerCase()
+      );
+    }
+
+    return filtered;
   }, [cachedUsers, debouncedSearchQuery, selectedRole, selectedEmployeeType]);
 
-  // Create user handler with optimistic updates
-  const handleCreateSuccess = useCallback((newUser?: User | null, tempId?: number | string) => {
-    if (newUser === null && tempId) {
-      // Rollback - remove temporary user
-      removeUser(tempId as any);
-    } else if (newUser && tempId) {
-      // Replace temporary user with real user
-      removeUser(tempId as any);
-      addUser(newUser);
-    } else if (newUser) {
-      // Add new user (optimistic)
-      addUser(newUser);
+  // Calculate pagination from filtered data
+  const paginatedUsers = useMemo(() => {
+    const startIndex = (currentPage - 1) * perPage;
+    const endIndex = startIndex + perPage;
+    return filteredUsers.slice(startIndex, endIndex);
+  }, [filteredUsers, currentPage, perPage]);
+
+  const totalPages = Math.ceil(filteredUsers.length / perPage);
+
+  // Debug: Check if data is loaded
+  useEffect(() => {
+    console.log('Users Page - Data Check:', {
+      cachedUsersCount: cachedUsers.length,
+      filteredUsersCount: filteredUsers.length,
+      paginatedUsersCount: paginatedUsers.length,
+      totalPages,
+      currentPage,
+      perPage,
+      isLoading: loadingStates.users
+    });
+  }, [cachedUsers.length, filteredUsers.length, paginatedUsers.length, totalPages, currentPage, perPage, loadingStates.users]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearchQuery, selectedRole, selectedEmployeeType]);
+
+  // Create user handler
+  const handleCreateSuccess = useCallback(async (newUser?: User | null) => {
+    if (newUser) {
+      await refreshUsers(); // Refresh cache - will automatically update cachedUsers
     }
     setIsCreateModalOpen(false);
-  }, [addUser, removeUser]);
+  }, [refreshUsers]);
 
   // Update user handler
-  const handleUpdateSuccess = useCallback((updatedUser?: User) => {
+  const handleUpdateSuccess = useCallback(async (updatedUser?: User) => {
     if (updatedUser) {
-      updateCachedUser(updatedUser.id, updatedUser);
+      await refreshUsers(); // Refresh cache - will automatically update cachedUsers
     }
     setIsEditModalOpen(false);
     setSelectedUser(null);
-  }, [updateCachedUser]);
+  }, [refreshUsers]);
 
   // Generate token handler
   const handleGenerateToken = async (user: User) => {
@@ -166,7 +200,7 @@ const UsersPage: React.FC = () => {
     try {
       await adminService.deleteUser(selectedUser.id);
       toast.success('User deleted successfully');
-      updateCachedUser(selectedUser.id, { ...selectedUser, deleted_at: new Date().toISOString() });
+      await refreshUsers(); // Refresh cache - will automatically update cachedUsers
       setIsDeleteModalOpen(false);
       setSelectedUser(null);
     } catch (error: any) {
@@ -177,16 +211,24 @@ const UsersPage: React.FC = () => {
   // Restore user handler
   const handleRestore = async (user: User) => {
     try {
-      const restoredUser = await adminService.restoreUser(user.id);
+      await adminService.restoreUser(user.id);
       toast.success('User restored successfully');
-      updateCachedUser(user.id, restoredUser);
+      await refreshUsers(); // Refresh cache - will automatically update cachedUsers
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to restore user');
     }
   };
 
+  // Pagination handlers
+  // Pagination handlers
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage);
+    }
+  };
+
   // Table columns definition
-  const columns = useMemo(() => [
+  const columns = [
     {
       key: 'name',
       header: 'Name',
@@ -352,10 +394,10 @@ const UsersPage: React.FC = () => {
         </div>
       ),
     },
-  ], [isGeneratingToken, openDropdownId]);
+  ];
 
-  // Show loading if cache is not initialized
-  if (!isInitialized) {
+  // Show loading on initial load
+  if (loadingStates.users && cachedUsers.length === 0) {
     return (
       <LoadingScreen 
         title="Loading Personnel Data"
@@ -427,7 +469,72 @@ const UsersPage: React.FC = () => {
 
       {/* Users Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-        <Table columns={columns} data={filteredUsers} keyExtractor={(user) => user.id.toString()} />
+        <Table columns={columns} data={paginatedUsers} keyExtractor={(user) => user.id.toString()} />
+        
+        {/* Pagination Controls - Always visible if there's data */}
+        {filteredUsers.length > 0 && (
+          <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100">
+            <div className="text-sm text-gray-600">
+              Showing {((currentPage - 1) * perPage) + 1} to{' '}
+              {Math.min(currentPage * perPage, filteredUsers.length)} of{' '}
+              {filteredUsers.length} users
+              {totalPages > 1 && <span className="ml-2 text-gray-400">• Page {currentPage} of {totalPages}</span>}
+            </div>
+            
+            {totalPages > 1 && (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className="px-3 py-2 flex items-center gap-1"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  <span>Previous</span>
+                </Button>
+                
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(page => {
+                      // Show first page, last page, current page, and adjacent pages
+                      return page === 1 || 
+                             page === totalPages || 
+                             Math.abs(page - currentPage) <= 1;
+                    })
+                    .map((page, index, array) => (
+                      <React.Fragment key={page}>
+                        {/* Show ellipsis if there's a gap */}
+                        {index > 0 && page - array[index - 1] > 1 && (
+                          <span className="px-3 py-2 text-gray-400">...</span>
+                        )}
+                        <Button
+                          variant={page === currentPage ? 'primary' : 'outline'}
+                          onClick={() => handlePageChange(page)}
+                          className={`px-4 py-2 min-w-[40px] ${
+                            page === currentPage 
+                              ? 'bg-[#222E6A] text-white' 
+                              : 'hover:bg-gray-50'
+                          }`}
+                        >
+                          {page}
+                        </Button>
+                      </React.Fragment>
+                    ))}
+                </div>
+                
+                <Button
+                  variant="outline"
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-2 flex items-center gap-1"
+                >
+                  <span>Next</span>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Modals */}
