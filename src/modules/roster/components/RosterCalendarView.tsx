@@ -93,9 +93,9 @@ const RosterCalendarView: React.FC<RosterCalendarViewProps> = ({
     weeks.push(currentWeek);
 
     return (
-      <div className="rounded-3xl p-4 sm:p-6 lg:p-10 shadow-lg border border-gray-100" style={{ backgroundColor: '#222E6A' }}>
+      <div className="rounded-xl sm:rounded-3xl p-4 sm:p-8 lg:p-12 shadow-lg border border-gray-100" style={{ backgroundColor: '#222E6A', marginLeft: '-0.5rem', marginRight: '-0.5rem', width: 'calc(100% + 1rem)' }}>
         {/* Header */}
-        <div className="flex items-center justify-center mb-6 sm:mb-8 lg:mb-10">
+        <div className="flex items-center justify-center mb-6 sm:mb-10 lg:mb-12">
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white">
             {getMonthName(roster.month)}
           </h2>
@@ -103,12 +103,20 @@ const RosterCalendarView: React.FC<RosterCalendarViewProps> = ({
 
         {/* Calendar Grid */}
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
+          <table className="w-full border-collapse mx-auto">
+            <colgroup>
+              <col style={{ width: '14.28%' }} />
+              <col style={{ width: '14.28%' }} />
+              <col style={{ width: '14.28%' }} />
+              <col style={{ width: '14.28%' }} />
+              <col style={{ width: '14.28%' }} />
+              <col style={{ width: '14.28%' }} />
+              <col style={{ width: '14.28%' }} />
+            </colgroup>
             <thead>
               <tr>
-                <th className="text-center font-semibold text-white text-xs py-2 px-1 sm:py-4 sm:px-3 w-8 sm:w-12"></th>
                 {['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map(day => (
-                  <th key={day} className="text-center font-semibold text-white text-xs sm:text-sm py-2 px-1 sm:py-4 sm:px-3">
+                  <th key={day} className="text-center font-semibold text-white text-s sm:text-xl py-2 sm:py-4 px-1 sm:px-2">
                     {day}
                   </th>
                 ))}
@@ -117,19 +125,14 @@ const RosterCalendarView: React.FC<RosterCalendarViewProps> = ({
             <tbody>
               {weeks.map((week, weekIndex) => (
                 <tr key={`week-${weekIndex}`}>
-                  <td className="text-center py-2 px-1 sm:py-5 sm:px-3">
-                    <div className="w-8 h-8 sm:w-12 sm:h-12 flex items-center justify-center rounded-lg font-bold text-white text-xs sm:text-sm" style={{ backgroundColor: '#454D7C' }}>
-                      {weekIndex + 1}
-                    </div>
-                  </td>
                   {week.map((dayValue, dayIndex) => {
                     let content = null;
-
+                    
                     if (typeof dayValue === 'string') {
                       // Previous/next month days
                       const dayNum = parseInt(dayValue.split('-')[1]);
                       content = (
-                        <div className="w-10 h-10 sm:w-16 sm:h-16 flex items-center justify-center rounded-lg font-bold text-xs sm:text-base bg-gray-100 text-gray-400 cursor-default mx-auto">
+                        <div className="w-9 h-9 sm:w-20 sm:h-16 lg:w-16 lg:h-16 flex items-center justify-center rounded-md font-semibold text-md sm:text-xl lg:text-3xl bg-gray-100 text-gray-400 cursor-default mx-auto">
                           {dayNum}
                         </div>
                       );
@@ -139,7 +142,7 @@ const RosterCalendarView: React.FC<RosterCalendarViewProps> = ({
                       const bgColor = getShiftColor(shiftName);
                       content = (
                         <div
-                          className={`w-10 h-10 sm:w-16 sm:h-16 flex items-center justify-center rounded-lg font-bold text-white text-xs sm:text-base cursor-pointer hover:shadow-xl transition-shadow mx-auto ${bgColor}`}
+                          className={`w-9 h-9 sm:w-20 sm:h-16 lg:w-16 lg:h-16 flex items-center justify-center rounded-md font-semibold text-white text-md sm:text-xl lg:text-3xl cursor-pointer hover:shadow-xl transition-shadow mx-auto ${bgColor}`}
                           title={shiftName}
                         >
                           {dayValue}
@@ -148,7 +151,7 @@ const RosterCalendarView: React.FC<RosterCalendarViewProps> = ({
                     }
 
                     return (
-                      <td key={`${weekIndex}-${dayIndex}`} className="text-center py-2 px-1 sm:py-5 sm:px-3">
+                      <td key={`${weekIndex}-${dayIndex}`} className="text-center py-1.5 sm:py-3 px-1 sm:px-1">
                         {content}
                       </td>
                     );
@@ -168,7 +171,7 @@ const RosterCalendarView: React.FC<RosterCalendarViewProps> = ({
       <div className="flex justify-end mb-4">
         <button 
           onClick={onPrint}
-          className="flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-gray-100 rounded-lg transition-colors font-medium text-gray-900 shadow-md border border-gray-200"
+          className="flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-gray-100 rounded-md transition-colors font-medium text-gray-900 shadow-md border border-gray-200"
         >
           <Printer className="h-5 w-5" />
           <span>Print View</span>

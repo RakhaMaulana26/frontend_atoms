@@ -60,7 +60,7 @@ const RosterWeekView: React.FC<RosterWeekViewProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-3xl shadow-lg border border-gray-100 p-4 sm:p-6 lg:p-8">
+    <div className="bg-white rounded-3xl shadow-lg border border-gray-100 -mx-4 sm:mx-0 p-4 sm:p-6 lg:p-8">
       {/* Week Navigation */}
       <div className="flex items-center justify-between mb-6 sm:mb-8">
         <button

@@ -15,12 +15,14 @@ import PageHeader from '../../../components/layout/PageHeader';
 import { rosterService } from '../repository/rosterService';
 import type { RosterPeriod, RosterDay, Shift } from '../types/roster';
 import RosterCalendarView from '../components/RosterCalendarView';
+import RosteredStaffCalendarView from '../components/RosteredStaffCalendarView';
 import ShiftSwapRequestsTable from '../components/ShiftSwapRequestsTable';
 // Temporary: Import moved inline due to TypeScript cache issue
 // import { RosterWeekView } from '../components/RosterWeekView';
 import ShiftAssignmentCard from '../components/ShiftAssignmentCard';
 
 type TabType = 'calendar' | 'staff' | 'swap';
+type StaffViewType = 'week' | 'calendar';
 
 // Mock shifts data - TODO: Fetch from backend (/shifts endpoint)
 const mockShifts: Shift[] = [
@@ -186,6 +188,7 @@ const RosterWeekView: React.FC<{
 const RosterDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [activeTab, setActiveTab] = useState<TabType>('calendar');
+  const [staffView, setStaffView] = useState<StaffViewType>('week');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [roster, setRoster] = useState<RosterPeriod | null>(null);
@@ -314,7 +317,7 @@ const RosterDetailPage: React.FC = () => {
       ]}
     >
       <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-6">
           {/* Tab Navigation */}
           <div className="flex items-center justify-center mb-8">
             <div className="inline-flex items-center p-1.5 bg-white rounded-2xl shadow-lg border border-gray-200">
@@ -367,15 +370,46 @@ const RosterDetailPage: React.FC = () => {
             )}
 
             {activeTab === 'staff' && (
-              <RosterWeekView
-                weekDays={getDaysInWeek(selectedDate)}
-                selectedDate={selectedDate}
-                onDateSelect={setSelectedDate}
-                onNavigateWeek={navigateWeek}
-                rosterDay={selectedRosterDay || undefined}
-                shifts={mockShifts}
-                isReadOnly={roster.status === 'published'}
-              />
+              <div className="space-y-4">
+                <div className="flex items-center justify-end">
+                  <div className="inline-flex items-center p-1.5 bg-white rounded-2xl shadow-md border border-gray-200">
+                    <button
+                      onClick={() => setStaffView('week')}
+                      className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+                        staffView === 'week'
+                          ? 'bg-gradient-to-r from-[#454D7C] to-[#5A6299] text-white'
+                          : 'text-gray-700 hover:text-gray-900'
+                      }`}
+                    >
+                      Weekly
+                    </button>
+                    <button
+                      onClick={() => setStaffView('calendar')}
+                      className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+                        staffView === 'calendar'
+                          ? 'bg-gradient-to-r from-[#454D7C] to-[#5A6299] text-white'
+                          : 'text-gray-700 hover:text-gray-900'
+                      }`}
+                    >
+                      Calendar
+                    </button>
+                  </div>
+                </div>
+
+                {staffView === 'week' ? (
+                  <RosterWeekView
+                    weekDays={getDaysInWeek(selectedDate)}
+                    selectedDate={selectedDate}
+                    onDateSelect={setSelectedDate}
+                    onNavigateWeek={navigateWeek}
+                    rosterDay={selectedRosterDay || undefined}
+                    shifts={mockShifts}
+                    isReadOnly={roster.status === 'published'}
+                  />
+                ) : (
+                  <RosteredStaffCalendarView roster={roster} shifts={mockShifts} />
+                )}
+              </div>
             )}
 
             {activeTab === 'swap' && (
