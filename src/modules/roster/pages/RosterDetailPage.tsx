@@ -11,22 +11,20 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Calendar, Users, ArrowRightLeft } from 'lucide-react';
-import PageHeader from '../../../components/layout/PageHeader';
+import { PageHeader, RosterCalendarView, ShiftAssignmentCard } from '../../../components';
 import { rosterService } from '../repository/rosterService';
+import { useAuth } from '../../auth/core/AuthContext';
 import type { RosterPeriod, RosterDay, Shift } from '../types/roster';
-import RosterCalendarView from '../components/RosterCalendarView';
 import ShiftSwapRequestsTable from '../components/ShiftSwapRequestsTable';
-// Temporary: Import moved inline due to TypeScript cache issue
-// import { RosterWeekView } from '../components/RosterWeekView';
-import ShiftAssignmentCard from '../components/ShiftAssignmentCard';
+import SwapShiftModal from '../../../components/modals/roster/SwapShiftModal';
 
 type TabType = 'calendar' | 'staff' | 'swap';
 
 // Mock shifts data - TODO: Fetch from backend (/shifts endpoint)
 const mockShifts: Shift[] = [
-  { id: 1, shift_name: 'Shift 1 - Morning', start_time: '07:00:00', end_time: '15:00:00' },
-  { id: 2, shift_name: 'Shift 2 - Afternoon', start_time: '13:00:00', end_time: '19:00:00' },
-  { id: 3, shift_name: 'Shift 3 - Night', start_time: '19:00:00', end_time: '07:00:00' }
+  { id: 1, name: 'Shift 1 - Morning' },
+  { id: 2, name: 'Shift 2 - Afternoon' },
+  { id: 3, name: 'Shift 3 - Night' }
 ];
 
 // Mock swap requests - TODO: Fetch from backend (/shift-swap-requests endpoint)
@@ -135,19 +133,34 @@ const RosterWeekView: React.FC<{
           );
         })}
       </div>
-      {rosterDay?.manager_duties && rosterDay.manager_duties.length > 0 && rosterDay.manager_duties[0].employee?.user && (
-        <div className="mb-4 sm:mb-6">
-          <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-orange-50 to-pink-50 rounded-xl border border-orange-100">
-            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center text-white font-bold text-lg">
-              {getUserInitials(rosterDay.manager_duties[0].employee.user.name)}
-            </div>
-            <div>
-              <h4 className="font-bold text-gray-900 text-base">{rosterDay.manager_duties[0].employee.user.name}</h4>
-              <p className="text-sm text-gray-600">{rosterDay.manager_duties[0].duty_type}</p>
+      {rosterDay?.manager_duties && rosterDay.manager_duties.length > 0 && (() => {
+        // Show summary of all managers for this day
+        const uniqueManagers = rosterDay.manager_duties.reduce((acc, duty) => {
+          if (!acc.find(d => d.employee_id === duty.employee_id)) acc.push(duty);
+          return acc;
+        }, [] as typeof rosterDay.manager_duties);
+        return (
+          <div className="mb-4 sm:mb-6">
+            <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-orange-50 to-pink-50 rounded-xl border border-orange-100">
+              <div className="flex -space-x-2">
+                {uniqueManagers.slice(0, 3).map((duty) => (
+                  <div key={duty.id} className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center text-white font-bold text-sm ring-2 ring-white">
+                    {getUserInitials(duty.employee.user.name)}
+                  </div>
+                ))}
+              </div>
+              <div>
+                <h4 className="font-bold text-gray-900 text-base">
+                  {uniqueManagers.map(d => d.employee.user.name).join(', ')}
+                </h4>
+                <p className="text-sm text-gray-600">
+                  {uniqueManagers.length} Manager(s) • Assigned per shift
+                </p>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
       {rosterDay && (!rosterDay.manager_duties || rosterDay.manager_duties.length === 0) && !isReadOnly && (
         <div className="mb-4 sm:mb-6">
           <div className="flex items-center gap-3 p-3 bg-yellow-50 rounded-xl border border-yellow-200">
@@ -162,9 +175,11 @@ const RosterWeekView: React.FC<{
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
           {shifts.map((shift) => {
             const assignments = rosterDay.shift_assignments?.filter(a => a.shift_id === shift.id) || [];
+            const shiftManagerDuties = rosterDay.manager_duties?.filter(d => d.shift_id === shift.id) || [];
             return (
               <ShiftAssignmentCard key={shift.id} shift={shift} assignments={assignments}
-                backgroundColor={getShiftColor(shift.shift_name)} isReadOnly={isReadOnly}
+                managerDuties={shiftManagerDuties}
+                backgroundColor={getShiftColor(shift.name)} isReadOnly={isReadOnly}
                 onAddStaff={onAddStaff ? () => onAddStaff(shift.id) : undefined}
                 onRemoveStaff={onRemoveStaff}
               />
@@ -185,12 +200,17 @@ const RosterWeekView: React.FC<{
 
 const RosterDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('calendar');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [roster, setRoster] = useState<RosterPeriod | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedRosterDay, setSelectedRosterDay] = useState<RosterDay | null>(null);
+  const [isSwapShiftModalOpen, setIsSwapShiftModalOpen] = useState(false);
+
+  // Only Admin, Manager Teknik, General Manager can edit rosters
+  const canManageRoster = ['Admin', 'Manager Teknik', 'General Manager'].includes(user?.role || '');
 
   // Fetch roster details on mount
   useEffect(() => {
@@ -317,13 +337,21 @@ const RosterDetailPage: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Tab Navigation */}
           <div className="flex items-center justify-center mb-8">
-            <div className="inline-flex items-center p-1.5 bg-white rounded-2xl shadow-lg border border-gray-200">
+            <div className="relative inline-flex items-center gap-1 p-1.5 bg-white rounded-2xl shadow-lg border border-gray-200">
+              {/* Animated Sliding Indicator */}
+              <div
+                className="absolute h-[calc(100%-12px)] bg-gradient-to-br from-[#222E6A] via-[#2a3a7f] to-[#1a235c] rounded-xl transition-all duration-300 ease-out shadow-md"
+                style={{
+                  width: activeTab === 'calendar' ? '140px' : activeTab === 'staff' ? '175px' : '205px',
+                  left: activeTab === 'calendar' ? '6px' : activeTab === 'staff' ? '152px' : '333px',
+                }}
+              />
+
+              {/* Tab Buttons */}
               <button
                 onClick={() => setActiveTab('calendar')}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-colors ${
-                  activeTab === 'calendar'
-                    ? 'bg-gradient-to-r from-[#454D7C] to-[#5A6299] text-white'
-                    : 'text-gray-700 hover:text-gray-900'
+                className={`relative z-10 flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold transition-colors duration-300 ${
+                  activeTab === 'calendar' ? 'text-white' : 'text-gray-700 hover:text-gray-900'
                 }`}
               >
                 <Calendar className="h-5 w-5" />
@@ -332,10 +360,8 @@ const RosterDetailPage: React.FC = () => {
 
               <button
                 onClick={() => setActiveTab('staff')}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-colors ${
-                  activeTab === 'staff'
-                    ? 'bg-gradient-to-r from-[#454D7C] to-[#5A6299] text-white'
-                    : 'text-gray-700 hover:text-gray-900'
+                className={`relative z-10 flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold transition-colors duration-300 ${
+                  activeTab === 'staff' ? 'text-white' : 'text-gray-700 hover:text-gray-900'
                 }`}
               >
                 <Users className="h-5 w-5" />
@@ -344,10 +370,8 @@ const RosterDetailPage: React.FC = () => {
 
               <button
                 onClick={() => setActiveTab('swap')}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-colors ${
-                  activeTab === 'swap'
-                    ? 'bg-gradient-to-r from-[#454D7C] to-[#5A6299] text-white'
-                    : 'text-gray-700 hover:text-gray-900'
+                className={`relative z-10 flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold transition-colors duration-300 ${
+                  activeTab === 'swap' ? 'text-white' : 'text-gray-700 hover:text-gray-900'
                 }`}
               >
                 <ArrowRightLeft className="h-5 w-5" />
@@ -363,6 +387,7 @@ const RosterDetailPage: React.FC = () => {
                 roster={roster}
                 shifts={mockShifts}
                 onPrint={handlePrint}
+                currentEmployeeId={user?.employee?.id ?? undefined}
               />
             )}
 
@@ -374,19 +399,30 @@ const RosterDetailPage: React.FC = () => {
                 onNavigateWeek={navigateWeek}
                 rosterDay={selectedRosterDay || undefined}
                 shifts={mockShifts}
-                isReadOnly={roster.status === 'published'}
+                isReadOnly={roster.status === 'published' || !canManageRoster}
               />
             )}
 
             {activeTab === 'swap' && (
               <ShiftSwapRequestsTable
                 requests={mockShiftSwapRequests}
-                onRequestNew={() => console.log('Request new shift swap')}
+                onRequestNew={() => setIsSwapShiftModalOpen(true)}
               />
             )}
           </div>
         </div>
       </div>
+
+      {/* Shift Swap Modal */}
+      <SwapShiftModal
+        isOpen={isSwapShiftModalOpen}
+        onClose={() => setIsSwapShiftModalOpen(false)}
+        onSuccess={() => {
+          // Refresh shift swap requests after successful submission
+          // TODO: Re-fetch shift swap requests from backend
+          setIsSwapShiftModalOpen(false);
+        }}
+      />
     </PageHeader>
   );
 };

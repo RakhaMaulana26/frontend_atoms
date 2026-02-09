@@ -1,6 +1,8 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../modules/auth/core/AuthContext';
+import { useDataCache } from '../../contexts/DataCacheContext';
+import InitialLoadingPage from '../../pages/InitialLoadingPage';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -8,14 +10,17 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles }) => {
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, user } = useAuth();
+  const { isLoading: dataLoading, isInitialized } = useDataCache();
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-      </div>
-    );
+  // Show full loading page during auth check
+  if (authLoading) {
+    return <InitialLoadingPage message="Checking authentication..." />;
+  }
+
+  // Show full loading page during initial data loading
+  if (isAuthenticated && !isInitialized && dataLoading) {
+    return <InitialLoadingPage message="Loading your workspace..." />;
   }
 
   if (!isAuthenticated) {

@@ -22,9 +22,7 @@ export interface Employee {
 // Shift Types
 export interface Shift {
   id: number;
-  shift_name: string;
-  start_time: string; // Format: "07:00:00"
-  end_time: string;   // Format: "19:00:00"
+  name: string;  // Shift name (e.g., "pagi", "siang", "malam")
 }
 
 // Shift Assignment (Employee assigned to shift on specific day)
@@ -38,14 +36,16 @@ export interface ShiftAssignment {
   shift: Shift;
 }
 
-// Manager Duty (Manager assigned to specific day)
+// Manager Duty (Manager assigned to specific shift on specific day)
 export interface ManagerDuty {
   id: number;
   roster_day_id: number;
   employee_id: number;
   duty_type: 'Manager Teknik' | 'General Manager';
+  shift_id: number;
   created_at: string;
   employee: Employee;
+  shift?: Shift;
 }
 
 // Roster Day (Single day in roster period)
@@ -81,6 +81,7 @@ export interface CreateShiftAssignmentRequest {
 export interface CreateManagerDutyRequest {
   employee_id: number;
   duty_type: 'Manager Teknik' | 'General Manager';
+  shift_id: number;
 }
 
 export interface CreateAssignmentsRequest {
@@ -90,7 +91,7 @@ export interface CreateAssignmentsRequest {
 
 // Validation Types
 export interface ShiftValidation {
-  shift_name: string;
+  name: string;
   cns_count: number;
   support_count: number;
   total_count: number;

@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Clock, Calendar } from 'lucide-react';
+import Button from '../../ui/Button';
 
 const TodayScheduleBanner: React.FC = () => {
   const navigate = useNavigate();
@@ -112,13 +113,14 @@ const TodayScheduleBanner: React.FC = () => {
           </div>
           
           <div className="flex gap-4">
-            <button 
+            <Button 
               onClick={() => navigate('/roster')}
-              className="bg-white text-[#222E6A] px-6 py-3 rounded-xl font-semibold hover:bg-gray-100 transition-colors flex items-center gap-2"
+              variant="outline"
+              leftIcon={<Calendar />}
+              className="bg-white text-[#222E6A] border-white hover:bg-gray-100 font-semibold"
             >
-              <Calendar className="h-5 w-5" />
               View Full Roster
-            </button>
+            </Button>
           </div>
         </div>
       </div>

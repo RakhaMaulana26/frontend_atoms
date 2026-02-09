@@ -28,6 +28,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (storedToken && storedUser) {
       setToken(storedToken);
       setUser(JSON.parse(storedUser));
+      
+      // Refresh user data from backend to ensure employee relationship is loaded
+      authService.me()
+        .then(response => {
+          const updatedUser = response.user;
+          setUser(updatedUser);
+          localStorage.setItem('user', JSON.stringify(updatedUser));
+        })
+        .catch(error => {
+          console.error('Failed to refresh user data:', error);
+          // Keep using stored user if refresh fails
+        });
     }
     setIsLoading(false);
   }, []);

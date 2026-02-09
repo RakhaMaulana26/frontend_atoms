@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
+import type { ChangeEvent } from 'react';
 import { toast } from 'react-toastify';
-import Modal from '../../../components/common/Modal';
-import Button from '../../../components/common/Button';
-import Input from '../../../components/common/Input';
-import Select from '../../../components/common/Select';
-import { adminService } from '../repository/adminService';
+import Modal from '../../common/Modal';
+import Button from '../../ui/Button';
+import Input from '../../common/Input';
+import Select from '../../common/Select';
+import { adminService } from '../../../services/adminService';
 import type { User, CreateUserRequest } from '../../../types';
 
 interface CreateUserModalProps {
@@ -115,7 +116,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClose, onSu
             <Input
               label="Full Name"
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, name: e.target.value })}
               required
               leftIcon={
                 <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -133,7 +134,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClose, onSu
                 { value: 'General Manager', label: 'General Manager' },
               ]}
               value={formData.role}
-              onChange={(e) => {
+              onChange={(e: ChangeEvent<HTMLSelectElement>) => {
                 const role = e.target.value;
                 const employeeTypeMap: Record<string, string> = {
                   'Admin': 'Administrator',
@@ -153,7 +154,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClose, onSu
               label="Email Address"
               type="email"
               value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, email: e.target.value })}
               required
               leftIcon={
                 <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -165,7 +166,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClose, onSu
               label="Grade"
               type="number"
               value={formData.grade?.toString() || ''}
-              onChange={(e) => setFormData({ ...formData, grade: e.target.value ? parseInt(e.target.value) : undefined })}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, grade: e.target.value ? parseInt(e.target.value) : undefined })}
               placeholder="Enter grade"
               min="1"
               leftIcon={
@@ -185,7 +186,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClose, onSu
                   { value: 'General Manager', label: 'General Manager' },
                 ]}
                 value={formData.role}
-                onChange={(e) => {
+                onChange={(e: ChangeEvent<HTMLSelectElement>) => {
                   const role = e.target.value;
                   const employeeTypeMap: Record<string, string> = {
                     'Admin': 'Administrator',
@@ -226,7 +227,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClose, onSu
         </div>
 
         {/* Action Buttons */}
-        <div className="flex gap-3 pt-4 border-t">
+        <div className="flex gap-3 pt-4 border-t w-full -mx-6 px-6">
           <Button 
             type="button" 
             variant="outline" 

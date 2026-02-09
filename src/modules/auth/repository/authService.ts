@@ -40,6 +40,12 @@ export const authService = {
     await apiClient.post('/auth/logout');
   },
 
+  // Get Current User (with employee relationship)
+  async me(): Promise<LoginResponse> {
+    const response = await apiClient.get<LoginResponse>('/auth/me');
+    return response.data;
+  },
+
   // Change Password
   async changePassword(data: {
     current_password: string;

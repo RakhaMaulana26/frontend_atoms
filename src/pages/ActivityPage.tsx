@@ -1,9 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Activity, Search, Filter, Calendar, RefreshCw, TrendingUp, Clock, Hash } from 'lucide-react';
-import Card from '../components/ui/Card';
-import ActivityLogCard from '../components/activity/ActivityLogCard';
-import PageHeader from '../components/layout/PageHeader';
-import LoadingScreen from '../components/common/LoadingScreen';
+import { Card, ActivityLogCard, PageHeader, LoadingScreen } from '../components';
 import { useDataCache } from '../contexts/DataCacheContext';
 import { activityLogService, type ActivityLog, type ActivityLogFilters, type ActivityLogStatistics } from '../services/activityLogService';
 
@@ -143,7 +140,6 @@ const ActivityPage: React.FC = () => {
       title="Activity Log"
       subtitle="Track all system activities and user actions"
       breadcrumbs={[
-        { label: 'Dashboard', href: '/dashboard' },
         { label: 'Activity Log', href: '/activity-log' }
       ]}
     >

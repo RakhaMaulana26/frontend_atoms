@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Card from '../../../components/common/Card';
-import Breadcrumbs from '../../../components/common/Breadcrumbs';
+import { Card, Breadcrumbs } from '../../../components';
 import { RefreshCw, Plus, Bell, User } from 'lucide-react';
 import { useAuth } from '../../auth/core/AuthContext';
 

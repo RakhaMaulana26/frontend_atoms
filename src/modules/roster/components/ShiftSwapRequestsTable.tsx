@@ -26,7 +26,7 @@ interface ShiftSwapRequestsTableProps {
 
 const ShiftSwapRequestsTable: React.FC<ShiftSwapRequestsTableProps> = ({
   requests,
-  onRequestNew
+  onRequestNew,
 }) => {
   const [itemsPerPage, setItemsPerPage] = useState(25);
   const [searchQuery, setSearchQuery] = useState('');
@@ -58,10 +58,22 @@ const ShiftSwapRequestsTable: React.FC<ShiftSwapRequestsTableProps> = ({
         <div className="mb-6">
           <button 
             onClick={onRequestNew}
-            className="flex items-center gap-2 px-4 py-2.5 bg-[#222E6A] hover:bg-[#1a235c] rounded-lg transition-colors font-medium text-white"
+            className="group relative flex items-center gap-2 px-6 py-3 bg-gradient-to-br from-[#222E6A] via-[#2a3a7f] to-[#1a235c] hover:from-[#1a235c] hover:via-[#222E6A] hover:to-[#2a3a7f] rounded-xl transition-all duration-300 font-semibold text-white shadow-lg hover:shadow-2xl transform hover:-translate-y-0.5 active:translate-y-0 active:shadow-md"
+            style={{
+              boxShadow: '0 8px 16px rgba(34, 46, 106, 0.3), inset 0 -2px 8px rgba(0, 0, 0, 0.2)',
+            }}
           >
-            <span className="text-xl">+</span>
-            <span>Request Shift Swap</span>
+            <span className="absolute inset-0 w-full h-full bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 rounded-xl transition-opacity duration-300"></span>
+            <span className="relative text-2xl font-bold">+</span>
+            <span className="relative">Request Shift Swap</span>
+            <svg 
+              className="relative w-5 h-5 ml-1 transform group-hover:translate-x-1 transition-transform duration-300" 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+            </svg>
           </button>
         </div>
       )}

@@ -7,11 +7,38 @@
 
 import React from 'react';
 import { Printer } from 'lucide-react';
-import type { RosterPeriod, Shift } from '../types/roster';
+
+// Types matching backend API
+interface RosterDay {
+  id: number;
+  work_date: string;
+  shift_assignments?: ShiftAssignment[];
+}
+
+interface ShiftAssignment {
+  id: number;
+  shift_id: number;
+  shift: {
+    id: number;
+    name: string;
+  };
+}
+
+interface RosterPeriod {
+  id: number;
+  month: number;
+  year: number;
+  roster_days?: RosterDay[];
+}
+
+interface Shift {
+  id: number;
+  name: string;
+}
 
 interface RosterCalendarViewProps {
   roster: RosterPeriod;
-  shifts: Shift[]; // For future use with shift legends
+  shifts: Shift[];
   onPrint?: () => void;
   currentEmployeeId?: number; // Optional: Filter shifts by this employee
 }
@@ -40,7 +67,7 @@ const RosterCalendarView: React.FC<RosterCalendarViewProps> = ({
     if (name.includes('morning') || name.includes('pagi')) return 'bg-blue-500';
     if (name.includes('afternoon') || name.includes('siang')) return 'bg-yellow-400';
     if (name.includes('night') || name.includes('malam')) return 'bg-green-500';
-    return 'bg-red-500'; // Off day or no assignment
+    return 'bg-red-500';
   };
 
   const renderCalendar = () => {
@@ -48,14 +75,12 @@ const RosterCalendarView: React.FC<RosterCalendarViewProps> = ({
     const firstDay = getFirstDayOfMonth(roster.year, roster.month);
     const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
-    // Get previous month days count
     const prevMonthDays = getDaysInMonth(roster.year, roster.month === 1 ? 12 : roster.month - 1);
     const prevMonthEmptyDays = Array.from(
       { length: firstDay },
       (_, i) => prevMonthDays - firstDay + i + 1
     );
 
-    // Create map of dates to shifts
     const dateShiftMap = new Map<number, string>();
     roster.roster_days?.forEach(day => {
       const dateObj = new Date(day.work_date);
@@ -76,16 +101,13 @@ const RosterCalendarView: React.FC<RosterCalendarViewProps> = ({
       }
     });
 
-    // Group days into weeks
     const weeks: (number | string)[][] = [];
     let currentWeek: (number | string)[] = [];
     
-    // Add previous month days
     prevMonthEmptyDays.forEach(day => {
       currentWeek.push(`prev-${day}`);
     });
     
-    // Add current month days
     for (const day of daysArray) {
       if (currentWeek.length === 7) {
         weeks.push([...currentWeek]);
@@ -94,7 +116,6 @@ const RosterCalendarView: React.FC<RosterCalendarViewProps> = ({
       currentWeek.push(day);
     }
     
-    // Fill remaining slots with next month
     let nextMonthDay = 1;
     while (currentWeek.length < 7) {
       currentWeek.push(`next-${nextMonthDay}`);
@@ -104,14 +125,12 @@ const RosterCalendarView: React.FC<RosterCalendarViewProps> = ({
 
     return (
       <div className="rounded-3xl p-4 sm:p-6 lg:p-10 shadow-lg border border-gray-100" style={{ backgroundColor: '#222E6A' }}>
-        {/* Header */}
         <div className="flex items-center justify-center mb-6 sm:mb-8 lg:mb-10">
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white">
             {getMonthName(roster.month)}
           </h2>
         </div>
 
-        {/* Calendar Grid */}
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">
             <thead>
@@ -136,7 +155,6 @@ const RosterCalendarView: React.FC<RosterCalendarViewProps> = ({
                     let content = null;
 
                     if (typeof dayValue === 'string') {
-                      // Previous/next month days
                       const dayNum = parseInt(dayValue.split('-')[1]);
                       content = (
                         <div className="w-10 h-10 sm:w-16 sm:h-16 flex items-center justify-center rounded-lg font-bold text-xs sm:text-base bg-gray-100 text-gray-400 cursor-default mx-auto">
@@ -144,7 +162,6 @@ const RosterCalendarView: React.FC<RosterCalendarViewProps> = ({
                         </div>
                       );
                     } else if (typeof dayValue === 'number') {
-                      // Current month days
                       const shiftName = dateShiftMap.get(dayValue) || 'off';
                       const bgColor = getShiftColor(shiftName);
                       content = (
@@ -174,7 +191,6 @@ const RosterCalendarView: React.FC<RosterCalendarViewProps> = ({
 
   return (
     <>
-      {/* Print Button */}
       <div className="flex justify-end mb-4">
         <button 
           onClick={onPrint}
@@ -185,10 +201,8 @@ const RosterCalendarView: React.FC<RosterCalendarViewProps> = ({
         </button>
       </div>
 
-      {/* Calendar */}
       {renderCalendar()}
 
-      {/* Legend */}
       <div className="flex items-center justify-center gap-8 sm:gap-16 mt-8 flex-wrap">
         <div className="flex items-center gap-3">
           <div className="w-6 h-6 bg-blue-500 rounded" />

@@ -1,6 +1,6 @@
 import React from 'react';
-import Modal from '../../../components/common/Modal';
-import Button from '../../../components/common/Button';
+import Modal from '../../common/Modal';
+import Button from '../../ui/Button';
 import type { User } from '../../../types';
 
 interface TokenModalProps {

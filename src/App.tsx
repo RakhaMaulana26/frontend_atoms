@@ -1,10 +1,11 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './modules/auth/core/AuthContext';
 import { DataCacheProvider } from './contexts/DataCacheContext';
+import { LoadingProvider } from './contexts/LoadingContext';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import './styles/toast.css';
-import ProtectedRoute from './components/layout/ProtectedRoute';
+import { ProtectedRoute } from './components';
 
 // Landing Page
 import LandingPage from './pages/LandingPage';
@@ -29,6 +30,7 @@ function App() {
     <Router>
       <AuthProvider>
         <DataCacheProvider>
+          <LoadingProvider>
           <Routes>
           {/* Landing Page */}
           <Route path="/" element={<LandingPage />} />
@@ -187,6 +189,7 @@ function App() {
           theme="light"
           style={{ zIndex: 9999 }}
         />
+        </LoadingProvider>
         </DataCacheProvider>
       </AuthProvider>
     </Router>

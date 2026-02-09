@@ -6,8 +6,52 @@
  */
 
 import React from 'react';
-import type { RosterDay, Shift } from '../types/roster';
 import ShiftAssignmentCard from './ShiftAssignmentCard';
+
+interface User {
+  id: number;
+  name: string;
+  email: string;
+}
+
+interface Employee {
+  id: number;
+  user_id: number;
+  employee_type: 'CNS' | 'Support' | 'Manager Teknik' | 'General Manager';
+  user: User;
+}
+
+interface Shift {
+  id: number;
+  name: string;
+}
+
+interface ShiftAssignment {
+  id: number;
+  roster_day_id: number;
+  employee_id: number;
+  shift_id: number;
+  created_at: string;
+  employee: Employee;
+  shift: Shift;
+}
+
+interface ManagerDuty {
+  id: number;
+  roster_day_id: number;
+  employee_id: number;
+  duty_type: 'Manager Teknik' | 'General Manager';
+  shift_id: number;
+  created_at: string;
+  employee: Employee;
+}
+
+interface RosterDay {
+  id: number;
+  work_date: string;
+  shift_assignments?: ShiftAssignment[];
+  manager_duties?: ManagerDuty[];
+}
 
 interface RosterWeekViewProps {
   weekDays: Date[];
@@ -50,7 +94,6 @@ const RosterWeekView: React.FC<RosterWeekViewProps> = ({
     return 'bg-purple-500';
   };
 
-  // Get user initials for avatar
   const getUserInitials = (name: string) => {
     const nameParts = name.split(' ');
     if (nameParts.length >= 2) {
@@ -109,7 +152,7 @@ const RosterWeekView: React.FC<RosterWeekViewProps> = ({
         })}
       </div>
 
-      {/* Manager Info (if available) */}
+      {/* Manager Info */}
       {rosterDay?.manager_duties && rosterDay.manager_duties.length > 0 && (() => {
         const uniqueManagers = rosterDay.manager_duties.reduce((acc, duty) => {
           if (!acc.find(d => d.employee_id === duty.employee_id)) acc.push(duty);
@@ -156,7 +199,7 @@ const RosterWeekView: React.FC<RosterWeekViewProps> = ({
           {shifts.map((shift) => {
             const assignments = rosterDay.shift_assignments?.filter(a => a.shift_id === shift.id) || [];
             const shiftManagerDuties = rosterDay.manager_duties?.filter(d => d.shift_id === shift.id) || [];
-            const bgColor = getShiftColor(shift.shift_name);
+            const bgColor = getShiftColor(shift.name);
             
             return (
               <ShiftAssignmentCard

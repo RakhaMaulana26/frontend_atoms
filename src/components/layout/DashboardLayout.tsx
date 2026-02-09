@@ -32,7 +32,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const menuItems = [
     { icon: Home, label: 'Home', path: '/home', roles: ['all'] },
     { icon: Users, label: 'Users', path: '/admin/users', roles: ['admin'] },
-    { icon: Calendar, label: 'Rosters', path: '/rosters', roles: ['admin', 'manager'] },
+    { icon: Calendar, label: 'Rosters', path: '/rosters', roles: ['all'] },
     { icon: RefreshCw, label: 'Shift Requests', path: '/shift-requests', roles: ['all'] },
     { icon: Bell, label: 'Notifications', path: '/notifications', roles: ['all'] },
   ];

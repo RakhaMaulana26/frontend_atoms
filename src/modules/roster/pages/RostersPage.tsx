@@ -1,10 +1,12 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import Input from '../../../components/common/Input';
-import PageHeader from '../../../components/layout/PageHeader';
-import { Calendar, Plus, X, Upload, FileSpreadsheet, CheckCircle, AlertCircle, Sparkles, Link, Edit2, Trash2, RefreshCw, ArrowUpToLine } from 'lucide-react';
+import { Input, PageHeader, Button, Modal, Select } from '../../../components';
+import SwapShiftModal from '../../../components/modals/roster/SwapShiftModal';
+import ConfigureSwapShiftModal from '../../../components/modals/roster/ConfigureSwapShiftModal';
+import { Calendar, Plus, X, Upload, FileSpreadsheet, CheckCircle, AlertCircle, Sparkles, Link, Edit2, Trash2, RefreshCw, ArrowUpToLine, Settings, ArrowLeftRight } from 'lucide-react';
 import { useDataCache } from '../../../contexts/DataCacheContext';
+import { useAuth } from '../../auth/core/AuthContext';
 import { rosterService } from '../repository/rosterService';
 import type { RosterPeriod } from '../types/roster';
 
@@ -51,100 +53,67 @@ const CreateRosterModal: React.FC<{
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        {/* Backdrop */}
-        <div 
-          className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
-          onClick={onClose}
-        ></div>
+    <Modal isOpen={isOpen} onClose={onClose} title="Create New Roster Template" size="md" headerClassName="bg-[#222E6A] text-white flex items-center justify-between px-6 py-4 rounded-t-lg">
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Information */}
+        <div className="bg-[#D8DAED] border border-[#454D7C] rounded-lg p-3">
+          <p className="text-sm text-[#222E6A]">
+            This will create a roster template with all days for the selected month. 
+            You can assign managers and shift employees later.
+          </p>
+        </div>
 
-        {/* Modal */}
-        <div className="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
-          <div className="absolute top-0 right-0 pt-4 pr-4">
-            <button
-              type="button"
-              className="bg-white rounded-md text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-              onClick={onClose}
-            >
-              <span className="sr-only">Close</span>
-              <X className="h-6 w-6" />
-            </button>
-          </div>
-          
-          <div className="sm:flex sm:items-start">
-            <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10">
-              <Calendar className="h-6 w-6 text-blue-600" />
-            </div>
-            <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left flex-1">
-              <h3 className="text-lg leading-6 font-medium text-gray-900">
-                Create New Roster Template
-              </h3>
-              <p className="mt-2 text-sm text-gray-600">
-                This will create a roster template with all days for the selected month. 
-                You can assign managers and shift employees later.
-              </p>
-              <div className="mt-4">
-                <form onSubmit={handleSubmit}>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Month
-                      </label>
-                      <select
-                        value={month}
-                        onChange={(e) => setMonth(parseInt(e.target.value))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        required
-                      >
-                        {[...Array(12)].map((_, i) => (
-                          <option key={i + 1} value={i + 1}>
-                            {new Date(0, i).toLocaleString('default', { month: 'long' })}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Year
-                      </label>
-                      <Input
-                        type="number"
-                        value={year}
-                        onChange={(e) => setYear(parseInt(e.target.value))}
-                        min={new Date().getFullYear()}
-                        max={new Date().getFullYear() + 2}
-                        required
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="mt-6 sm:flex sm:flex-row-reverse">
-                    <button
-                      type="submit"
-                      disabled={isLoading}
-                      className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-[#454D7C] text-base font-medium text-white hover:bg-[#222E6A] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#454D7C] sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {isLoading ? 'Creating Template...' : 'Create Roster Template'}
-                    </button>
-                    <button
-                      type="button"
-                      className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm"
-                      onClick={onClose}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
+        {/* Period Selection */}
+        <div>
+          <h3 className="text-sm font-semibold text-[#222E6A] mb-4">Period Selection</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <Select
+              label="Month"
+              options={[...Array(12)].map((_, i) => ({
+                value: String(i + 1),
+                label: new Date(0, i).toLocaleString('default', { month: 'long' })
+              }))}
+              value={String(month)}
+              onChange={(e) => setMonth(parseInt(e.target.value))}
+            />
+            <Input
+              label="Year"
+              type="number"
+              value={year}
+              onChange={(e) => setYear(parseInt(e.target.value))}
+              min={new Date().getFullYear()}
+              max={new Date().getFullYear() + 2}
+              required
+              leftIcon={
+                <Calendar className="w-5 h-5 text-gray-400" />
+              }
+            />
           </div>
         </div>
-      </div>
-    </div>
+        
+        {/* Action Buttons */}
+        <div className="flex gap-3 pt-4 border-t w-full -mx-6 px-6">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            className="flex-1"
+            disabled={isLoading}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            variant="primary"
+            isLoading={isLoading}
+            className="flex-1 bg-[#222E6A] hover:bg-[#1a2452]"
+          >
+            Create Roster Template
+          </Button>
+        </div>
+      </form>
+    </Modal>
   );
 };
 
@@ -209,8 +178,8 @@ const EditRosterModal: React.FC<{
           </div>
           
           <div className="sm:flex sm:items-start">
-            <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10">
-              <Edit2 className="h-6 w-6 text-blue-600" />
+            <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-[#D8DAED] sm:mx-0 sm:h-10 sm:w-10">
+              <Edit2 className="h-6 w-6 text-[#454D7C]" />
             </div>
             <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left flex-1">
               <h3 className="text-lg leading-6 font-medium text-gray-900">
@@ -257,21 +226,24 @@ const EditRosterModal: React.FC<{
                     </div>
                   </div>
                   
-                  <div className="mt-6 sm:flex sm:flex-row-reverse">
-                    <button
-                      type="submit"
-                      disabled={isLoading}
-                      className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
-                    >
-                      {isLoading ? 'Saving...' : 'Save Changes'}
-                    </button>
-                    <button
+                  <div className="flex gap-3 pt-4 border-t w-full -mx-6 px-6 mt-6">
+                    <Button
                       type="button"
-                      className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 sm:mt-0 sm:w-auto sm:text-sm"
+                      variant="outline"
                       onClick={onClose}
+                      className="flex-1"
                     >
                       Cancel
-                    </button>
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={isLoading}
+                      variant="primary"
+                      isLoading={isLoading}
+                      className="flex-1 bg-[#222E6A] hover:bg-[#1a2452]"
+                    >
+                      {isLoading ? 'Saving...' : 'Save Changes'}
+                    </Button>
                   </div>
                 </form>
               </div>
@@ -339,22 +311,25 @@ const DeleteRosterModal: React.FC<{
               </div>
             </div>
           </div>
-          <div className="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse">
-            <button
+          <div className="flex gap-3 pt-4 border-t w-full -mx-6 px-6 mt-5">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+            <Button
               type="button"
               onClick={handleDelete}
               disabled={isLoading}
-              className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
+              variant="danger"
+              isLoading={isLoading}
+              className="flex-1"
             >
               {isLoading ? 'Deleting...' : 'Delete'}
-            </button>
-            <button
-              type="button"
-              className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm"
-              onClick={onClose}
-            >
-              Cancel
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -468,73 +443,48 @@ const ImportRosterModal: React.FC<{
     onClose();
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        {/* Backdrop */}
-        <div 
-          className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
-          onClick={handleClose}
-        ></div>
+    <Modal isOpen={isOpen} onClose={handleClose} title="Import Roster" size="md" headerClassName="bg-gradient-to-r from-[#454D7C] to-[#222E6A] text-white flex items-center justify-between px-6 py-4 rounded-t-lg">
+      <div>
+        <div className="space-y-6">
+          {/* Information */}
+          <div className="bg-[#D8DAED] border border-[#454D7C] rounded-lg p-3">
+            <p className="text-sm text-[#222E6A]">
+              Import roster from Excel file or Google Spreadsheet URL. Use AI parser for flexible format support.
+            </p>
+          </div>
 
-        {/* Modal */}
-        <div className="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
-          <div className="absolute top-0 right-0 pt-4 pr-4">
+        <div>
+          {/* Import Mode Tabs */}
+          <div className="flex border-b border-gray-200 mb-4">
             <button
               type="button"
-              className="bg-white rounded-md text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-              onClick={handleClose}
+              onClick={() => setImportMode('file')}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                importMode === 'file'
+                  ? 'border-[#454D7C] text-[#454D7C]'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
             >
-              <span className="sr-only">Close</span>
-              <X className="h-6 w-6" />
+              <FileSpreadsheet className="h-4 w-4" />
+              Upload File
+            </button>
+            <button
+              type="button"
+              onClick={() => setImportMode('url')}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                importMode === 'url'
+                  ? 'border-[#454D7C] text-[#454D7C]'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <Link className="h-4 w-4" />
+              Spreadsheet URL
             </button>
           </div>
-          
-          <div className="sm:flex sm:items-start">
-            <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-green-100 sm:mx-0 sm:h-10 sm:w-10">
-              <Upload className="h-6 w-6 text-green-600" />
-            </div>
-            <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left flex-1">
-              <h3 className="text-lg leading-6 font-medium text-gray-900">
-                Import Roster
-              </h3>
-              <p className="mt-2 text-sm text-gray-600">
-                Import roster from Excel file or Google Spreadsheet URL.
-              </p>
-              
-              <div className="mt-4">
-                {/* Import Mode Tabs */}
-                <div className="flex border-b border-gray-200 mb-4">
-                  <button
-                    type="button"
-                    onClick={() => setImportMode('file')}
-                    className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                      importMode === 'file'
-                        ? 'border-green-500 text-green-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700'
-                    }`}
-                  >
-                    <FileSpreadsheet className="h-4 w-4" />
-                    Upload File
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setImportMode('url')}
-                    className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                      importMode === 'url'
-                        ? 'border-green-500 text-green-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700'
-                    }`}
-                  >
-                    <Link className="h-4 w-4" />
-                    Spreadsheet URL
-                  </button>
-                </div>
 
-                {/* AI Mode Toggle */}
-                <div className="mb-4 p-3 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-200">
+          {/* AI Mode Toggle */}
+          <div className="mb-4 p-3 bg-[#D8DAED] rounded-lg border border-[#454D7C]">
                   <label className="flex items-center cursor-pointer">
                     <input
                       type="checkbox"
@@ -542,10 +492,10 @@ const ImportRosterModal: React.FC<{
                       onChange={(e) => setUseAI(e.target.checked)}
                       className="sr-only peer"
                     />
-                    <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                    <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#454D7C]/30 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#454D7C]"></div>
                     <div className="ms-3 flex items-center gap-2">
-                      <Sparkles className={`h-4 w-4 ${useAI ? 'text-purple-600' : 'text-gray-400'}`} />
-                      <span className={`text-sm font-medium ${useAI ? 'text-purple-700' : 'text-gray-600'}`}>
+                      <Sparkles className={`h-4 w-4 ${useAI ? 'text-[#454D7C]' : 'text-gray-400'}`} />
+                      <span className={`text-sm font-medium ${useAI ? 'text-[#222E6A]' : 'text-gray-600'}`}>
                         Smart AI Parser
                       </span>
                     </div>
@@ -557,14 +507,14 @@ const ImportRosterModal: React.FC<{
                   </p>
                 </div>
 
-                {/* File Upload Mode */}
-                {importMode === 'file' && (
-                  <div
-                    className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
-                      selectedFile 
-                        ? 'border-green-400 bg-green-50' 
-                        : 'border-gray-300 hover:border-gray-400 bg-gray-50'
-                    }`}
+          {/* File Upload Mode */}
+          {importMode === 'file' && (
+            <div
+              className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
+                selectedFile 
+                  ? 'border-[#454D7C] bg-[#D8DAED]' 
+                  : 'border-gray-300 hover:border-[#454D7C] bg-gray-50'
+              }`}
                     onClick={() => fileInputRef.current?.click()}
                     onDrop={handleDrop}
                     onDragOver={handleDragOver}
@@ -577,9 +527,9 @@ const ImportRosterModal: React.FC<{
                       className="hidden"
                     />
                     
-                    {selectedFile ? (
-                      <div className="flex items-center justify-center gap-3">
-                        <FileSpreadsheet className="h-8 w-8 text-green-600" />
+              {selectedFile ? (
+                <div className="flex items-center justify-center gap-3">
+                  <FileSpreadsheet className="h-8 w-8 text-[#454D7C]" />
                         <div className="text-left">
                           <p className="text-sm font-medium text-gray-900">{selectedFile.name}</p>
                           <p className="text-xs text-gray-500">
@@ -599,11 +549,11 @@ const ImportRosterModal: React.FC<{
                         </button>
                       </div>
                     ) : (
-                      <>
-                        <FileSpreadsheet className="h-10 w-10 text-gray-400 mx-auto mb-2" />
-                        <p className="text-sm text-gray-600">
-                          <span className="text-blue-600 font-medium">Click to upload</span> or drag and drop
-                        </p>
+                <>
+                  <FileSpreadsheet className="h-10 w-10 text-gray-400 mx-auto mb-2" />
+                  <p className="text-sm text-gray-600">
+                    <span className="text-[#454D7C] font-medium">Click to upload</span> or drag and drop
+                  </p>
                         <p className="text-xs text-gray-500 mt-1">
                           Excel files only (.xlsx, .xls)
                         </p>
@@ -627,17 +577,17 @@ const ImportRosterModal: React.FC<{
                           setImportResult(null);
                         }}
                         placeholder="https://docs.google.com/spreadsheets/d/..."
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#454D7C] text-sm"
                       />
                       <p className="mt-1 text-xs text-gray-500">
                         Make sure the spreadsheet is set to "Anyone with the link can view"
                       </p>
                     </div>
-                    <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                      <p className="text-xs text-blue-700">
+                    <div className="p-3 bg-[#D8DAED] rounded-lg border border-[#454D7C]">
+                      <p className="text-xs text-[#222E6A] font-medium">
                         <strong>Supported formats:</strong>
                       </p>
-                      <ul className="text-xs text-blue-600 mt-1 space-y-0.5">
+                      <ul className="text-xs text-[#454D7C] mt-1 space-y-0.5">
                         <li>• https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/edit</li>
                         <li>• https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/view</li>
                       </ul>
@@ -684,56 +634,52 @@ const ImportRosterModal: React.FC<{
                     </div>
                   </div>
                 )}
-                
-                <div className="mt-6 sm:flex sm:flex-row-reverse">
-                  <button
-                    type="button"
-                    onClick={handleImport}
-                    disabled={(importMode === 'file' ? !selectedFile : !spreadsheetUrl) || isLoading}
-                    className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isLoading ? (
-                      <>
-                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Importing...
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="h-4 w-4 mr-2" />
-                        Import Roster
-                      </>
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm"
-                    onClick={handleClose}
-                  >
-                    {importResult?.success ? 'Close' : 'Cancel'}
-                  </button>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
+        
+        {/* Action Buttons */}
+        <div className="flex gap-3 pt-4 border-t w-full -mx-6 px-6 mt-6">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleClose}
+            className="flex-1"
+          >
+            {importResult?.success ? 'Close' : 'Cancel'}
+          </Button>
+          <Button
+            type="button"
+            onClick={handleImport}
+            disabled={(importMode === 'file' ? !selectedFile : !spreadsheetUrl) || isLoading}
+            variant="primary"
+            isLoading={isLoading}
+            leftIcon={!isLoading ? <Upload /> : undefined}
+            className="flex-1 bg-[#222E6A] hover:bg-[#1a2452]"
+          >
+            {isLoading ? 'Importing...' : 'Import Roster'}
+          </Button>
+        </div>
       </div>
-    </div>
+    </Modal>
   );
 };
 
 const RostersPage: React.FC = () => {
+  const { user } = useAuth();
   const { 
     rosters, 
     loadingStates,
     refreshRosters 
   } = useDataCache();
+
+  // Only Admin, Manager Teknik, General Manager can create/edit/delete rosters
+  const canManageRoster = ['Admin', 'Manager Teknik', 'General Manager'].includes(user?.role || '');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isSwapShiftModalOpen, setIsSwapShiftModalOpen] = useState(false);
+  const [isConfigureSwapShiftModalOpen, setIsConfigureSwapShiftModalOpen] = useState(false);
   const [selectedRoster, setSelectedRoster] = useState<RosterPeriod | null>(null);
   const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'published'>('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -756,6 +702,16 @@ const RostersPage: React.FC = () => {
 
   const handleDeleteSuccess = () => {
     refreshRosters(); // Refresh cached rosters after successful delete
+  };
+
+  const handleSwapShiftSuccess = () => {
+    // Placeholder for future functionality
+    console.log('Shift swap request submitted');
+  };
+
+  const handleConfigureSwapShiftSuccess = () => {
+    // Placeholder for future functionality
+    console.log('Swap shift rules saved');
   };
 
   const handleSyncRoster = async (roster: RosterPeriod) => {
@@ -866,7 +822,6 @@ const RostersPage: React.FC = () => {
       title="Roster Management"
       subtitle="Create and manage work schedules and rosters"
       breadcrumbs={[
-        { label: 'Dashboard', href: '/dashboard' },
         { label: 'Roster Management', href: '/rosters' }
       ]}
     >
@@ -881,20 +836,40 @@ const RostersPage: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <button
-              onClick={openImportModal}
-              className="flex items-center gap-2 px-4 py-2 border border-green-600 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+            {canManageRoster && (
+              <Button
+                variant="outline"
+                leftIcon={<Settings />}
+                onClick={() => setIsConfigureSwapShiftModalOpen(true)}
+              >
+                Configuration Swap Shift
+              </Button>
+            )}
+            <Button
+              variant="secondary"
+              leftIcon={<ArrowLeftRight />}
+              onClick={() => setIsSwapShiftModalOpen(true)}
             >
-              <Upload className="h-4 w-4" />
-              Import Roster
-            </button>
-            <button
-              onClick={openCreateModal}
-              className="flex items-center gap-2 px-4 py-2 bg-[#222E6A] hover:bg-[#1a2550] text-white rounded-lg transition-colors"
-            >
-              <Plus className="h-4 w-4" />
-              Create New Roster
-            </button>
+              Swap Shift
+            </Button>
+            {canManageRoster && (
+              <>
+                <Button
+                  variant="success"
+                  leftIcon={<Upload />}
+                  onClick={openImportModal}
+                >
+                  Import Roster
+                </Button>
+                <Button
+                  variant="primary"
+                  leftIcon={<Plus />}
+                  onClick={openCreateModal}
+                >
+                  Create New Roster
+                </Button>
+              </>
+            )}
           </div>
         </div>
         <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-3 text-sm font-medium text-gray-800">
@@ -967,13 +942,15 @@ const RostersPage: React.FC = () => {
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">No Rosters Found</h3>
             <p className="text-gray-600 mb-6">Try adjusting filters or create a new roster.</p>
-            <button
-              onClick={openCreateModal}
-              className="bg-[#222E6A] hover:bg-[#1a2550] text-white px-6 py-3 rounded-xl font-semibold transition-colors shadow-md hover:shadow-lg inline-flex items-center"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Create Roster
-            </button>
+            {canManageRoster && (
+              <button
+                onClick={openCreateModal}
+                className="bg-[#222E6A] hover:bg-[#1a2550] text-white px-6 py-3 rounded-xl font-semibold transition-colors shadow-md hover:shadow-lg inline-flex items-center"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Create Roster
+              </button>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -1016,7 +993,7 @@ const RostersPage: React.FC = () => {
                     </button>
                   </div>
                   {/* Sync button - show if roster has spreadsheet link */}
-                  {hasSpreadsheetLink && roster.status === 'draft' && (
+                  {canManageRoster && hasSpreadsheetLink && roster.status === 'draft' && (
                     <div className="mb-2">
                       <button
                         onClick={(e) => {
@@ -1032,7 +1009,7 @@ const RostersPage: React.FC = () => {
                     </div>
                   )}
                   {/* Push to Spreadsheet button - show if roster has spreadsheet link */}
-                  {hasSpreadsheetLink && roster.status === 'draft' && (
+                  {canManageRoster && hasSpreadsheetLink && roster.status === 'draft' && (
                     <div className="mb-2">
                       <button
                         onClick={(e) => {
@@ -1040,35 +1017,41 @@ const RostersPage: React.FC = () => {
                           handlePushToSpreadsheet(roster);
                         }}
                         disabled={pushingRosterId === roster.id}
-                        className="w-full text-xs border border-blue-300 rounded px-2 py-1.5 text-blue-600 hover:bg-blue-50 inline-flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full text-xs border border-[#454D7C] rounded px-2 py-1.5 text-[#454D7C] hover:bg-[#D8DAED] inline-flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <ArrowUpToLine className={`h-3 w-3 ${pushingRosterId === roster.id ? 'animate-pulse' : ''}`} />
                         {pushingRosterId === roster.id ? 'Pushing...' : 'Push to Spreadsheet'}
                       </button>
                     </div>
                   )}
-                  {roster.status === 'draft' && (
+                  {canManageRoster && roster.status === 'draft' && (
                     <div className="flex gap-2">
-                      <button
+                      <Button
                         onClick={(e) => {
                           e.stopPropagation();
                           openEditModal(roster);
                         }}
-                        className="flex-1 text-xs border border-blue-300 rounded px-2 py-1.5 text-blue-600 hover:bg-blue-50 inline-flex items-center justify-center gap-1"
+                        variant="outline"
+                        size="sm"
+                        leftIcon={<Edit2 />}
+                        className="flex-1 text-xs"
+                        effect3d={false}
                       >
-                        <Edit2 className="h-3 w-3" />
                         Edit Period
-                      </button>
-                      <button
+                      </Button>
+                      <Button
                         onClick={(e) => {
                           e.stopPropagation();
                           openDeleteModal(roster);
                         }}
-                        className="flex-1 text-xs border border-red-300 rounded px-2 py-1.5 text-red-600 hover:bg-red-50 inline-flex items-center justify-center gap-1"
+                        variant="danger"
+                        size="sm"
+                        leftIcon={<Trash2 />}
+                        className="flex-1 text-xs"
+                        effect3d={false}
                       >
-                        <Trash2 className="h-3 w-3" />
                         Delete
-                      </button>
+                      </Button>
                     </div>
                   )}
                 </div>
@@ -1106,6 +1089,20 @@ const RostersPage: React.FC = () => {
         onClose={closeDeleteModal}
         onSuccess={handleDeleteSuccess}
         roster={selectedRoster}
+      />
+
+      {/* Swap Shift Modal */}
+      <SwapShiftModal
+        isOpen={isSwapShiftModalOpen}
+        onClose={() => setIsSwapShiftModalOpen(false)}
+        onSuccess={handleSwapShiftSuccess}
+      />
+
+      {/* Configure Swap Shift Modal */}
+      <ConfigureSwapShiftModal
+        isOpen={isConfigureSwapShiftModalOpen}
+        onClose={() => setIsConfigureSwapShiftModalOpen(false)}
+        onSuccess={handleConfigureSwapShiftSuccess}
       />
     </PageHeader>
   );

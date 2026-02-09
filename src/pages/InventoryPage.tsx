@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Package, ShoppingCart, Archive, AlertTriangle, Bell, User } from 'lucide-react';
-import Breadcrumbs from '../components/common/Breadcrumbs';
+import { Breadcrumbs } from '../components';
 import { useAuth } from '../modules/auth/core/AuthContext';
 
 const InventoryPage: React.FC = () => {

@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
-import { useAuth } from '../../modules/auth/core/AuthContext';
-import { adminService } from '../../modules/admin/repository/adminService';
-import type { User } from '../../types';
-import Modal from '../common/Modal';
-import Button from '../common/Button';
-import Input from '../common/Input';
-import Select from '../common/Select';
+import { useAuth } from '../../../modules/auth/core/AuthContext';
+import { adminService } from '../../../services/adminService';
+import type { User } from '../../../types';
+import Modal from '../../common/Modal';
+import Button from '../../ui/Button';
+import Input from '../../common/Input';
+import Select from '../../common/Select';
 
 interface ProfileModalProps {
   isOpen: boolean;

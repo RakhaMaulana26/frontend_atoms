@@ -203,14 +203,22 @@ export interface ApproveRejectRequest {
 export interface Notification {
   id: number;
   user_id: number;
-  type: string;
+  sender_id?: number;
+  type: 'inbox' | 'sent';
   title: string;
   message: string;
   data?: any;
   is_read: boolean;
+  is_starred: boolean;
   read_at?: string | null;
   created_at: string;
   updated_at: string;
+  deleted_at?: string | null;
+  sender?: {
+    id: number;
+    name: string;
+    email: string;
+  };
 }
 
 // Admin Types

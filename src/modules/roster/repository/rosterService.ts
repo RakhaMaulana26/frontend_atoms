@@ -270,10 +270,17 @@ export const rosterService = {
     },
 
     /**
-     * Check if day has required manager
+     * Check if day has required manager for each shift
      */
     hasRequiredManager(day: RosterDay) {
       return (day.manager_duties?.length || 0) >= 1;
+    },
+
+    /**
+     * Get manager duties for a specific shift on a day
+     */
+    getShiftManagerDuties(day: RosterDay, shiftId: number) {
+      return day.manager_duties?.filter(d => d.shift_id === shiftId) || [];
     },
 
     /**

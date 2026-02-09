@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { toast } from 'react-toastify';
-import { authService } from '../../modules/auth/repository/authService';
-import Modal from '../common/Modal';
-import Button from '../common/Button';
-import Input from '../common/Input';
+import { authService } from '../../../modules/auth/repository/authService';
+import Modal from '../../common/Modal';
+import Button from '../../ui/Button';
+import Input from '../../common/Input';
 
 interface ChangePasswordModalProps {
   isOpen: boolean;

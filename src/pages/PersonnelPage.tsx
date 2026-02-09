@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Users } from 'lucide-react';
-import PageHeader from '../components/layout/PageHeader';
+import { PageHeader } from '../components';
 
 const PersonnelPage: React.FC = () => {
   const navigate = useNavigate();

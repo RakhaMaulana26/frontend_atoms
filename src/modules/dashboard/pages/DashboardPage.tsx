@@ -1,8 +1,8 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/core/AuthContext';
-import Card from '../../../components/common/Card';
-import Button from '../../../components/common/Button';
+import Card from '../../../components/ui/Card';
+import Button from '../../../components/ui/Button';
 import { Users, Calendar, RefreshCw, Bell, Wrench, Package } from 'lucide-react';
 
 const DashboardPage: React.FC = () => {

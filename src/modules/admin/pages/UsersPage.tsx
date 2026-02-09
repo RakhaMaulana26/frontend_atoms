@@ -2,18 +2,22 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { toast } from 'react-toastify';
 import { useAuth } from '../../auth/core/AuthContext';
 import { useDataCache } from '../../../contexts/DataCacheContext';
-import PageHeader from '../../../components/layout/PageHeader';
-import { adminService } from '../repository/adminService';
+import { adminService } from '../../../services/adminService';
 import { useDebounce } from '../../../hooks/useDebounce';
 import type { User } from '../../../types';
-import Button from '../../../components/common/Button';
-import Table from '../../../components/common/Table';
-import Modal from '../../../components/common/Modal';
-import Input from '../../../components/common/Input';
-import Select from '../../../components/common/Select';
+import { 
+  PageHeader,
+  Button, 
+  Table, 
+  Modal, 
+  Input, 
+  Select, 
+  LoadingScreen,
+  CreateUserModal,
+  EditUserModal,
+  TokenModal
+} from '../../../components';
 import { Edit, Trash2, RotateCcw, Key, Users, Search, Plus, MoreVertical, ChevronLeft, ChevronRight } from 'lucide-react';
-import LoadingScreen from '../../../components/common/LoadingScreen';
-import { CreateUserModal, EditUserModal, TokenModal } from '../components';
 
 const UsersPage: React.FC = () => {
   const { logout } = useAuth();
@@ -244,8 +248,8 @@ const UsersPage: React.FC = () => {
       header: 'Role',
       render: (user: User) => {
         const roleColors: Record<string, string> = {
-          'Admin': 'bg-purple-100 text-purple-800',
-          'Cns': 'bg-blue-100 text-blue-800',
+          'Admin': 'bg-[#D8DAED] text-[#222E6A]',
+          'Cns': 'bg-[#D8DAED] text-[#454D7C]',
           'Support': 'bg-green-100 text-green-800',
           'Manager Teknik': 'bg-orange-100 text-orange-800',
           'General Manager': 'bg-red-100 text-red-800',
@@ -412,7 +416,6 @@ const UsersPage: React.FC = () => {
       title="User Management"
       subtitle="Manage system users and their permissions"
       breadcrumbs={[
-        { label: 'Dashboard', href: '/dashboard' },
         { label: 'User Management', href: '/admin/users' }
       ]}
     >

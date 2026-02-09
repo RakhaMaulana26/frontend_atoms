@@ -5,7 +5,43 @@
  */
 
 import React from 'react';
-import type { ShiftAssignment, Shift, ManagerDuty } from '../types/roster';
+
+interface User {
+  id: number;
+  name: string;
+  email: string;
+}
+
+interface Employee {
+  id: number;
+  user_id: number;
+  employee_type: 'CNS' | 'Support' | 'Manager Teknik' | 'General Manager';
+  user: User;
+}
+
+interface Shift {
+  id: number;
+  name: string;
+}
+
+interface ShiftAssignment {
+  id: number;
+  roster_day_id: number;
+  employee_id: number;
+  shift_id: number;
+  created_at: string;
+  employee: Employee;
+  shift: Shift;
+}
+
+interface ManagerDuty {
+  id: number;
+  roster_day_id: number;
+  employee_id: number;
+  duty_type: string;
+  shift_id: number;
+  employee: Employee;
+}
 
 interface ShiftAssignmentCardProps {
   shift: Shift;
@@ -26,18 +62,15 @@ const ShiftAssignmentCard: React.FC<ShiftAssignmentCardProps> = ({
   onRemoveStaff,
   isReadOnly = false
 }) => {
-  const formatTime = (time: string) => time.substring(0, 5); // "07:00:00" -> "07:00"
+  const formatTime = (time: string) => time.substring(0, 5);
   
-  // Filter out assignments with null employee or shift
   const validAssignments = assignments.filter(a => a.employee && a.shift);
   
   const cnsCount = validAssignments.filter(a => a.employee.employee_type === 'CNS').length;
   const supportCount = validAssignments.filter(a => a.employee.employee_type === 'Support').length;
   
-  // Validation: Need 4 CNS + 2 Support
   const isValid = cnsCount >= 4 && supportCount >= 2;
 
-  // Get user initials or avatar
   const getUserDisplay = (name: string) => {
     const nameParts = name.split(' ');
     if (nameParts.length >= 2) {
@@ -46,7 +79,6 @@ const ShiftAssignmentCard: React.FC<ShiftAssignmentCardProps> = ({
     return name.substring(0, 2).toUpperCase();
   };
 
-  // Sort by role: CNS first, then Support
   const sortedAssignments = [...validAssignments].sort((a, b) => {
     if (a.employee.employee_type === 'CNS' && b.employee.employee_type !== 'CNS') return -1;
     if (a.employee.employee_type !== 'CNS' && b.employee.employee_type === 'CNS') return 1;
@@ -55,14 +87,9 @@ const ShiftAssignmentCard: React.FC<ShiftAssignmentCardProps> = ({
 
   return (
     <div className="border-2 border-gray-200 rounded-2xl overflow-hidden">
-      {/* Shift Header */}
       <div className={`${backgroundColor} text-white px-4 py-3 font-bold text-center`}>
-        <div className="text-base">{shift.shift_name}</div>
-        <div className="text-xs font-normal opacity-90 mt-0.5">
-          {formatTime(shift.start_time)} - {formatTime(shift.end_time)}
-        </div>
+        <div className="text-base">{shift.name}</div>
         
-        {/* Validation Status */}
         <div className="flex items-center justify-center gap-2 mt-2 text-xs">
           <span className={`px-2 py-0.5 rounded-full ${
             isValid 
@@ -81,7 +108,6 @@ const ShiftAssignmentCard: React.FC<ShiftAssignmentCardProps> = ({
         </div>
       </div>
       
-      {/* Staff List */}
       <div className="p-4 space-y-3 bg-white">
         {/* Manager Duties for this shift */}
         {managerDuties.length > 0 && (
@@ -113,12 +139,10 @@ const ShiftAssignmentCard: React.FC<ShiftAssignmentCardProps> = ({
               key={assignment.id} 
               className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg transition-colors group"
             >
-              {/* Avatar */}
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
                 {getUserDisplay(assignment.employee.user.name)}
               </div>
               
-              {/* Employee Info */}
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-gray-900 text-sm truncate">
                   {assignment.employee.user.name}
@@ -128,7 +152,6 @@ const ShiftAssignmentCard: React.FC<ShiftAssignmentCardProps> = ({
                 </p>
               </div>
               
-              {/* Remove Button (if not readonly) */}
               {!isReadOnly && onRemoveStaff && (
                 <button
                   onClick={() => onRemoveStaff(assignment.id)}
@@ -144,7 +167,6 @@ const ShiftAssignmentCard: React.FC<ShiftAssignmentCardProps> = ({
           ))
         )}
         
-        {/* Add Staff Button (if not readonly) */}
         {!isReadOnly && onAddStaff && (
           <button
             onClick={onAddStaff}

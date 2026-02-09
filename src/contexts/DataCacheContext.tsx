@@ -1,16 +1,34 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import type { User, Notification, RosterPeriod } from '../types';
 import type { ActivityLog, ActivityLogStatistics } from '../services/activityLogService';
-import { adminService } from '../modules/admin/repository/adminService';
+import { adminService } from '../services/adminService';
 import { notificationService } from '../modules/notifications/repository/notificationService';
 import { rosterService } from '../modules/roster/repository/rosterService';
 import { activityLogService } from '../services/activityLogService';
 import { useAuth } from '../modules/auth/core/AuthContext';
 
+type NotificationCategory = 'inbox' | 'starred' | 'sent' | 'trash';
+
+interface NotificationsByCategory {
+  inbox: Notification[];
+  starred: Notification[];
+  sent: Notification[];
+  trash: Notification[];
+}
+
+interface NotificationStats {
+  inbox: number;
+  starred: number;
+  sent: number;
+  trash: number;
+}
+
 interface DataCacheContextType {
   users: User[];
   notifications: Notification[];
+  notificationsByCategory: NotificationsByCategory;
+  notificationStats: NotificationStats;
   rosters: RosterPeriod[];
   recentActivities: ActivityLog[];
   activityStatistics: ActivityLogStatistics | null;
@@ -31,6 +49,7 @@ interface DataCacheContextType {
   };
   loadUsers: () => Promise<void>;
   loadNotifications: () => Promise<void>;
+  loadNotificationsByCategory: (category?: NotificationCategory) => Promise<void>;
   loadRosters: () => Promise<void>;
   loadRecentActivities: () => Promise<void>;
   loadActivityStatistics: () => Promise<void>;
@@ -43,6 +62,13 @@ interface DataCacheContextType {
   markNotificationAsRead: (id: number) => void;
   markAllNotificationsAsRead: () => void;
   refreshNotifications: () => Promise<void>;
+  refreshNotificationsByCategory: (category?: NotificationCategory) => Promise<void>;
+  toggleNotificationStar: (id: number) => void;
+  removeNotificationFromCategory: (id: number, category: NotificationCategory) => void;
+  moveNotificationToTrash: (id: number, fromCategory: NotificationCategory) => void;
+  restoreNotificationFromTrash: (notification: Notification) => void;
+  addNotificationToSent: (notification: Notification) => void;
+  updateNotificationInCache: (id: number, updates: Partial<Notification>) => void;
   refreshRosters: () => Promise<void>;
   refreshActivities: () => Promise<void>;
 }
@@ -52,6 +78,18 @@ const DataCacheContext = createContext<DataCacheContextType | undefined>(undefin
 export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [users, setUsers] = useState<User[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notificationsByCategory, setNotificationsByCategory] = useState<NotificationsByCategory>({
+    inbox: [],
+    starred: [],
+    sent: [],
+    trash: [],
+  });
+  const [notificationStats, setNotificationStats] = useState<NotificationStats>({
+    inbox: 0,
+    starred: 0,
+    sent: 0,
+    trash: 0,
+  });
   const [rosters, setRosters] = useState<RosterPeriod[]>([]);
   const [recentActivities, setRecentActivities] = useState<ActivityLog[]>([]);
   const [activityStatistics, setActivityStatistics] = useState<ActivityLogStatistics | null>(null);
@@ -65,15 +103,23 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
   });
   const { isAuthenticated } = useAuth();
 
-  // Calculate unread notifications count
-  const unreadNotificationCount = notifications.filter(n => !n.is_read).length;
+  // Calculate unread notifications count from inbox category
+  const unreadNotificationCount = useMemo(() => {
+    // Prioritize notificationsByCategory.inbox for accurate count
+    const inboxNotifications = notificationsByCategory.inbox;
+    if (inboxNotifications.length > 0) {
+      return inboxNotifications.filter(n => !n.is_read).length;
+    }
+    // Fallback to general notifications
+    return notifications.filter(n => !n.is_read).length;
+  }, [notificationsByCategory.inbox, notifications]);
 
   // Calculate system stats
   const systemStats = {
     totalUsers: users.length,
     activeUsers: users.filter(u => u.is_active).length,
     totalRosters: rosters.length,
-    pendingTasks: notifications.filter(n => !n.is_read && n.type === 'task').length
+    pendingTasks: notifications.filter(n => !n.is_read).length
   };
 
   // Load users data when first time or when user login
@@ -140,6 +186,56 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
     }
   }, [isAuthenticated]);
 
+  // Load notifications by category (all categories at once)
+  const loadNotificationsByCategory = useCallback(async (singleCategory?: NotificationCategory) => {
+    if (!isAuthenticated) return;
+    
+    setLoadingStates(prev => ({ ...prev, notifications: true }));
+    try {
+      if (singleCategory) {
+        // Load only one category
+        const response = await notificationService.getNotifications({ category: singleCategory });
+        const data = response?.data || [];
+        const total = response?.total || 0;
+        
+        setNotificationsByCategory(prev => ({
+          ...prev,
+          [singleCategory]: data,
+        }));
+        setNotificationStats(prev => ({
+          ...prev,
+          [singleCategory]: total,
+        }));
+      } else {
+        // Load all categories in parallel
+        const [inboxRes, starredRes, sentRes, trashRes] = await Promise.all([
+          notificationService.getNotifications({ category: 'inbox' }),
+          notificationService.getNotifications({ category: 'starred' }),
+          notificationService.getNotifications({ category: 'sent' }),
+          notificationService.getNotifications({ category: 'trash' }),
+        ]);
+        
+        setNotificationsByCategory({
+          inbox: inboxRes?.data || [],
+          starred: starredRes?.data || [],
+          sent: sentRes?.data || [],
+          trash: trashRes?.data || [],
+        });
+        
+        setNotificationStats({
+          inbox: inboxRes?.total || 0,
+          starred: starredRes?.total || 0,
+          sent: sentRes?.total || 0,
+          trash: trashRes?.total || 0,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to load notifications by category:', error);
+    } finally {
+      setLoadingStates(prev => ({ ...prev, notifications: false }));
+    }
+  }, [isAuthenticated]);
+
   // Load recent activities data
   const loadRecentActivities = useCallback(async () => {
     if (!isAuthenticated) return;
@@ -186,6 +282,7 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
       await Promise.all([
         loadUsers(),
         loadNotifications(),
+        loadNotificationsByCategory(),
         loadRosters(),
         loadRecentActivities(),
         loadActivityStatistics()
@@ -196,12 +293,35 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
     } finally {
       setIsLoading(false);
     }
-  }, [isAuthenticated, loadUsers, loadNotifications, loadRosters, loadRecentActivities, loadActivityStatistics]);
+  }, [isAuthenticated, loadUsers, loadNotifications, loadNotificationsByCategory, loadRosters, loadRecentActivities, loadActivityStatistics]);
 
   // Auto-load when user authenticated
   useEffect(() => {
     if (isAuthenticated && !isInitialized) {
       loadAllData();
+    }
+    
+    // Reset cache when user logs out
+    if (!isAuthenticated && isInitialized) {
+      // Clear all cached data
+      setUsers([]);
+      setNotifications([]);
+      setNotificationsByCategory({
+        inbox: [],
+        starred: [],
+        sent: [],
+        trash: [],
+      });
+      setNotificationStats({
+        inbox: 0,
+        starred: 0,
+        sent: 0,
+        trash: 0,
+      });
+      setRosters([]);
+      setRecentActivities([]);
+      setActivityStatistics(null);
+      setIsInitialized(false);
     }
   }, [isAuthenticated, isInitialized, loadAllData]);
 
@@ -269,6 +389,147 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
     }
   }, [isAuthenticated]);
 
+  // Refresh notifications by category
+  const refreshNotificationsByCategory = useCallback(async (category?: NotificationCategory) => {
+    await loadNotificationsByCategory(category);
+  }, [loadNotificationsByCategory]);
+
+  // Toggle notification star in cache
+  const toggleNotificationStar = useCallback((id: number) => {
+    setNotificationsByCategory(prev => {
+      const newState = { ...prev };
+      
+      // Find the notification in any category
+      let targetNotification: Notification | undefined;
+      
+      (['inbox', 'starred', 'sent', 'trash'] as NotificationCategory[]).forEach(cat => {
+        const found = prev[cat].find(n => n.id === id);
+        if (found && !targetNotification) {
+          targetNotification = found;
+        }
+      });
+      
+      if (!targetNotification) return prev;
+      
+      const newStarredStatus = !targetNotification.is_starred;
+      
+      // Update is_starred in all categories where notification exists
+      (['inbox', 'starred', 'sent', 'trash'] as NotificationCategory[]).forEach(cat => {
+        newState[cat] = prev[cat].map(n => 
+          n.id === id ? { ...n, is_starred: newStarredStatus } : n
+        );
+      });
+      
+      // If starring: add to starred category if not already there
+      if (newStarredStatus) {
+        const alreadyInStarred = prev.starred.some(n => n.id === id);
+        if (!alreadyInStarred) {
+          newState.starred = [{ ...targetNotification, is_starred: true }, ...newState.starred];
+        }
+      } else {
+        // If unstarring: remove from starred category
+        newState.starred = newState.starred.filter(n => n.id !== id);
+      }
+      
+      return newState;
+    });
+    
+    // Update stats for starred category
+    setNotificationStats(prev => {
+      // Find notification to check current star status
+      let isCurrentlyStarred = false;
+      (['inbox', 'sent', 'starred', 'trash'] as NotificationCategory[]).some(cat => {
+        const found = notificationsByCategory[cat]?.find(n => n.id === id);
+        if (found) {
+          isCurrentlyStarred = found.is_starred;
+          return true;
+        }
+        return false;
+      });
+      
+      // Toggle: if currently starred, decrease count; if not, increase
+      return {
+        ...prev,
+        starred: isCurrentlyStarred ? Math.max(0, prev.starred - 1) : prev.starred + 1,
+      };
+    });
+  }, [notificationsByCategory]);
+
+  // Remove notification from a category in cache
+  const removeNotificationFromCategory = useCallback((id: number, category: NotificationCategory) => {
+    setNotificationsByCategory(prev => ({
+      ...prev,
+      [category]: prev[category].filter(n => n.id !== id),
+    }));
+    setNotificationStats(prev => ({
+      ...prev,
+      [category]: Math.max(0, prev[category] - 1),
+    }));
+  }, []);
+
+  // Move notification to trash (remove from ALL categories, add to trash)
+  const moveNotificationToTrash = useCallback((id: number, fromCategory: NotificationCategory) => {
+    setNotificationsByCategory(prev => {
+      // Find notification from the source category
+      const notification = prev[fromCategory].find(n => n.id === id);
+      if (!notification) return prev;
+      
+      // Remove from ALL categories (inbox, starred, sent) since notification can exist in multiple
+      return {
+        inbox: prev.inbox.filter(n => n.id !== id),
+        starred: prev.starred.filter(n => n.id !== id),
+        sent: prev.sent.filter(n => n.id !== id),
+        trash: [{ ...notification, deleted_at: new Date().toISOString() }, ...prev.trash],
+      };
+    });
+    
+    // Update stats - decrement for categories where notification existed
+    setNotificationStats(prev => ({
+      ...prev,
+      [fromCategory]: Math.max(0, prev[fromCategory] - 1),
+      trash: prev.trash + 1,
+    }));
+  }, []);
+
+  // Restore notification from trash to inbox
+  const restoreNotificationFromTrash = useCallback((notification: Notification) => {
+    setNotificationsByCategory(prev => ({
+      ...prev,
+      trash: prev.trash.filter(n => n.id !== notification.id),
+      inbox: [{ ...notification, deleted_at: null }, ...prev.inbox],
+    }));
+    setNotificationStats(prev => ({
+      ...prev,
+      trash: Math.max(0, prev.trash - 1),
+      inbox: prev.inbox + 1,
+    }));
+  }, []);
+
+  // Add notification to sent category
+  const addNotificationToSent = useCallback((notification: Notification) => {
+    setNotificationsByCategory(prev => ({
+      ...prev,
+      sent: [notification, ...prev.sent],
+    }));
+    setNotificationStats(prev => ({
+      ...prev,
+      sent: prev.sent + 1,
+    }));
+  }, []);
+
+  // Update notification in all categories
+  const updateNotificationInCache = useCallback((id: number, updates: Partial<Notification>) => {
+    setNotificationsByCategory(prev => {
+      const newState = { ...prev };
+      (['inbox', 'starred', 'sent', 'trash'] as NotificationCategory[]).forEach(cat => {
+        newState[cat] = prev[cat].map(n => 
+          n.id === id ? { ...n, ...updates } : n
+        );
+      });
+      return newState;
+    });
+  }, []);
+
   // Refresh rosters from server
   const refreshRosters = useCallback(async () => {
     if (!isAuthenticated) return;
@@ -319,6 +580,8 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
       value={{
         users,
         notifications,
+        notificationsByCategory,
+        notificationStats,
         rosters,
         recentActivities,
         activityStatistics,
@@ -329,6 +592,7 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
         systemStats,
         loadUsers,
         loadNotifications,
+        loadNotificationsByCategory,
         loadRosters,
         loadRecentActivities,
         loadActivityStatistics,
@@ -341,6 +605,13 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
         markNotificationAsRead,
         markAllNotificationsAsRead,
         refreshNotifications,
+        refreshNotificationsByCategory,
+        toggleNotificationStar,
+        removeNotificationFromCategory,
+        moveNotificationToTrash,
+        restoreNotificationFromTrash,
+        addNotificationToSent,
+        updateNotificationInCache,
         refreshRosters,
         refreshActivities,
       }}

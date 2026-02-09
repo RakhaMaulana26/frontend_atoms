@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import type { ChangeEvent } from 'react';
 import { toast } from 'react-toastify';
-import Modal from '../../../components/common/Modal';
-import Button from '../../../components/common/Button';
-import Input from '../../../components/common/Input';
-import Select from '../../../components/common/Select';
-import { adminService } from '../repository/adminService';
+import Modal from '../../common/Modal';
+import Button from '../../ui/Button';
+import Input from '../../common/Input';
+import Select from '../../common/Select';
+import { adminService } from '../../../services/adminService';
 import type { User, UpdateUserRequest } from '../../../types';
 
 interface EditUserModalProps {
@@ -92,21 +93,21 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, user, onClose, on
         <Input
           label="Name"
           value={formData.name}
-          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+          onChange={(e: ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, name: e.target.value })}
           required
         />
         <Input
           label="Email"
           type="email"
           value={formData.email}
-          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+          onChange={(e: ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, email: e.target.value })}
           required
         />
         <Input
           label="Grade"
           type="number"
           value={formData.grade?.toString() || ''}
-          onChange={(e) => setFormData({ ...formData, grade: e.target.value ? parseInt(e.target.value) : undefined })}
+          onChange={(e: ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, grade: e.target.value ? parseInt(e.target.value) : undefined })}
           placeholder="Enter grade"
           min="1"
         />
@@ -120,7 +121,7 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, user, onClose, on
             { value: 'General Manager', label: 'General Manager' },
           ]}
           value={formData.role}
-          onChange={(e) => {
+          onChange={(e: ChangeEvent<HTMLSelectElement>) => {
             const role = e.target.value;
             const employeeTypeMap: Record<string, string> = {
               'Admin': 'Administrator',
@@ -147,7 +148,7 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, user, onClose, on
           ]}
           value={formData.employee_type}
           disabled={true}
-          onChange={(e) => setFormData({ ...formData, employee_type: e.target.value as any })}
+          onChange={(e: ChangeEvent<HTMLSelectElement>) => setFormData({ ...formData, employee_type: e.target.value as any })}
           helperText="Employee type is automatically set based on selected role"
         />
         <div className="flex items-center gap-2">
@@ -155,18 +156,18 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, user, onClose, on
             type="checkbox"
             id="is_active"
             checked={formData.is_active}
-            onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, is_active: e.target.checked })}
             className="w-4 h-4 text-[#222E6A] border-gray-300 rounded focus:ring-[#222E6A]"
           />
           <label htmlFor="is_active" className="text-sm text-gray-700">
             Active User
           </label>
         </div>
-        <div className="flex gap-4 pt-4">
+        <div className="flex gap-3 pt-4 border-t w-full -mx-6 px-6">
           <Button type="button" variant="outline" onClick={onClose} className="flex-1">
             Cancel
           </Button>
-          <Button type="submit" variant="primary" isLoading={isLoading} className="flex-1">
+          <Button type="submit" variant="primary" isLoading={isLoading} className="flex-1 bg-[#222E6A] hover:bg-[#1a2452]">
             Update User
           </Button>
         </div>
