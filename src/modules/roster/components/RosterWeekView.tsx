@@ -60,7 +60,7 @@ const RosterWeekView: React.FC<RosterWeekViewProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-3xl shadow-lg border border-gray-100 -mx-4 sm:mx-0 p-4 sm:p-6 lg:p-8">
+    <div className="bg-white rounded-3xl shadow-lg border border-gray-1400 -mx-4 sm:mx-0 p-4 sm:p-6 lg:p-8">
       {/* Week Navigation */}
       <div className="flex items-center justify-between mb-6 sm:mb-8">
         <button
@@ -96,14 +96,14 @@ const RosterWeekView: React.FC<RosterWeekViewProps> = ({
             <button
               key={index}
               onClick={() => onDateSelect(day)}
-              className={`flex flex-col items-center justify-center py-2 px-1 sm:py-3 sm:px-2 rounded-lg transition-all text-center ${
+              className={`flex flex-col items-center justify-center py-1 px-1 sm:py-2 sm:px-2 rounded-lg transition-all text-center ${
                 isSelected
                   ? 'bg-[#222E6A] text-white shadow-lg'
                   : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
               } ${isToday && !isSelected ? 'ring-2 ring-blue-400' : ''}`}
             >
               <span className="text-xs font-medium mb-0.5">{formatDayName(day)}</span>
-              <span className="text-lg sm:text-xl font-bold">{day.getDate()}</span>
+              <span className="text-sm sm:text-lg font-bold">{day.getDate()}</span>
             </button>
           );
         })}
