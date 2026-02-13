@@ -57,7 +57,7 @@ const ShiftAssignmentCard: React.FC<ShiftAssignmentCardProps> = ({
     <div className="border-2 border-gray-200 rounded-xl sm:rounded-2xl overflow-hidden">
       {/* Shift Header */}
       <div className={`${backgroundColor} text-white px-3 sm:px-4 py-2.5 sm:py-3 font-bold text-center`}>
-        <div className="text-sm sm:text-base">{shift.shift_name}</div>
+        <div className="text-sm sm:text-base">{shift.name}</div>
         <div className="text-[10px] sm:text-xs font-normal opacity-90 mt-0.5">
           {formatTime(shift.start_time)} - {formatTime(shift.end_time)}
         </div>

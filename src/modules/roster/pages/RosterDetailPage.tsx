@@ -137,6 +137,7 @@ const RosterWeekView: React.FC<{
             </button>
           );
         })}
+        </div>
       </div>
       {rosterDay?.manager_duties && rosterDay.manager_duties.length > 0 && (() => {
         // Show summary of all managers for this day
