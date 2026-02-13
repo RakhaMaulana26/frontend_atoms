@@ -10,12 +10,14 @@ export interface User {
   id: number;
   name: string;
   email: string;
+  grade?: number | null;
 }
 
 export interface Employee {
   id: number;
   user_id: number;
   employee_type: 'CNS' | 'Support' | 'Manager Teknik' | 'General Manager';
+  group_number?: number | null;
   user: User;
 }
 
@@ -23,6 +25,9 @@ export interface Employee {
 export interface Shift {
   id: number;
   name: string;  // Shift name (e.g., "pagi", "siang", "malam")
+  start_time: string;
+  end_time: string;
+  code?: 'pagi' | 'siang' | 'malam';
 }
 
 // Shift Assignment (Employee assigned to shift on specific day)
@@ -31,6 +36,8 @@ export interface ShiftAssignment {
   roster_day_id: number;
   employee_id: number;
   shift_id: number;
+  notes?: string | null; // Custom notes/status for assignment (e.g., Libur, Cuti, Training, Dinas Luar)
+  span_days?: number; // Number of consecutive days this assignment spans (for merged cells)
   created_at: string;
   employee: Employee;
   shift: Shift;
@@ -76,6 +83,8 @@ export interface RosterPeriod {
 export interface CreateShiftAssignmentRequest {
   employee_id: number;
   shift_id: number;
+  notes?: string | null; // Optional custom notes/status
+  span_days?: number; // Optional span for merged cells
 }
 
 export interface CreateManagerDutyRequest {

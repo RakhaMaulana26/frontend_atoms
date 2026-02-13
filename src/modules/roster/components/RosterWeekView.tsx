@@ -60,7 +60,7 @@ const RosterWeekView: React.FC<RosterWeekViewProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-3xl shadow-lg border border-gray-100 p-4 sm:p-6 lg:p-8">
+    <div className="bg-white rounded-3xl shadow-lg border border-gray-100 -mx-4 sm:mx-0 p-4 sm:p-6 lg:p-8">
       {/* Week Navigation */}
       <div className="flex items-center justify-between mb-6 sm:mb-8">
         <button
@@ -156,7 +156,7 @@ const RosterWeekView: React.FC<RosterWeekViewProps> = ({
           {shifts.map((shift) => {
             const assignments = rosterDay.shift_assignments?.filter(a => a.shift_id === shift.id) || [];
             const shiftManagerDuties = rosterDay.manager_duties?.filter(d => d.shift_id === shift.id) || [];
-            const bgColor = getShiftColor(shift.shift_name);
+            const bgColor = getShiftColor(shift.name);
             
             return (
               <ShiftAssignmentCard

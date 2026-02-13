@@ -9,6 +9,7 @@ Implementasi sistem cache global yang akan load semua data saat user login dan m
 ✅ **No Duplicate Requests** - Tidak ada request berulang ke endpoint yang sama
 ✅ **Offline-like Experience** - App tetap bisa menampilkan data meskipun koneksi lambat
 ✅ **Consistent Data** - Semua komponen menggunakan data yang sama
+✅ **Lazy Loading** - Detail data di-load on-demand untuk efisiensi
 
 ## Architecture
 
@@ -25,15 +26,32 @@ Implementasi sistem cache global yang akan load semua data saat user login dan m
 - Optimistic updates (update cache dulu, sync dengan server)
 - Error handling dengan rollback
 - Client-side filtering dan search
+- Lazy loading untuk detail data (roster detail, dll)
 
 ### 2. Cache Methods
 
-#### Load Data
+#### Load Data (Eager Loading)
 ```typescript
 const loadUsers = async () => {
   const response = await adminService.getUsers({});
   setUsers(response.data);
   setIsInitialized(true);
+}
+```
+
+#### Load Detail (Lazy Loading)
+```typescript
+// Load on-demand, check cache first
+const loadRosterDetail = async (rosterId: number) => {
+  // Check cache first
+  if (rosterDetails[rosterId]) {
+    return rosterDetails[rosterId];
+  }
+  
+  // Load from API if not in cache
+  const detail = await rosterService.getRoster(rosterId);
+  setRosterDetails(prev => ({ ...prev, [rosterId]: detail }));
+  return detail;
 }
 ```
 
@@ -60,19 +78,33 @@ const removeUser = (userId: number) => {
 
 ## Implementation Flow
 
-### Initial Load (Login)
+### Initial Load (Login - Eager Loading)
 ```
 1. User login successfully
    ↓
 2. DataCacheContext detects isAuthenticated = true
    ↓
-3. Auto-trigger loadUsers()
+3. Auto-trigger loadAllData():
+   - loadUsers()
+   - loadNotifications()
+   - loadRosters() (list)
+   - loadRosterDetails() (ALL roster details) ← Load all!
+   - loadActivities()
    ↓
-4. Fetch all users from /admin/users
+4. Store in cache, set isInitialized = true
    ↓
-5. Store in cache, set isInitialized = true
+5. All components can access cached data instantly
+```
+
+### Roster Detail Access (Instant from Cache)
+```
+1. User visits Roster Detail Page (/rosters/:id)
    ↓
-6. All components can access cached data
+2. Component: getRosterDetail(id)
+   ↓
+3. Data instantly available from cache (0ms, no API call!)
+   ↓
+4. All roster navigations = instant load from cache
 ```
 
 ### CRUD Operations Flow
@@ -176,6 +208,42 @@ if (!isInitialized) {
   emptyMessage="No users found"
 />
 ```
+
+## Roster Detail Eager Loading
+
+### ✅ Current Implementation: Load all at startup
+```typescript
+// Load all roster details when user logs in
+const loadRosterDetails = async () => {
+  const rosters = await rosterService.getRosters();
+  
+  // Load all roster details in parallel
+  const details = await Promise.all(
+    rosters.map(r => rosterService.getRoster(r.id))
+  );
+  
+  // Store all in cache
+  setRosterDetails(details);
+};
+
+// Component: RosterDetailPage - instant access!
+const RosterDetailPage = () => {
+  const { id } = useParams();
+  const { getRosterDetail } = useDataCache();
+  
+  // Get from cache - already loaded at startup
+  const roster = getRosterDetail(Number(id));
+  
+  // All visits = instant! No loading, no API calls
+  return <div>{roster?.month}</div>;
+};
+```
+
+**Benefits:**
+- ✅ All roster details loaded once at startup
+- ✅ Instant navigation between roster details (0ms)
+- ✅ No loading state when viewing roster details
+- ✅ Consistent data across all pages
 
 ## Search & Filter
 

@@ -11,20 +11,24 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Calendar, Users, ArrowRightLeft } from 'lucide-react';
-import { PageHeader, RosterCalendarView, ShiftAssignmentCard } from '../../../components';
-import { rosterService } from '../repository/rosterService';
+import { PageHeader, ShiftAssignmentCard } from '../../../components';
 import { useAuth } from '../../auth/core/AuthContext';
-import type { RosterPeriod, RosterDay, Shift } from '../types/roster';
+import { useDataCache } from '../../../contexts/DataCacheContext';
+import type { RosterDay, Shift } from '../types/roster';
+import RosterCalendarView from '../components/RosterCalendarView';
+import RosteredStaffCalendarView from '../components/RosteredStaffCalendarView';
+import RosteredStaffPersonView from '../components/RosteredStaffPersonView';
 import ShiftSwapRequestsTable from '../components/ShiftSwapRequestsTable';
 import SwapShiftModal from '../../../components/modals/roster/SwapShiftModal';
 
 type TabType = 'calendar' | 'staff' | 'swap';
+type StaffViewType = 'week' | 'calendar' | 'person';
 
 // Mock shifts data - TODO: Fetch from backend (/shifts endpoint)
 const mockShifts: Shift[] = [
-  { id: 1, name: 'Shift 1 - Morning' },
-  { id: 2, name: 'Shift 2 - Afternoon' },
-  { id: 3, name: 'Shift 3 - Night' }
+  { id: 1, name: 'Shift 1 - Morning', start_time: '07:00:00', end_time: '15:00:00' },
+  { id: 2, name: 'Shift 2 - Afternoon', start_time: '15:00:00', end_time: '23:00:00' },
+  { id: 3, name: 'Shift 3 - Night', start_time: '23:00:00', end_time: '07:00:00' }
 ];
 
 // Mock swap requests - TODO: Fetch from backend (/shift-swap-requests endpoint)
@@ -201,50 +205,31 @@ const RosterWeekView: React.FC<{
 const RosterDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
+  const { getRosterDetail, loadingStates } = useDataCache();
   const [activeTab, setActiveTab] = useState<TabType>('calendar');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [roster, setRoster] = useState<RosterPeriod | null>(null);
+  const [staffView, setStaffView] = useState<StaffViewType>('week');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedRosterDay, setSelectedRosterDay] = useState<RosterDay | null>(null);
   const [isSwapShiftModalOpen, setIsSwapShiftModalOpen] = useState(false);
 
-  // Only Admin, Manager Teknik, General Manager can edit rosters
-  const canManageRoster = ['Admin', 'Manager Teknik', 'General Manager'].includes(user?.role || '');
+  // Get roster from cache (already loaded at startup)
+  const roster = id ? getRosterDetail(Number(id)) : null;
+  const loading = loadingStates.rosterDetails;
 
-  // Fetch roster details on mount
+  // Set initial selected date when roster loads
   useEffect(() => {
-    if (!id) return;
-    
-    const fetchRosterDetails = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await rosterService.getRoster(Number(id));
-        setRoster(data);
-        
-        // Set initial selected date to first day of roster
-        if (data.roster_days && data.roster_days.length > 0) {
-          const firstDay = data.roster_days[0];
-          setSelectedDate(new Date(firstDay.work_date));
-        }
-      } catch (err) {
-        console.error('Failed to fetch roster:', err);
-        setError('Failed to load roster details. Please try again.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchRosterDetails();
-  }, [id]);
+    if (roster && roster.roster_days && roster.roster_days.length > 0) {
+      const firstDay = roster.roster_days[0];
+      setSelectedDate(new Date(firstDay.work_date));
+    }
+  }, [roster]);
 
   // Update selected roster day when date changes
   useEffect(() => {
     if (!roster || !roster.roster_days) return;
     
     const dateStr = selectedDate.toISOString().split('T')[0]; // "YYYY-MM-DD"
-    const rosterDay = roster.roster_days.find(d => d.work_date === dateStr);
+    const rosterDay = roster.roster_days.find((d: RosterDay) => d.work_date === dateStr);
     setSelectedRosterDay(rosterDay || null);
   }, [selectedDate, roster]);
 
@@ -299,8 +284,8 @@ const RosterDetailPage: React.FC = () => {
     );
   }
 
-  // Error state
-  if (error || !roster) {
+  // Error state - Only show if not loading and roster is null
+  if (!loading && !roster) {
     return (
       <PageHeader
         title="Roster Detail"
@@ -316,12 +301,17 @@ const RosterDetailPage: React.FC = () => {
               <svg className="w-12 h-12 text-red-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
-              <p className="text-red-800 font-medium">{error || 'Roster not found'}</p>
+              <p className="text-red-800 font-medium">Roster not found</p>
             </div>
           </div>
         </div>
       </PageHeader>
     );
+  }
+
+  // If roster is still null (shouldn't happen due to check above), return loading
+  if (!roster) {
+    return null;
   }
 
   return (
@@ -334,16 +324,16 @@ const RosterDetailPage: React.FC = () => {
       ]}
     >
       <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-6">
           {/* Tab Navigation */}
           <div className="flex items-center justify-center mb-8">
-            <div className="relative inline-flex items-center gap-1 p-1.5 bg-white rounded-2xl shadow-lg border border-gray-200">
+            <div className="relative inline-flex items-center gap-1 p-1.5 bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
               {/* Animated Sliding Indicator */}
               <div
                 className="absolute h-[calc(100%-12px)] bg-gradient-to-br from-[#222E6A] via-[#2a3a7f] to-[#1a235c] rounded-xl transition-all duration-300 ease-out shadow-md"
                 style={{
-                  width: activeTab === 'calendar' ? '140px' : activeTab === 'staff' ? '175px' : '205px',
-                  left: activeTab === 'calendar' ? '6px' : activeTab === 'staff' ? '152px' : '333px',
+                  width: activeTab === 'calendar' ? '135px' : activeTab === 'staff' ? '170px' : '200px',
+                  left: activeTab === 'calendar' ? '6px' : activeTab === 'staff' ? '145px' : '319px',
                 }}
               />
 
@@ -392,15 +382,58 @@ const RosterDetailPage: React.FC = () => {
             )}
 
             {activeTab === 'staff' && (
-              <RosterWeekView
-                weekDays={getDaysInWeek(selectedDate)}
-                selectedDate={selectedDate}
-                onDateSelect={setSelectedDate}
-                onNavigateWeek={navigateWeek}
-                rosterDay={selectedRosterDay || undefined}
-                shifts={mockShifts}
-                isReadOnly={roster.status === 'published' || !canManageRoster}
-              />
+              <div className="space-y-4">
+                <div className="flex items-center justify-end">
+                  <div className="inline-flex items-center p-1.5 bg-white rounded-2xl shadow-md border border-gray-200">
+                    <button
+                      onClick={() => setStaffView('week')}
+                      className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+                        staffView === 'week'
+                          ? 'bg-gradient-to-r from-[#454D7C] to-[#5A6299] text-white'
+                          : 'text-gray-700 hover:text-gray-900'
+                      }`}
+                    >
+                      Weekly
+                    </button>
+                    <button
+                      onClick={() => setStaffView('calendar')}
+                      className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+                        staffView === 'calendar'
+                          ? 'bg-gradient-to-r from-[#454D7C] to-[#5A6299] text-white'
+                          : 'text-gray-700 hover:text-gray-900'
+                      }`}
+                    >
+                      Calendar
+                    </button>
+                    <button
+                      onClick={() => setStaffView('person')}
+                      className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+                        staffView === 'person'
+                          ? 'bg-gradient-to-r from-[#454D7C] to-[#5A6299] text-white'
+                          : 'text-gray-700 hover:text-gray-900'
+                      }`}
+                    >
+                      Per Person
+                    </button>
+                  </div>
+                </div>
+
+                {staffView === 'week' ? (
+                  <RosterWeekView
+                    weekDays={getDaysInWeek(selectedDate)}
+                    selectedDate={selectedDate}
+                    onDateSelect={setSelectedDate}
+                    onNavigateWeek={navigateWeek}
+                    rosterDay={selectedRosterDay || undefined}
+                    shifts={mockShifts}
+                    isReadOnly={roster.status === 'published'}
+                  />
+                ) : staffView === 'person' ? (
+                  <RosteredStaffPersonView roster={roster} shifts={mockShifts} />
+                ) : (
+                  <RosteredStaffCalendarView roster={roster} shifts={mockShifts} />
+                )}
+              </div>
             )}
 
             {activeTab === 'swap' && (

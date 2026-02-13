@@ -19,6 +19,7 @@ export interface Employee {
   user_id: number;
   employee_type: 'Administrator' | 'CNS' | 'Support' | 'Manager Teknik' | 'General Manager';
   employee_type_name?: string;
+  group_number?: number | null;
   is_active: boolean;
   user?: User;
   created_at: string;

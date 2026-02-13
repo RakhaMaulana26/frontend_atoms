@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import type { ReactNode } from 'react';
-import type { User, Notification, RosterPeriod } from '../types';
+import type { User, Notification } from '../types';
+import type { RosterPeriod } from '../modules/roster/types/roster';
 import type { ActivityLog, ActivityLogStatistics } from '../services/activityLogService';
 import { adminService } from '../services/adminService';
 import { notificationService } from '../modules/notifications/repository/notificationService';
@@ -30,6 +31,7 @@ interface DataCacheContextType {
   notificationsByCategory: NotificationsByCategory;
   notificationStats: NotificationStats;
   rosters: RosterPeriod[];
+  rosterDetails: Record<number, RosterPeriod>;
   recentActivities: ActivityLog[];
   activityStatistics: ActivityLogStatistics | null;
   unreadNotificationCount: number;
@@ -39,6 +41,7 @@ interface DataCacheContextType {
     users: boolean;
     notifications: boolean;
     rosters: boolean;
+    rosterDetails: boolean;
     activities: boolean;
   };
   systemStats: {
@@ -51,6 +54,9 @@ interface DataCacheContextType {
   loadNotifications: () => Promise<void>;
   loadNotificationsByCategory: (category?: NotificationCategory) => Promise<void>;
   loadRosters: () => Promise<void>;
+  loadRosterDetails: () => Promise<void>;
+  loadRosterDetail: (rosterId: number) => Promise<RosterPeriod | null>;
+  getRosterDetail: (rosterId: number) => RosterPeriod | null;
   loadRecentActivities: () => Promise<void>;
   loadActivityStatistics: () => Promise<void>;
   loadAllData: () => Promise<void>;
@@ -70,6 +76,7 @@ interface DataCacheContextType {
   addNotificationToSent: (notification: Notification) => void;
   updateNotificationInCache: (id: number, updates: Partial<Notification>) => void;
   refreshRosters: () => Promise<void>;
+  updateRosterDetail: (rosterId: number, updatedRoster: RosterPeriod) => void;
   refreshActivities: () => Promise<void>;
 }
 
@@ -91,6 +98,7 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
     trash: 0,
   });
   const [rosters, setRosters] = useState<RosterPeriod[]>([]);
+  const [rosterDetails, setRosterDetails] = useState<Record<number, RosterPeriod>>({});
   const [recentActivities, setRecentActivities] = useState<ActivityLog[]>([]);
   const [activityStatistics, setActivityStatistics] = useState<ActivityLogStatistics | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -99,9 +107,14 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
     users: false,
     notifications: false,
     rosters: false,
+    rosterDetails: false,
     activities: false
   });
   const { isAuthenticated } = useAuth();
+  
+  // Track if initial load has been triggered to prevent multiple calls
+  const hasInitialLoadStartedRef = useRef(false);
+  const isLoadingAllDataRef = useRef(false);
 
   // Calculate unread notifications count from inbox category
   const unreadNotificationCount = useMemo(() => {
@@ -126,6 +139,9 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
   const loadUsers = useCallback(async () => {
     if (!isAuthenticated) return;
     
+    // Prevent duplicate calls
+    if (loadingStates.users) return;
+    
     setLoadingStates(prev => ({ ...prev, users: true }));
     try {
       // Request all users without pagination for caching
@@ -139,11 +155,14 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
     } finally {
       setLoadingStates(prev => ({ ...prev, users: false }));
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, loadingStates.users]);
 
   // Load rosters data
   const loadRosters = useCallback(async () => {
     if (!isAuthenticated) return;
+    
+    // Prevent duplicate calls
+    if (loadingStates.rosters) return;
     
     setLoadingStates(prev => ({ ...prev, rosters: true }));
     try {
@@ -162,11 +181,100 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
     } finally {
       setLoadingStates(prev => ({ ...prev, rosters: false }));
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, loadingStates.rosters]);
+
+  // Load all roster details (eager loading)
+  const loadRosterDetails = useCallback(async () => {
+    if (!isAuthenticated) return;
+    
+    // Prevent duplicate calls
+    if (loadingStates.rosterDetails) return;
+    
+    setLoadingStates(prev => ({ ...prev, rosterDetails: true }));
+    try {
+      // Get list of rosters if not loaded yet
+      let rosterList = rosters;
+      if (rosterList.length === 0) {
+        const response: any = await rosterService.getRosters();
+        rosterList = Array.isArray(response) ? response : (response?.data || []);
+      }
+      
+      // Load details for each roster in parallel
+      const detailsPromises = rosterList.map(roster => 
+        rosterService.getRoster(roster.id)
+          .catch(err => {
+            console.error(`Failed to load details for roster ${roster.id}:`, err);
+            return null;
+          })
+      );
+      
+      const detailsArray = await Promise.all(detailsPromises);
+      
+      // Create a map of roster details
+      const detailsMap: Record<number, RosterPeriod> = {};
+      detailsArray.forEach(detail => {
+        if (detail) {
+          detailsMap[detail.id] = detail;
+        }
+      });
+      
+      setRosterDetails(detailsMap);
+    } catch (error) {
+      console.error('Failed to load roster details cache:', error);
+      setRosterDetails({});
+    } finally {
+      setLoadingStates(prev => ({ ...prev, rosterDetails: false }));
+    }
+  }, [isAuthenticated, rosters, loadingStates.rosterDetails]);
+
+  // Load single roster detail on-demand (lazy loading with cache)
+  const loadRosterDetail = useCallback(async (rosterId: number): Promise<RosterPeriod | null> => {
+    if (!isAuthenticated) return null;
+    
+    // Check if already in cache
+    if (rosterDetails[rosterId]) {
+      return rosterDetails[rosterId];
+    }
+    
+    // Load from API
+    setLoadingStates(prev => ({ ...prev, rosterDetails: true }));
+    try {
+      const detail = await rosterService.getRoster(rosterId);
+      
+      // Store in cache
+      setRosterDetails(prev => ({
+        ...prev,
+        [rosterId]: detail
+      }));
+      
+      return detail;
+    } catch (error) {
+      console.error(`Failed to load roster detail ${rosterId}:`, error);
+      return null;
+    } finally {
+      setLoadingStates(prev => ({ ...prev, rosterDetails: false }));
+    }
+  }, [isAuthenticated, rosterDetails]);
+
+  // Get roster detail from cache (synchronous)
+  const getRosterDetail = useCallback((rosterId: number): RosterPeriod | null => {
+    return rosterDetails[rosterId] || null;
+  }, [rosterDetails]);
+
+  // Update roster detail in cache
+  const updateRosterDetail = useCallback((rosterId: number, updatedRoster: RosterPeriod) => {
+    setRosterDetails(prev => ({
+      ...prev,
+      [rosterId]: updatedRoster
+    }));
+  }, []);
 
   // Load notifications data
   const loadNotifications = useCallback(async () => {
     if (!isAuthenticated) return;
+    
+    // Prevent duplicate calls
+    if (loadingStates.notifications) return;
     
     setLoadingStates(prev => ({ ...prev, notifications: true }));
     try {
@@ -184,7 +292,7 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
     } finally {
       setLoadingStates(prev => ({ ...prev, notifications: false }));
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, loadingStates.notifications]);
 
   // Load notifications by category (all categories at once)
   const loadNotificationsByCategory = useCallback(async (singleCategory?: NotificationCategory) => {
@@ -273,12 +381,20 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
     }
   }, [isAuthenticated]);
 
-  // Load all data
+  // Load all data including roster details
   const loadAllData = useCallback(async () => {
     if (!isAuthenticated) return;
     
+    // Prevent multiple simultaneous calls
+    if (isLoadingAllDataRef.current || isInitialized) return;
+    
+    isLoadingAllDataRef.current = true;
     setIsLoading(true);
+    
     try {
+      console.log('🚀 Starting initial data load...');
+      
+      // Load essential data first
       await Promise.all([
         loadUsers(),
         loadNotifications(),
@@ -287,22 +403,33 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
         loadRecentActivities(),
         loadActivityStatistics()
       ]);
+      
+      console.log('✅ Essential data loaded');
+      
+      // Then load roster details after rosters are loaded
+      await loadRosterDetails();
+      
+      console.log('✅ All data loaded successfully');
       setIsInitialized(true);
     } catch (error) {
-      console.error('Failed to load initial data:', error);
+      console.error('❌ Failed to load initial data:', error);
     } finally {
       setIsLoading(false);
+      isLoadingAllDataRef.current = false;
     }
-  }, [isAuthenticated, loadUsers, loadNotifications, loadNotificationsByCategory, loadRosters, loadRecentActivities, loadActivityStatistics]);
+  }, [isAuthenticated, isInitialized, loadUsers, loadNotifications, loadNotificationsByCategory, loadRosters, loadRosterDetails, loadRecentActivities, loadActivityStatistics]);
 
-  // Auto-load when user authenticated
+  // Auto-load when user authenticated - only once!
   useEffect(() => {
-    if (isAuthenticated && !isInitialized) {
+    if (isAuthenticated && !isInitialized && !hasInitialLoadStartedRef.current) {
+      console.log('🔐 User authenticated, starting data load...');
+      hasInitialLoadStartedRef.current = true;
       loadAllData();
     }
     
     // Reset cache when user logs out
     if (!isAuthenticated && isInitialized) {
+      console.log('👋 User logged out, clearing cache...');
       // Clear all cached data
       setUsers([]);
       setNotifications([]);
@@ -319,9 +446,11 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
         trash: 0,
       });
       setRosters([]);
+      setRosterDetails({});
       setRecentActivities([]);
       setActivityStatistics(null);
       setIsInitialized(false);
+      hasInitialLoadStartedRef.current = false;
     }
   }, [isAuthenticated, isInitialized, loadAllData]);
 
@@ -583,6 +712,7 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
         notificationsByCategory,
         notificationStats,
         rosters,
+        rosterDetails,
         recentActivities,
         activityStatistics,
         unreadNotificationCount,
@@ -594,6 +724,9 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
         loadNotifications,
         loadNotificationsByCategory,
         loadRosters,
+        loadRosterDetails,
+        loadRosterDetail,
+        getRosterDetail,
         loadRecentActivities,
         loadActivityStatistics,
         loadAllData,
@@ -613,6 +746,7 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
         addNotificationToSent,
         updateNotificationInCache,
         refreshRosters,
+        updateRosterDetail,
         refreshActivities,
       }}
     >
