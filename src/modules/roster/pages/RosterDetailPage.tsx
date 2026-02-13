@@ -108,7 +108,7 @@ const RosterWeekView: React.FC<{
   };
 
   return (
-    <div className="bg-white rounded-3xl shadow-lg border border-gray-100 p-4 sm:p-6 lg:p-8">
+    <div className="bg-white rounded-3xl shadow-lg border border-gray-100 -mx-7 sm:mx-0 p-4 sm:p-6 lg:p-8">
       <div className="flex items-center justify-between mb-6 sm:mb-8">
         <button onClick={() => onNavigateWeek('prev')} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
           <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -122,7 +122,8 @@ const RosterWeekView: React.FC<{
           </svg>
         </button>
       </div>
-      <div className="grid grid-cols-7 gap-1 mb-6 sm:mb-8">
+      <div className="overflow-x-auto -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 mb-6 sm:mb-8">
+        <div className="grid grid-cols-7 gap-1 min-w-max sm:min-w-0">
         {weekDays.map((day, idx) => {
           const isSelected = isSameDay(day, selectedDate);
           const isToday = isSameDay(day, new Date());
@@ -323,11 +324,11 @@ const RosterDetailPage: React.FC = () => {
         { label: `${getMonthName(roster.month)} ${roster.year}` }
       ]}
     >
-      <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-6">
+      <div className="min-h-screen bg-gray-50 py-4 sm:py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Tab Navigation */}
-          <div className="flex items-center justify-center mb-8">
-            <div className="relative inline-flex items-center gap-1 p-1.5 bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+          <div className="flex items-center justify-center mb-6 sm:mb-8 overflow-x-auto px-2">
+            <div className="relative inline-flex items-center gap-1 p-1 sm:p-1.5 bg-white rounded-2xl shadow-lg border border-gray-200 min-w-max overflow-hidden">
               {/* Animated Sliding Indicator */}
               <div
                 className="absolute h-[calc(100%-12px)] bg-gradient-to-br from-[#222E6A] via-[#2a3a7f] to-[#1a235c] rounded-xl transition-all duration-300 ease-out shadow-md"
@@ -340,32 +341,33 @@ const RosterDetailPage: React.FC = () => {
               {/* Tab Buttons */}
               <button
                 onClick={() => setActiveTab('calendar')}
-                className={`relative z-10 flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold transition-colors duration-300 ${
+                className={`relative z-10 flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl text-sm sm:text-base font-semibold transition-colors duration-300 whitespace-nowrap ${
                   activeTab === 'calendar' ? 'text-white' : 'text-gray-700 hover:text-gray-900'
                 }`}
               >
-                <Calendar className="h-5 w-5" />
+                <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />
                 <span>Calendar</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('staff')}
-                className={`relative z-10 flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold transition-colors duration-300 ${
+                className={`relative z-10 flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl text-sm sm:text-base font-semibold transition-colors duration-300 whitespace-nowrap ${
                   activeTab === 'staff' ? 'text-white' : 'text-gray-700 hover:text-gray-900'
                 }`}
               >
-                <Users className="h-5 w-5" />
+                <Users className="h-4 w-4 sm:h-5 sm:w-5" />
                 <span>Rostered Staff</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('swap')}
-                className={`relative z-10 flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold transition-colors duration-300 ${
+                className={`relative z-10 flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl text-sm sm:text-base font-semibold transition-colors duration-300 whitespace-nowrap ${
                   activeTab === 'swap' ? 'text-white' : 'text-gray-700 hover:text-gray-900'
                 }`}
               >
-                <ArrowRightLeft className="h-5 w-5" />
-                <span>Shift Swap Request</span>
+                <ArrowRightLeft className="h-4 w-4 sm:h-5 sm:w-5" />
+                <span className="hidden sm:inline">Shift Swap Request</span>
+                <span className="sm:hidden">Swap</span>
               </button>
             </div>
           </div>
@@ -382,12 +384,12 @@ const RosterDetailPage: React.FC = () => {
             )}
 
             {activeTab === 'staff' && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-end">
-                  <div className="inline-flex items-center p-1.5 bg-white rounded-2xl shadow-md border border-gray-200">
+              <div className="space-y-4 sm:space-y-6">
+                <div className="flex items-center justify-end px-2">
+                  <div className="inline-flex items-center p-1 sm:p-1.5 bg-white rounded-2xl shadow-md border border-gray-200">
                     <button
                       onClick={() => setStaffView('week')}
-                      className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+                      className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
                         staffView === 'week'
                           ? 'bg-gradient-to-r from-[#454D7C] to-[#5A6299] text-white'
                           : 'text-gray-700 hover:text-gray-900'
@@ -397,7 +399,7 @@ const RosterDetailPage: React.FC = () => {
                     </button>
                     <button
                       onClick={() => setStaffView('calendar')}
-                      className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+                      className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
                         staffView === 'calendar'
                           ? 'bg-gradient-to-r from-[#454D7C] to-[#5A6299] text-white'
                           : 'text-gray-700 hover:text-gray-900'

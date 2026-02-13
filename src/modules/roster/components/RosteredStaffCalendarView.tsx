@@ -94,7 +94,7 @@ const RosteredStaffCalendarView: React.FC<RosteredStaffCalendarViewProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-3xl shadow-lg border border-gray-100 -mx-4 sm:mx-0 p-4 sm:p-6 lg:p-8">
+    <div className="bg-white rounded-3xl shadow-lg border border-gray-100 -mx-7 sm:mx-0 p-4 sm:p-6 lg:p-8">
       {/* Header with Navigation */}
       <div className="flex items-center justify-between mb-6 gap-2">
         <button
@@ -111,10 +111,10 @@ const RosteredStaffCalendarView: React.FC<RosteredStaffCalendarViewProps> = ({
 
         <div className="text-center flex-1 min-w-0">
           <h2 className="text-lg sm:text-3xl font-bold text-gray-900">Work Schedule</h2>
-          <p className="text-xs sm:text-lg text-gray-500 truncate">
+          <p className="text-sm sm:text-lg text-gray-700 truncate">
             {getWeekDateRange()} {roster.year}
           </p>
-          <p className="text-[10px] sm:text-lg text-gray-400 mt-1">
+          <p className="text-sm sm:text-lg text-gray-400 mt-1">
             Week {currentWeek + 1} of {totalWeeks}
           </p>
         </div>
@@ -138,7 +138,7 @@ const RosteredStaffCalendarView: React.FC<RosteredStaffCalendarViewProps> = ({
           <button
             key={index}
             onClick={() => setCurrentWeek(index)}
-            className={`w-7 h-7 sm:w-10 sm:h-10 rounded-full text-xs sm:text-sm font-medium transition-all ${
+            className={`w-7 h-7 sm:w-10 sm:h-10 rounded-full text-xs sm:text-lg font-medium transition-all ${
               index === currentWeek
                 ? 'bg-[#222E6A] text-white scale-110'
                 : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
@@ -150,11 +150,11 @@ const RosteredStaffCalendarView: React.FC<RosteredStaffCalendarViewProps> = ({
       </div>
 
       {/* Roster Table */}
-      <div className="overflow-x-auto -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8">
+      <div className="overflow-x-auto -mx-2 sm:-mx-4 lg:-mx-8 px-4 sm:px-6 lg:px-8">
         <table className="w-full border-collapse">
           <thead>
             <tr>
-              <th className="text-left text-[11px] sm:text-xs lg:text-sm font-semibold text-white px-2 sm:px-4 py-2 sm:py-3 rounded-tl-xl whitespace-nowrap" style={{ backgroundColor: '#222E6A' }}>
+              <th className="text-left text-[11px] sm:text-xs lg:text-sm font-semibold text-white px-2  sm:px-4 py-2 sm:py-3 rounded-tl-md whitespace-nowrap" style={{ backgroundColor: '#222E6A' }}>
                 Shift
               </th>
               {displayedDays.map((day) => (

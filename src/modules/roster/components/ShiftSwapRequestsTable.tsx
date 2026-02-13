@@ -55,61 +55,52 @@ const ShiftSwapRequestsTable: React.FC<ShiftSwapRequestsTableProps> = ({
     <div>
       {/* Request Button */}
       {onRequestNew && (
-        <div className="mb-6">
+        <div className="mb-4 sm:mb-6 px-2">
           <button 
             onClick={onRequestNew}
-            className="group relative flex items-center gap-2 px-6 py-3 bg-gradient-to-br from-[#222E6A] via-[#2a3a7f] to-[#1a235c] hover:from-[#1a235c] hover:via-[#222E6A] hover:to-[#2a3a7f] rounded-xl transition-all duration-300 font-semibold text-white shadow-lg hover:shadow-2xl transform hover:-translate-y-0.5 active:translate-y-0 active:shadow-md"
+            className="group relative flex items-center gap-2 px-3 sm:px-6 py-2 sm:py-3 bg-gradient-to-br from-[#222E6A] via-[#2a3a7f] to-[#1a235c] hover:from-[#1a235c] hover:via-[#222E6A] hover:to-[#2a3a7f] rounded-xl transition-all duration-300 font-semibold text-white text-sm sm:text-base shadow-lg hover:shadow-2xl transform hover:-translate-y-0.5 active:translate-y-0 active:shadow-md"
             style={{
               boxShadow: '0 8px 16px rgba(34, 46, 106, 0.3), inset 0 -2px 8px rgba(0, 0, 0, 0.2)',
             }}
           >
-            <span className="absolute inset-0 w-full h-full bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 rounded-xl transition-opacity duration-300"></span>
-            <span className="relative text-2xl font-bold">+</span>
-            <span className="relative">Request Shift Swap</span>
-            <svg 
-              className="relative w-5 h-5 ml-1 transform group-hover:translate-x-1 transition-transform duration-300" 
-              fill="none" 
-              stroke="currentColor" 
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-            </svg>
+            <span className="text-xl">+</span>
+            <span>Request Shift Swap</span>
           </button>
         </div>
       )}
 
       {/* Table Container */}
-      <div className="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden">
+      <div className="bg-white rounded-3xl shadow-lg border border-gray-100 -mx-7 sm:mx-0 p-4 sm:p-6 lg:p-8">
         {/* Header */}
-        <div className="p-6 border-b border-gray-200">
-          <h3 className="text-xl font-bold text-gray-900 mb-2">Shift Swap Request List</h3>
-          <p className="text-sm text-gray-600">
+        <div className="p-4 sm:p-6 border-b border-gray-200">
+          <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-1 sm:mb-2">Shift Swap Request List</h3>
+          <p className="text-xs sm:text-sm text-gray-600">
             The following is a list of submitted requests and their verification status
           </p>
         </div>
 
         {/* Filter and Search */}
-        <div className="p-6 bg-[#222E6A]">
-          <div className="flex items-center gap-4 flex-wrap">
+        <div className="rounded-t-xl p-3 sm:p-6 bg-[#222E6A]">
+          <div className="flex items-center gap-2 sm:gap-4 flex-wrap justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-white text-sm font-medium">Items per page</span>
+              <span className="text-white text-xs sm:text-sm font-medium whitespace-nowrap">Items per page</span>
               <select 
                 value={itemsPerPage}
                 onChange={(e) => setItemsPerPage(Number(e.target.value))}
-                className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 font-medium"
+                className="px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg bg-white text-gray-900 font-medium text-xs sm:text-sm"
               >
                 <option value={25}>25</option>
                 <option value={50}>50</option>
                 <option value={100}>100</option>
               </select>
             </div>
-            <div className="ml-auto">
+            <div>
               <input
                 type="text"
                 placeholder="Search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500"
+                className="px-3 sm:px-4 py-1.5 sm:py-2 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 text-xs sm:text-sm w-32 sm:w-auto"
               />
             </div>
           </div>
@@ -117,26 +108,26 @@ const ShiftSwapRequestsTable: React.FC<ShiftSwapRequestsTableProps> = ({
 
         {/* Table */}
         <div className="relative">
-          <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+          <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="bg-[#454D7C]">
-                  <th className="px-6 py-4 text-left text-white font-semibold text-sm whitespace-nowrap">
+                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-white font-semibold text-xs sm:text-sm whitespace-nowrap">
                     Request Type
                   </th>
-                  <th className="px-6 py-4 text-left text-white font-semibold text-sm whitespace-nowrap">
+                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-white font-semibold text-xs sm:text-sm whitespace-nowrap">
                     Name & Position
                   </th>
-                  <th className="px-6 py-4 text-left text-white font-semibold text-sm whitespace-nowrap">
+                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-white font-semibold text-xs sm:text-sm whitespace-nowrap">
                     Original Shift
                   </th>
-                  <th className="px-6 py-4 text-left text-white font-semibold text-sm whitespace-nowrap">
+                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-white font-semibold text-xs sm:text-sm whitespace-nowrap">
                     Requested Shift
                   </th>
-                  <th className="px-6 py-4 text-left text-white font-semibold text-sm whitespace-nowrap">
+                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-white font-semibold text-xs sm:text-sm whitespace-nowrap">
                     Submitted
                   </th>
-                  <th className="px-6 py-4 text-left text-white font-semibold text-sm whitespace-nowrap">
+                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-white font-semibold text-xs sm:text-sm whitespace-nowrap">
                     Status
                   </th>
                 </tr>
@@ -144,33 +135,33 @@ const ShiftSwapRequestsTable: React.FC<ShiftSwapRequestsTableProps> = ({
               <tbody>
                 {filteredRequests.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                    <td colSpan={6} className="px-3 sm:px-6 py-6 sm:py-8 text-center text-gray-500 text-sm">
                       No shift swap requests found
                     </td>
                   </tr>
                 ) : (
                   filteredRequests.map((request) => (
                     <tr key={request.id} className="border-t border-gray-200 hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm text-gray-900 font-medium">
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-gray-900 font-medium">
                         {request.type}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-900">
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-gray-900">
                         <div>
                           <p className="font-medium">{request.employee.name}</p>
-                          <p className="text-xs text-gray-500">{request.employee.position}</p>
+                          <p className="text-[10px] sm:text-xs text-gray-500">{request.employee.position}</p>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-gray-900 whitespace-nowrap">
                         {request.originalShift}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-gray-900 whitespace-nowrap">
                         {request.requestedShift}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-gray-900 whitespace-nowrap">
                         {request.submittedDate}
                       </td>
-                      <td className="px-6 py-4 text-sm">
-                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(request.status)}`}>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm">
+                        <span className={`inline-block px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-semibold ${getStatusColor(request.status)}`}>
                           {request.status}
                         </span>
                       </td>
@@ -182,8 +173,8 @@ const ShiftSwapRequestsTable: React.FC<ShiftSwapRequestsTableProps> = ({
           </div>
           
           {/* Mobile Scroll Indicator */}
-          <div className="lg:hidden flex items-center justify-center py-2 bg-gray-50 border-t border-gray-200">
-            <svg className="w-5 h-5 text-gray-400 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="sm:hidden flex items-center justify-center py-2 bg-gray-50 border-t border-gray-200">
+            <svg className="w-4 h-4 text-gray-400 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
             </svg>
             <span className="ml-2 text-xs text-gray-500 font-medium">Swipe to see more</span>
@@ -191,19 +182,19 @@ const ShiftSwapRequestsTable: React.FC<ShiftSwapRequestsTableProps> = ({
         </div>
 
         {/* Pagination */}
-        <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-          <span className="text-sm text-gray-600">
+        <div className="px-3 sm:px-6 py-3 sm:py-4 border-t border-gray-200 flex items-center justify-between flex-wrap gap-2">
+          <span className="text-xs sm:text-sm text-gray-600">
             Showing 1 to {Math.min(itemsPerPage, filteredRequests.length)} of {filteredRequests.length} entries
           </span>
-          <div className="flex items-center gap-2">
-            <button className="px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="flex items-center gap-1 sm:gap-2">
+            <button className="px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
-            <button className="px-3 py-2 bg-[#222E6A] text-white rounded-lg font-medium">1</button>
-            <button className="px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <button className="px-2 sm:px-3 py-1.5 sm:py-2 bg-[#222E6A] text-white rounded-lg font-medium text-xs sm:text-sm">1</button>
+            <button className="px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </button>

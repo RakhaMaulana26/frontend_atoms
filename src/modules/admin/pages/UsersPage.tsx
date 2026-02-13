@@ -421,9 +421,10 @@ const UsersPage: React.FC = () => {
     >
       {/* Header Actions */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="relative flex-1 min-w-[300px]">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1">
+            <div className="relative flex-1 md:min-w-[350px] lg:min-w-[400px]">
+              
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
                 type="text"
@@ -444,7 +445,7 @@ const UsersPage: React.FC = () => {
               ]}
               value={selectedRole}
               onChange={(e) => setSelectedRole(e.target.value)}
-              className="min-w-[150px]"
+              className="sm:min-w-[150px] pr-10"
             />
             <Select
               options={[
@@ -456,13 +457,13 @@ const UsersPage: React.FC = () => {
               ]}
               value={selectedEmployeeType}
               onChange={(e) => setSelectedEmployeeType(e.target.value)}
-              className="min-w-[150px]"
+              className="sm:min-w-[150px] pr-10"
             />
           </div>
           <Button
             variant="primary"
             onClick={() => setIsCreateModalOpen(true)}
-            className="bg-[#222E6A] hover:bg-[#1a2452]"
+            className="bg-[#222E6A] hover:bg-[#1a2452] w-full lg:w-auto"
           >
             <Plus className="h-4 w-4 mr-2" />
             Create User
@@ -476,30 +477,42 @@ const UsersPage: React.FC = () => {
         
         {/* Pagination Controls - Always visible if there's data */}
         {filteredUsers.length > 0 && (
-          <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100">
-            <div className="text-sm text-gray-600">
-              Showing {((currentPage - 1) * perPage) + 1} to{' '}
-              {Math.min(currentPage * perPage, filteredUsers.length)} of{' '}
-              {filteredUsers.length} users
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-4 sm:px-6 py-4 border-t border-gray-100">
+            <div className="text-xs sm:text-sm text-gray-600 text-center sm:text-left">
+              <span className="hidden sm:inline">
+                Showing {((currentPage - 1) * perPage) + 1} to{' '}
+                {Math.min(currentPage * perPage, filteredUsers.length)} of{' '}
+                {filteredUsers.length} users
+              </span>
+              <span className="sm:hidden">
+                {((currentPage - 1) * perPage) + 1}-{Math.min(currentPage * perPage, filteredUsers.length)} of {filteredUsers.length}
+              </span>
               {totalPages > 1 && <span className="ml-2 text-gray-400">• Page {currentPage} of {totalPages}</span>}
             </div>
             
             {totalPages > 1 && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 sm:gap-2">
                 <Button
                   variant="outline"
                   onClick={() => handlePageChange(currentPage - 1)}
                   disabled={currentPage === 1}
-                  className="px-3 py-2 flex items-center gap-1"
+                  className="px-2 sm:px-3 py-2 flex items-center gap-1"
                 >
                   <ChevronLeft className="h-4 w-4" />
-                  <span>Previous</span>
+                  <span className="hidden sm:inline">Previous</span>
                 </Button>
                 
                 <div className="flex items-center gap-1">
                   {Array.from({ length: totalPages }, (_, i) => i + 1)
                     .filter(page => {
-                      // Show first page, last page, current page, and adjacent pages
+                      // On mobile: show only current, first, and last page
+                      // On desktop: show first page, last page, current page, and adjacent pages
+                      const isMobile = window.innerWidth < 640;
+                      if (isMobile) {
+                        return page === 1 || 
+                               page === totalPages || 
+                               page === currentPage;
+                      }
                       return page === 1 || 
                              page === totalPages || 
                              Math.abs(page - currentPage) <= 1;
@@ -508,12 +521,12 @@ const UsersPage: React.FC = () => {
                       <React.Fragment key={page}>
                         {/* Show ellipsis if there's a gap */}
                         {index > 0 && page - array[index - 1] > 1 && (
-                          <span className="px-3 py-2 text-gray-400">...</span>
+                          <span className="px-2 sm:px-3 py-2 text-gray-400 text-xs sm:text-sm">...</span>
                         )}
                         <Button
                           variant={page === currentPage ? 'primary' : 'outline'}
                           onClick={() => handlePageChange(page)}
-                          className={`px-4 py-2 min-w-[40px] ${
+                          className={`px-2 sm:px-4 py-2 min-w-[32px] sm:min-w-[40px] text-xs sm:text-sm ${
                             page === currentPage 
                               ? 'bg-[#222E6A] text-white' 
                               : 'hover:bg-gray-50'
@@ -529,9 +542,9 @@ const UsersPage: React.FC = () => {
                   variant="outline"
                   onClick={() => handlePageChange(currentPage + 1)}
                   disabled={currentPage === totalPages}
-                  className="px-3 py-2 flex items-center gap-1"
+                  className="px-2 sm:px-3 py-2 flex items-center gap-1"
                 >
-                  <span>Next</span>
+                  <span className="hidden sm:inline">Next</span>
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>

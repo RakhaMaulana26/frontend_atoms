@@ -103,16 +103,16 @@ const RosterCalendarView: React.FC<RosterCalendarViewProps> = ({
     weeks.push(currentWeek);
 
     return (
-      <div className="rounded-xl sm:rounded-3xl p-4 sm:p-8 lg:p-12 shadow-lg border border-gray-100" style={{ backgroundColor: '#222E6A', marginLeft: '-0.5rem', marginRight: '-0.5rem', width: 'calc(100% + 1rem)' }}>
+      <div className="rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-12 shadow-lg border border-gray-100 -mx-7 sm:mx-0" style={{ backgroundColor: '#222E6A' }}>
         {/* Header */}
-        <div className="flex items-center justify-center mb-6 sm:mb-10 lg:mb-12">
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white">
+        <div className="flex items-center justify-center mb-4 sm:mb-8 lg:mb-12">
+          <h2 className="text-xl sm:text-3xl lg:text-4xl font-bold text-white">
             {getMonthName(roster.month)}
           </h2>
         </div>
 
         {/* Calendar Grid */}
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8">
           <table className="w-full border-collapse mx-auto">
             <colgroup>
               <col style={{ width: '14.28%' }} />
@@ -126,7 +126,7 @@ const RosterCalendarView: React.FC<RosterCalendarViewProps> = ({
             <thead>
               <tr>
                 {['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map(day => (
-                  <th key={day} className="text-center font-semibold text-white text-s sm:text-xl py-2 sm:py-4 px-1 sm:px-2">
+                  <th key={day} className="text-center font-semibold text-white text-xs sm:text-base lg:text-xl py-2 sm:py-3 lg:py-4 px-1">
                     {day}
                   </th>
                 ))}
@@ -142,7 +142,7 @@ const RosterCalendarView: React.FC<RosterCalendarViewProps> = ({
                       // Previous/next month days
                       const dayNum = parseInt(dayValue.split('-')[1]);
                       content = (
-                        <div className="w-9 h-9 sm:w-20 sm:h-16 lg:w-16 lg:h-16 flex items-center justify-center rounded-md font-semibold text-md sm:text-xl lg:text-3xl bg-gray-100 text-gray-400 cursor-default mx-auto">
+                        <div className="w-8 h-8 sm:w-12 sm:h-12 lg:w-16 lg:h-16 flex items-center justify-center rounded-md font-semibold text-sm sm:text-lg lg:text-3xl bg-gray-100 text-gray-400 cursor-default mx-auto">
                           {dayNum}
                         </div>
                       );
@@ -152,7 +152,7 @@ const RosterCalendarView: React.FC<RosterCalendarViewProps> = ({
                       const bgColor = getShiftColor(shiftName);
                       content = (
                         <div
-                          className={`w-9 h-9 sm:w-20 sm:h-16 lg:w-16 lg:h-16 flex items-center justify-center rounded-md font-semibold text-white text-md sm:text-xl lg:text-3xl cursor-pointer hover:shadow-xl transition-shadow mx-auto ${bgColor}`}
+                          className={`w-8 h-8 sm:w-12 sm:h-12 lg:w-16 lg:h-16 flex items-center justify-center rounded-md font-semibold text-white text-sm sm:text-lg lg:text-3xl cursor-pointer hover:shadow-xl transition-shadow mx-auto ${bgColor}`}
                           title={shiftName}
                         >
                           {dayValue}
@@ -161,7 +161,7 @@ const RosterCalendarView: React.FC<RosterCalendarViewProps> = ({
                     }
 
                     return (
-                      <td key={`${weekIndex}-${dayIndex}`} className="text-center py-1.5 sm:py-3 px-1 sm:px-1">
+                      <td key={`${weekIndex}-${dayIndex}`} className="text-center py-1 sm:py-2 lg:py-3 px-0.5 sm:px-1">
                         {content}
                       </td>
                     );
@@ -178,12 +178,12 @@ const RosterCalendarView: React.FC<RosterCalendarViewProps> = ({
   return (
     <>
       {/* Print Button */}
-      <div className="flex justify-end mb-4">
+      <div className="flex justify-end mb-4 px-2">
         <button 
           onClick={onPrint}
-          className="flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-gray-100 rounded-md transition-colors font-medium text-gray-900 shadow-md border border-gray-200"
+          className="flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-white hover:bg-gray-100 rounded-md transition-colors font-medium text-gray-900 shadow-md border border-gray-200 text-sm sm:text-base"
         >
-          <Printer className="h-5 w-5" />
+          <Printer className="h-4 w-4 sm:h-5 sm:w-5" />
           <span>Print View</span>
         </button>
       </div>
@@ -192,22 +192,22 @@ const RosterCalendarView: React.FC<RosterCalendarViewProps> = ({
       {renderCalendar()}
 
       {/* Legend */}
-      <div className="flex items-center justify-center gap-8 sm:gap-16 mt-8 flex-wrap">
-        <div className="flex items-center gap-3">
-          <div className="w-6 h-6 bg-blue-500 rounded" />
-          <span className="text-sm font-medium text-black">Morning</span>
+      <div className="flex items-center justify-center gap-4 sm:gap-8 lg:gap-16 mt-6 sm:mt-8 flex-wrap px-2">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="w-5 h-5 sm:w-6 sm:h-6 bg-blue-500 rounded" />
+          <span className="text-xs sm:text-sm font-medium text-black">Morning</span>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="w-6 h-6 bg-yellow-400 rounded" />
-          <span className="text-sm font-medium text-black">Afternoon</span>
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="w-5 h-5 sm:w-6 sm:h-6 bg-yellow-400 rounded" />
+          <span className="text-xs sm:text-sm font-medium text-black">Afternoon</span>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="w-6 h-6 bg-green-500 rounded" />
-          <span className="text-sm font-medium text-black">Night</span>
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="w-5 h-5 sm:w-6 sm:h-6 bg-green-500 rounded" />
+          <span className="text-xs sm:text-sm font-medium text-black">Night</span>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="w-6 h-6 bg-red-500 rounded" />
-          <span className="text-sm font-medium text-black">Off</span>
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="w-5 h-5 sm:w-6 sm:h-6 bg-red-500 rounded" />
+          <span className="text-xs sm:text-sm font-medium text-black">Off</span>
         </div>
       </div>
     </>
