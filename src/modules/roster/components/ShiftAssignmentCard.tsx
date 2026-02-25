@@ -26,7 +26,7 @@ const ShiftAssignmentCard: React.FC<ShiftAssignmentCardProps> = ({
   onRemoveStaff,
   isReadOnly = false
 }) => {
-  const formatTime = (time: string) => time.substring(0, 5); // "07:00:00" -> "07:00"
+  const formatTime = (time?: string) => time ? time.substring(0, 5) : '--:--'; // "07:00:00" -> "07:00"
   
   // Filter out assignments with null employee or shift
   const validAssignments = assignments.filter(a => a.employee && a.shift);

@@ -64,7 +64,19 @@ const RosterCalendarView: React.FC<RosterCalendarViewProps> = ({
       // Filter assignments by current employee if provided
       let assignments = day.shift_assignments || [];
       if (currentEmployeeId) {
-        assignments = assignments.filter(a => a.employee_id === currentEmployeeId);
+        assignments = assignments.filter(a => {
+          if (a.employee_id !== currentEmployeeId) return false;
+          
+          // Filter out if employee is off (libur, cuti, etc.)
+          const notes = a.notes?.toLowerCase() || '';
+          return !notes.includes('libur') && !notes.includes('cuti') && !notes.includes('off');
+        });
+      } else {
+        // Filter out all employees who are off
+        assignments = assignments.filter(a => {
+          const notes = a.notes?.toLowerCase() || '';
+          return !notes.includes('libur') && !notes.includes('cuti') && !notes.includes('off');
+        });
       }
       
       // Get shift name (or 'off' if no assignments)

@@ -9,6 +9,8 @@ import apiClient from '../../../lib/api';
 import type {
   RosterPeriod,
   RosterDay,
+  Employee,
+  Shift,
   CreateAssignmentsRequest,
   RosterValidation,
   AssignmentsResponse,
@@ -31,16 +33,33 @@ export const rosterService = {
    * POST /rosters
    */
   async createRoster(data: { month: number; year: number }): Promise<RosterPeriod> {
-    const response = await apiClient.post<{ message: string; data: RosterPeriod }>('/rosters', data);
-    return response.data.data;
+    const response = await apiClient.post<{ 
+      message: string; 
+      data: { roster_period: RosterPeriod; all_employees: Employee[]; all_shifts: Shift[] } 
+    }>('/rosters', data);
+    
+    // Merge roster_period with all_employees and all_shifts
+    return {
+      ...response.data.data.roster_period,
+      all_employees: response.data.data.all_employees,
+      all_shifts: response.data.data.all_shifts
+    };
   },
 
   /**
    * Get detailed roster information with all assignments
    * GET /rosters/:id
    */
-  async getRoster(rosterId: number): Promise<RosterPeriod> {
-    const response = await apiClient.get<RosterPeriod>(`/rosters/${rosterId}`);
+  async getRoster(rosterId: number): Promise<{ 
+    roster_period: RosterPeriod; 
+    all_employees: Employee[];
+    all_shifts: Shift[];
+  }> {
+    const response = await apiClient.get<{ 
+      roster_period: RosterPeriod; 
+      all_employees: Employee[];
+      all_shifts: Shift[];
+    }>(`/rosters/${rosterId}`);
     return response.data;
   },
 
@@ -86,6 +105,63 @@ export const rosterService = {
   },
 
   /**
+   * Quick update assignment (simplified endpoint)
+   * POST /rosters/:roster_id/assignments/quick-update
+   */
+  async quickUpdateAssignment(
+    rosterId: number,
+    data: {
+      employee_id: number;
+      work_dates: string[]; // Array of dates in 'YYYY-MM-DD' format
+      shift: string; // Shift name (e.g., 'pagi', 'siang', 'malam') or shift ID
+      notes?: string;
+    }
+  ): Promise<{
+    message: string;
+    data: {
+      roster_id: number;
+      employee_id: number;
+      shift: string;
+      dates_updated: number;
+      updated_days: any[];
+    };
+  }> {
+    const response = await apiClient.post(
+      `/rosters/${rosterId}/assignments/quick-update`,
+      data
+    );
+    return response.data;
+  },
+
+  /**
+   * Batch update assignments for multiple employees and dates
+   * POST /rosters/:roster_id/assignments/batch-update
+   */
+  async batchUpdateAssignments(
+    rosterId: number,
+    assignments: Array<{
+      employee_id: number;
+      work_dates: string[]; // Array of dates in 'YYYY-MM-DD' format
+      shift: string; // Shift ID as string
+      notes?: string;
+    }>
+  ): Promise<{
+    message: string;
+    data: {
+      roster_id: number;
+      total_assignments: number;
+      total_updates: number;
+      updated_days: any[];
+    };
+  }> {
+    const response = await apiClient.post(
+      `/rosters/${rosterId}/assignments/batch-update`,
+      { assignments }
+    );
+    return response.data;
+  },
+
+  /**
    * Validate roster before publishing
    * GET /rosters/:id/validate
    */
@@ -111,6 +187,8 @@ export const rosterService = {
     message: string;
     data: {
       roster_period: RosterPeriod;
+      all_employees: Employee[];
+      all_shifts: Shift[];
       month: number;
       year: number;
       stats: {
@@ -143,6 +221,8 @@ export const rosterService = {
     message: string;
     data: {
       roster_period: RosterPeriod;
+      all_employees: Employee[];
+      all_shifts: Shift[];
       month: number;
       year: number;
       stats: {

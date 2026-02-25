@@ -19,8 +19,6 @@ const RosteredStaffCalendarView: React.FC<RosteredStaffCalendarViewProps> = ({
   roster,
   shifts
 }) => {
-  const [currentWeek, setCurrentWeek] = useState(0);
-
   const getMonthName = (month: number) => {
     return new Date(0, month - 1).toLocaleString('default', { month: 'long' });
   };
@@ -63,6 +61,27 @@ const RosteredStaffCalendarView: React.FC<RosteredStaffCalendarViewProps> = ({
   }
 
   const totalWeeks = weeks.length;
+
+  // Get initial week index - prefer week containing today if in roster month
+  const getInitialWeek = () => {
+    const today = new Date();
+    const todayDay = today.getDate();
+    const todayMonth = today.getMonth() + 1;
+    const todayYear = today.getFullYear();
+
+    // Check if today is in the roster month
+    if (todayYear === roster.year && todayMonth === roster.month) {
+      // Find which week contains today
+      for (let i = 0; i < weeks.length; i++) {
+        if (weeks[i].includes(todayDay)) {
+          return i;
+        }
+      }
+    }
+    return 0; // Default to first week
+  };
+
+  const [currentWeek, setCurrentWeek] = useState(getInitialWeek());
   const displayedDays = weeks[currentWeek] || [];
 
   // Get all assignments for a specific shift on a specific day
@@ -73,7 +92,23 @@ const RosteredStaffCalendarView: React.FC<RosteredStaffCalendarViewProps> = ({
     if (!rosterDay) return [];
     
     const assignments = rosterDay.shift_assignments
-      ?.filter(assignment => assignment.shift_id === shiftId)
+      ?.filter(assignment => {
+        // Filter by shift_id
+        if (assignment.shift_id !== shiftId) return false;
+        
+        // Filter out employees who are off (libur, cuti, etc.)
+        const notes = assignment.notes?.toLowerCase().trim() || '';
+        
+        // Filter out: L (Libur), CT (Cuti Tahunan), CS (Cuti Sakit), and other leave types
+        return notes !== 'l' && 
+               !notes.includes('libur') && 
+               !notes.includes('cuti') && 
+               notes !== 'ct' &&
+               notes !== 'cs' &&
+               !notes.includes('off') &&
+               !notes.includes('leave') &&
+               !notes.includes('holiday');
+      })
       .sort((a, b) => a.employee.user.name.localeCompare(b.employee.user.name)) || [];
     
     return assignments;
@@ -167,8 +202,17 @@ const RosteredStaffCalendarView: React.FC<RosteredStaffCalendarViewProps> = ({
             </tr>
           </thead>
           <tbody>
-            {shifts.map((shift, shiftIndex) => {
-              const isLastShift = shiftIndex === shifts.length - 1;
+            {shifts
+              .filter(shift => {
+                // Only show Pagi, Siang, Malam shifts (filter out Libur, Cuti, etc.)
+                const name = shift.name.toLowerCase();
+                return name.includes('pagi') || name.includes('siang') || name.includes('malam');
+              })
+              .map((shift, shiftIndex) => {
+              const isLastShift = shiftIndex === shifts.filter(s => {
+                const name = s.name.toLowerCase();
+                return name.includes('pagi') || name.includes('siang') || name.includes('malam');
+              }).length - 1;
               
               return (
                 <tr key={shift.id} className="hover:bg-gray-50 transition-colors">
@@ -178,7 +222,9 @@ const RosteredStaffCalendarView: React.FC<RosteredStaffCalendarViewProps> = ({
                   >
                     <div className="text-left">
                       <div className="text-[10px] sm:text-xs lg:text-sm font-semibold whitespace-nowrap">{shift.name}</div>
-                      <div className="text-[9px] sm:text-[10px] text-white/70">{shift.start_time.slice(0, 5)} - {shift.end_time.slice(0, 5)}</div>
+                      {shift.start_time && shift.end_time && (
+                        <div className="text-[9px] sm:text-[10px] text-white/70">{shift.start_time.slice(0, 5)} - {shift.end_time.slice(0, 5)}</div>
+                      )}
                     </div>
                   </td>
                   {displayedDays.map((day) => {
@@ -227,7 +273,13 @@ const RosteredStaffCalendarView: React.FC<RosteredStaffCalendarViewProps> = ({
 
       {/* Legend */}
       <div className="flex items-center justify-center gap-4 sm:gap-8 mt-8 flex-wrap">
-        {shifts.map((shift) => (
+        {shifts
+          .filter(shift => {
+            // Only show Pagi, Siang, Malam shifts
+            const name = shift.name.toLowerCase();
+            return name.includes('pagi') || name.includes('siang') || name.includes('malam');
+          })
+          .map((shift) => (
           <div key={`legend-${shift.id}`} className="flex items-center gap-2">
             <div className={`w-8 h-8 rounded-lg ${getShiftClasses(shift.name)} shadow-sm flex items-center justify-center text-xs font-bold`}>
               {shift.name.includes('pagi') || shift.name.includes('Pagi') || shift.name.includes('Morning') ? 'P' : 
@@ -236,7 +288,9 @@ const RosteredStaffCalendarView: React.FC<RosteredStaffCalendarViewProps> = ({
             </div>
             <div className="text-left">
               <div className="text-xs sm:text-sm font-medium text-gray-800">{shift.name}</div>
-              <div className="text-[10px] sm:text-xs text-gray-500">{shift.start_time.slice(0, 5)} - {shift.end_time.slice(0, 5)}</div>
+              {shift.start_time && shift.end_time && (
+                <div className="text-[10px] sm:text-xs text-gray-500">{shift.start_time.slice(0, 5)} - {shift.end_time.slice(0, 5)}</div>
+              )}
             </div>
           </div>
         ))}

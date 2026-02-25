@@ -50,15 +50,6 @@ const RosterWeekView: React.FC<RosterWeekViewProps> = ({
     return 'bg-purple-500';
   };
 
-  // Get user initials for avatar
-  const getUserInitials = (name: string) => {
-    const nameParts = name.split(' ');
-    if (nameParts.length >= 2) {
-      return nameParts[0][0] + nameParts[1][0];
-    }
-    return name.substring(0, 2).toUpperCase();
-  };
-
   return (
     <div className="bg-white rounded-3xl shadow-lg border border-gray-1400 -mx-4 sm:mx-0 p-4 sm:p-6 lg:p-8">
       {/* Week Navigation */}
@@ -109,52 +100,23 @@ const RosterWeekView: React.FC<RosterWeekViewProps> = ({
         })}
       </div>
 
-      {/* Manager Info (if available) */}
-      {rosterDay?.manager_duties && rosterDay.manager_duties.length > 0 && (() => {
-        const uniqueManagers = rosterDay.manager_duties.reduce((acc, duty) => {
-          if (!acc.find(d => d.employee_id === duty.employee_id)) acc.push(duty);
-          return acc;
-        }, [] as typeof rosterDay.manager_duties);
-        return (
-          <div className="mb-4 sm:mb-6">
-            <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-orange-50 to-pink-50 rounded-xl border border-orange-100">
-              <div className="flex -space-x-2">
-                {uniqueManagers.slice(0, 3).map((duty) => (
-                  <div key={duty.id} className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center text-white font-bold text-sm ring-2 ring-white">
-                    {getUserInitials(duty.employee.user.name)}
-                  </div>
-                ))}
-              </div>
-              <div>
-                <h4 className="font-bold text-gray-900 text-base">
-                  {uniqueManagers.map(d => d.employee.user.name).join(', ')}
-                </h4>
-                <p className="text-sm text-gray-600">
-                  {uniqueManagers.length} Manager(s) • Assigned per shift
-                </p>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* No Manager Warning */}
-      {rosterDay && (!rosterDay.manager_duties || rosterDay.manager_duties.length === 0) && !isReadOnly && (
-        <div className="mb-4 sm:mb-6">
-          <div className="flex items-center gap-3 p-3 bg-yellow-50 rounded-xl border border-yellow-200">
-            <svg className="w-6 h-6 text-yellow-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-            <p className="text-sm text-yellow-800">No manager assigned to this day yet</p>
-          </div>
-        </div>
-      )}
-
       {/* Shifts Grid */}
       {rosterDay ? (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
           {shifts.map((shift) => {
-            const assignments = rosterDay.shift_assignments?.filter(a => a.shift_id === shift.id) || [];
+            // Filter out employees who are off (libur, cuti, etc.)
+            const allAssignments = rosterDay.shift_assignments?.filter(a => a.shift_id === shift.id) || [];
+            const assignments = allAssignments.filter(a => {
+              const notes = (a.notes || '').toLowerCase().trim();
+              // Check if notes contain any off-duty keywords
+              if (!notes) return true; // Show if no notes
+              return !notes.includes('libur') && 
+                     !notes.includes('cuti') && 
+                     !notes.includes('off') &&
+                     !notes.includes('leave') &&
+                     !notes.includes('holiday');
+            });
+            
             const shiftManagerDuties = rosterDay.manager_duties?.filter(d => d.shift_id === shift.id) || [];
             const bgColor = getShiftColor(shift.name);
             

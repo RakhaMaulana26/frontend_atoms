@@ -24,12 +24,41 @@ import SwapShiftModal from '../../../components/modals/roster/SwapShiftModal';
 type TabType = 'calendar' | 'staff' | 'swap';
 type StaffViewType = 'week' | 'calendar' | 'person';
 
-// Mock shifts data - TODO: Fetch from backend (/shifts endpoint)
-const mockShifts: Shift[] = [
-  { id: 1, name: 'Shift 1 - Morning', start_time: '07:00:00', end_time: '15:00:00' },
-  { id: 2, name: 'Shift 2 - Afternoon', start_time: '15:00:00', end_time: '23:00:00' },
-  { id: 3, name: 'Shift 3 - Night', start_time: '23:00:00', end_time: '07:00:00' }
-];
+// Helper function to extract unique shifts from roster data
+const extractShiftsFromRoster = (roster: any): Shift[] => {
+  if (!roster?.roster_days) return [];
+  
+  const shiftMap = new Map<number, Shift>();
+  
+  roster.roster_days.forEach((day: any) => {
+    // Extract shifts from shift_assignments
+    day.shift_assignments?.forEach((assignment: any) => {
+      if (assignment.shift && !shiftMap.has(assignment.shift.id)) {
+        shiftMap.set(assignment.shift.id, assignment.shift);
+      }
+    });
+    
+    // Extract shifts from manager_duties
+    day.manager_duties?.forEach((duty: any) => {
+      if (duty.shift && !shiftMap.has(duty.shift.id)) {
+        shiftMap.set(duty.shift.id, duty.shift);
+      }
+    });
+  });
+  
+  const extractedShifts = Array.from(shiftMap.values());
+  
+  // If no shifts found (new roster), return default shifts for editing
+  if (extractedShifts.length === 0) {
+    return [
+      { id: 1, name: 'pagi', start_time: '07:00:00', end_time: '13:00:00' },
+      { id: 2, name: 'siang', start_time: '13:00:00', end_time: '19:00:00' },
+      { id: 3, name: 'malam', start_time: '19:00:00', end_time: '07:00:00' },
+    ];
+  }
+  
+  return extractedShifts;
+};
 
 // Mock swap requests - TODO: Fetch from backend (/shift-swap-requests endpoint)
 const mockShiftSwapRequests = [
@@ -82,6 +111,8 @@ const RosterWeekView: React.FC<{
   isReadOnly?: boolean;
   onAddStaff?: (shiftId: number) => void;
   onRemoveStaff?: (assignmentId: number) => void;
+  rosterMonth: number;
+  rosterYear: number;
 }> = ({
   weekDays,
   selectedDate,
@@ -91,10 +122,15 @@ const RosterWeekView: React.FC<{
   shifts,
   isReadOnly = false,
   onAddStaff,
-  onRemoveStaff
+  onRemoveStaff,
+  rosterMonth,
+  rosterYear
 }) => {
   const formatDayName = (date: Date) => date.toLocaleDateString('en-US', { weekday: 'short' });
   const isSameDay = (d1: Date, d2: Date) => d1.getDate() === d2.getDate() && d1.getMonth() === d2.getMonth() && d1.getFullYear() === d2.getFullYear();
+  const isInRosterMonth = (date: Date) => {
+    return date.getMonth() === rosterMonth - 1 && date.getFullYear() === rosterYear;
+  };
   const getShiftColor = (name: string): string => {
     const n = name.toLowerCase();
     if (n.includes('morning') || n.includes('pagi')) return 'bg-blue-500';
@@ -102,21 +138,50 @@ const RosterWeekView: React.FC<{
     if (n.includes('night') || n.includes('malam')) return 'bg-green-500';
     return 'bg-purple-500';
   };
-  const getUserInitials = (name: string) => {
-    const parts = name.split(' ');
-    return parts.length >= 2 ? parts[0][0] + parts[1][0] : name.substring(0, 2).toUpperCase();
+  
+  const getMonthName = (month: number) => {
+    return new Date(0, month - 1).toLocaleString('default', { month: 'long' });
   };
+  
+  // Check if navigation should be disabled
+  const canNavigatePrev = weekDays.some(day => {
+    const prevWeekDay = new Date(day);
+    prevWeekDay.setDate(day.getDate() - 7);
+    return isInRosterMonth(prevWeekDay);
+  });
+  
+  const canNavigateNext = weekDays.some(day => {
+    const nextWeekDay = new Date(day);
+    nextWeekDay.setDate(day.getDate() + 7);
+    return isInRosterMonth(nextWeekDay);
+  });
 
   return (
     <div className="bg-white rounded-3xl shadow-lg border border-gray-100 -mx-7 sm:mx-0 p-4 sm:p-6 lg:p-8">
       <div className="flex items-center justify-between mb-6 sm:mb-8">
-        <button onClick={() => onNavigateWeek('prev')} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+        <button 
+          onClick={() => canNavigatePrev && onNavigateWeek('prev')} 
+          disabled={!canNavigatePrev}
+          className={`p-2 rounded-lg transition-colors ${
+            canNavigatePrev 
+              ? 'hover:bg-gray-100 text-gray-900 cursor-pointer' 
+              : 'text-gray-300 cursor-not-allowed opacity-50'
+          }`}
+        >
           <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </button>
-        <h3 className="text-lg sm:text-xl font-bold text-gray-900">This Week</h3>
-        <button onClick={() => onNavigateWeek('next')} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+        <h3 className="text-lg sm:text-xl font-bold text-gray-900">{getMonthName(rosterMonth)} {rosterYear}</h3>
+        <button 
+          onClick={() => canNavigateNext && onNavigateWeek('next')} 
+          disabled={!canNavigateNext}
+          className={`p-2 rounded-lg transition-colors ${
+            canNavigateNext 
+              ? 'hover:bg-gray-100 text-gray-900 cursor-pointer' 
+              : 'text-gray-300 cursor-not-allowed opacity-50'
+          }`}
+        >
           <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
@@ -127,11 +192,22 @@ const RosterWeekView: React.FC<{
         {weekDays.map((day, idx) => {
           const isSelected = isSameDay(day, selectedDate);
           const isToday = isSameDay(day, new Date());
+          const isInMonth = isInRosterMonth(day);
+          const isDisabled = !isInMonth;
+          
           return (
-            <button key={idx} onClick={() => onDateSelect(day)}
+            <button 
+              key={idx} 
+              onClick={() => !isDisabled && onDateSelect(day)}
+              disabled={isDisabled}
               className={`flex flex-col items-center justify-center py-2 px-1 sm:py-3 sm:px-2 rounded-lg transition-all ${
-                isSelected ? 'bg-[#222E6A] text-white shadow-lg' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
-              } ${isToday && !isSelected ? 'ring-2 ring-blue-400' : ''}`}>
+                isDisabled 
+                  ? 'bg-gray-100 text-gray-300 cursor-not-allowed opacity-40' 
+                  : isSelected 
+                    ? 'bg-[#222E6A] text-white shadow-lg' 
+                    : 'bg-gray-50 text-gray-600 hover:bg-gray-100 cursor-pointer'
+              } ${isToday && !isSelected && !isDisabled ? 'ring-2 ring-blue-400' : ''}`}
+            >
               <span className="text-xs font-medium mb-0.5">{formatDayName(day)}</span>
               <span className="text-lg sm:text-xl font-bold">{day.getDate()}</span>
             </button>
@@ -139,48 +215,27 @@ const RosterWeekView: React.FC<{
         })}
         </div>
       </div>
-      {rosterDay?.manager_duties && rosterDay.manager_duties.length > 0 && (() => {
-        // Show summary of all managers for this day
-        const uniqueManagers = rosterDay.manager_duties.reduce((acc, duty) => {
-          if (!acc.find(d => d.employee_id === duty.employee_id)) acc.push(duty);
-          return acc;
-        }, [] as typeof rosterDay.manager_duties);
-        return (
-          <div className="mb-4 sm:mb-6">
-            <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-orange-50 to-pink-50 rounded-xl border border-orange-100">
-              <div className="flex -space-x-2">
-                {uniqueManagers.slice(0, 3).map((duty) => (
-                  <div key={duty.id} className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center text-white font-bold text-sm ring-2 ring-white">
-                    {getUserInitials(duty.employee.user.name)}
-                  </div>
-                ))}
-              </div>
-              <div>
-                <h4 className="font-bold text-gray-900 text-base">
-                  {uniqueManagers.map(d => d.employee.user.name).join(', ')}
-                </h4>
-                <p className="text-sm text-gray-600">
-                  {uniqueManagers.length} Manager(s) • Assigned per shift
-                </p>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-      {rosterDay && (!rosterDay.manager_duties || rosterDay.manager_duties.length === 0) && !isReadOnly && (
-        <div className="mb-4 sm:mb-6">
-          <div className="flex items-center gap-3 p-3 bg-yellow-50 rounded-xl border border-yellow-200">
-            <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-            <p className="text-sm text-yellow-800">No manager assigned to this day yet</p>
-          </div>
-        </div>
-      )}
       {rosterDay ? (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
           {shifts.map((shift) => {
-            const assignments = rosterDay.shift_assignments?.filter(a => a.shift_id === shift.id) || [];
+            // Filter out employees who are off (libur, cuti, etc.)
+            const allAssignments = rosterDay.shift_assignments?.filter(a => a.shift_id === shift.id) || [];
+            const assignments = allAssignments.filter(a => {
+              const notes = (a.notes || '').toLowerCase().trim();
+              // Check if notes contain any off-duty keywords
+              if (!notes) return true; // Show if no notes
+              
+              // Filter out: L (Libur), CT (Cuti Tahunan), CS (Cuti Sakit), and other leave types
+              return notes !== 'l' && 
+                     !notes.includes('libur') && 
+                     !notes.includes('cuti') && 
+                     notes !== 'ct' &&
+                     notes !== 'cs' &&
+                     !notes.includes('off') &&
+                     !notes.includes('leave') &&
+                     !notes.includes('holiday');
+            });
+            
             const shiftManagerDuties = rosterDay.manager_duties?.filter(d => d.shift_id === shift.id) || [];
             return (
               <ShiftAssignmentCard key={shift.id} shift={shift} assignments={assignments}
@@ -209,7 +264,7 @@ const RosterDetailPage: React.FC = () => {
   const { user } = useAuth();
   const { getRosterDetail, loadingStates } = useDataCache();
   const [activeTab, setActiveTab] = useState<TabType>('calendar');
-  const [staffView, setStaffView] = useState<StaffViewType>('week');
+  const [staffView, setStaffView] = useState<StaffViewType>('person');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedRosterDay, setSelectedRosterDay] = useState<RosterDay | null>(null);
   const [isSwapShiftModalOpen, setIsSwapShiftModalOpen] = useState(false);
@@ -217,12 +272,39 @@ const RosterDetailPage: React.FC = () => {
   // Get roster from cache (already loaded at startup)
   const roster = id ? getRosterDetail(Number(id)) : null;
   const loading = loadingStates.rosterDetails;
+  
+  // Use all_shifts from roster if available, otherwise extract from assignments
+  const allShifts = roster 
+    ? (roster.all_shifts && roster.all_shifts.length > 0 
+        ? roster.all_shifts 
+        : extractShiftsFromRoster(roster))
+    : [];
+  
+  // Filter to show only the three main shifts: Pagi, Siang, Malam (exclude standby, lepas, etc.)
+  const shifts = allShifts.filter(shift => {
+    const name = shift.name.toLowerCase();
+    return (name === 'pagi' || name === 'shift 1 - pagi' || name === 'morning') ||
+           (name === 'siang' || name === 'shift 2 - siang' || name === 'afternoon') ||
+           (name === 'malam' || name === 'shift 3 - malam' || name === 'night');
+  });
 
   // Set initial selected date when roster loads
   useEffect(() => {
     if (roster && roster.roster_days && roster.roster_days.length > 0) {
-      const firstDay = roster.roster_days[0];
-      setSelectedDate(new Date(firstDay.work_date));
+      const today = new Date();
+      const todayStr = today.toISOString().split('T')[0]; // "YYYY-MM-DD"
+      
+      // Check if today exists in this roster period
+      const todayInRoster = roster.roster_days.find(d => d.work_date === todayStr);
+      
+      if (todayInRoster) {
+        // If today is in this roster, select today
+        setSelectedDate(today);
+      } else {
+        // Otherwise, select first day of roster
+        const firstDay = roster.roster_days[0];
+        setSelectedDate(new Date(firstDay.work_date));
+      }
     }
   }, [roster]);
 
@@ -378,7 +460,7 @@ const RosterDetailPage: React.FC = () => {
             {activeTab === 'calendar' && (
               <RosterCalendarView
                 roster={roster}
-                shifts={mockShifts}
+                shifts={shifts}
                 onPrint={handlePrint}
                 currentEmployeeId={user?.employee?.id ?? undefined}
               />
@@ -389,6 +471,16 @@ const RosterDetailPage: React.FC = () => {
                 <div className="flex items-center justify-end px-2">
                   <div className="inline-flex items-center p-1 sm:p-1.5 bg-white rounded-2xl shadow-md border border-gray-200">
                     <button
+                      onClick={() => setStaffView('person')}
+                      className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
+                        staffView === 'person'
+                          ? 'bg-gradient-to-r from-[#454D7C] to-[#5A6299] text-white'
+                          : 'text-gray-700 hover:text-gray-900'
+                      }`}
+                    >
+                      Per Person
+                    </button>
+                    <button
                       onClick={() => setStaffView('week')}
                       className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
                         staffView === 'week'
@@ -396,7 +488,7 @@ const RosterDetailPage: React.FC = () => {
                           : 'text-gray-700 hover:text-gray-900'
                       }`}
                     >
-                      Weekly
+                      Daily
                     </button>
                     <button
                       onClick={() => setStaffView('calendar')}
@@ -406,17 +498,7 @@ const RosterDetailPage: React.FC = () => {
                           : 'text-gray-700 hover:text-gray-900'
                       }`}
                     >
-                      Calendar
-                    </button>
-                    <button
-                      onClick={() => setStaffView('person')}
-                      className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
-                        staffView === 'person'
-                          ? 'bg-gradient-to-r from-[#454D7C] to-[#5A6299] text-white'
-                          : 'text-gray-700 hover:text-gray-900'
-                      }`}
-                    >
-                      Per Person
+                      Weekly
                     </button>
                   </div>
                 </div>
@@ -428,13 +510,15 @@ const RosterDetailPage: React.FC = () => {
                     onDateSelect={setSelectedDate}
                     onNavigateWeek={navigateWeek}
                     rosterDay={selectedRosterDay || undefined}
-                    shifts={mockShifts}
+                    shifts={shifts}
                     isReadOnly={roster.status === 'published'}
+                    rosterMonth={roster.month}
+                    rosterYear={roster.year}
                   />
                 ) : staffView === 'person' ? (
-                  <RosteredStaffPersonView roster={roster} shifts={mockShifts} />
+                  <RosteredStaffPersonView roster={roster} shifts={shifts} />
                 ) : (
-                  <RosteredStaffCalendarView roster={roster} shifts={mockShifts} />
+                  <RosteredStaffCalendarView roster={roster} shifts={shifts} />
                 )}
               </div>
             )}

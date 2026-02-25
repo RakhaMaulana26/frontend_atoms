@@ -14,7 +14,7 @@ import type { RosterPeriod } from '../types/roster';
 const CreateRosterModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (roster: RosterPeriod) => void;
 }> = ({ isOpen, onClose, onSuccess }) => {
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
@@ -37,9 +37,9 @@ const CreateRosterModal: React.FC<{
         year
       };
 
-      await rosterService.createRoster(createRequest);
+      const createdRoster = await rosterService.createRoster(createRequest);
       toast.success('Roster template created successfully!');
-      onSuccess();
+      onSuccess(createdRoster);
       onClose();
       
       // Reset form
@@ -341,7 +341,7 @@ const DeleteRosterModal: React.FC<{
 const ImportRosterModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (roster: RosterPeriod) => void;
 }> = ({ isOpen, onClose, onSuccess }) => {
   const [importMode, setImportMode] = useState<'file' | 'url'>('file');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -421,7 +421,15 @@ const ImportRosterModal: React.FC<{
         stats: result.data.stats,
       });
       toast.success('Roster imported successfully!');
-      onSuccess();
+      
+      // Merge roster_period with all_employees and all_shifts for cache
+      const rosterWithEmployees = {
+        ...result.data.roster_period,
+        all_employees: result.data.all_employees,
+        all_shifts: result.data.all_shifts
+      };
+      
+      onSuccess(rosterWithEmployees);
     } catch (error: any) {
       console.error('Failed to import roster:', error);
       setImportResult({
@@ -669,7 +677,8 @@ const RostersPage: React.FC = () => {
   const { 
     rosters, 
     loadingStates,
-    refreshRosters 
+    refreshRosters,
+    addRoster
   } = useDataCache();
 
   // Only Admin, Manager Teknik, General Manager can create/edit/delete rosters
@@ -688,12 +697,12 @@ const RostersPage: React.FC = () => {
   const [pushingRosterId, setPushingRosterId] = useState<number | null>(null);
   const navigate = useNavigate();
 
-  const handleCreateSuccess = () => {
-    refreshRosters(); // Refresh cached rosters after successful creation
+  const handleCreateSuccess = (roster: RosterPeriod) => {
+    addRoster(roster); // Add roster to cache immediately (optimistic update)
   };
 
-  const handleImportSuccess = () => {
-    refreshRosters(); // Refresh cached rosters after successful import
+  const handleImportSuccess = (roster: RosterPeriod) => {
+    addRoster(roster); // Add imported roster to cache immediately (optimistic update)
   };
 
   const handleEditSuccess = () => {

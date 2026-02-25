@@ -25,8 +25,8 @@ export interface Employee {
 export interface Shift {
   id: number;
   name: string;  // Shift name (e.g., "pagi", "siang", "malam")
-  start_time: string;
-  end_time: string;
+  start_time?: string;
+  end_time?: string;
   code?: 'pagi' | 'siang' | 'malam';
 }
 
@@ -77,6 +77,8 @@ export interface RosterPeriod {
   created_at: string;
   updated_at: string;
   roster_days?: RosterDay[];
+  all_employees?: Employee[]; // All active employees for initialization
+  all_shifts?: Shift[]; // All shifts for dropdown options
 }
 
 // Assignment Creation Requests

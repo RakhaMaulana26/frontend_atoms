@@ -76,6 +76,7 @@ interface DataCacheContextType {
   addNotificationToSent: (notification: Notification) => void;
   updateNotificationInCache: (id: number, updates: Partial<Notification>) => void;
   refreshRosters: () => Promise<void>;
+  addRoster: (roster: RosterPeriod) => void;
   updateRosterDetail: (rosterId: number, updatedRoster: RosterPeriod) => void;
   refreshActivities: () => Promise<void>;
 }
@@ -212,9 +213,15 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
       
       // Create a map of roster details
       const detailsMap: Record<number, RosterPeriod> = {};
-      detailsArray.forEach(detail => {
-        if (detail) {
-          detailsMap[detail.id] = detail;
+      detailsArray.forEach(response => {
+        if (response) {
+          // Merge roster_period with all_employees and all_shifts
+          const roster = {
+            ...response.roster_period,
+            all_employees: response.all_employees,
+            all_shifts: response.all_shifts
+          };
+          detailsMap[roster.id] = roster;
         }
       });
       
@@ -239,7 +246,14 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
     // Load from API
     setLoadingStates(prev => ({ ...prev, rosterDetails: true }));
     try {
-      const detail = await rosterService.getRoster(rosterId);
+      const response = await rosterService.getRoster(rosterId);
+      
+      // Merge roster_period with all_employees and all_shifts
+      const detail = {
+        ...response.roster_period,
+        all_employees: response.all_employees,
+        all_shifts: response.all_shifts
+      };
       
       // Store in cache
       setRosterDetails(prev => ({
@@ -659,6 +673,15 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
     });
   }, []);
 
+  // Add new roster to cache
+  const addRoster = useCallback((roster: RosterPeriod) => {
+    setRosters(prev => [...prev, roster]);
+    // Also add to rosterDetails cache if it has all roster_days loaded
+    if (roster.roster_days) {
+      setRosterDetails(prev => ({ ...prev, [roster.id]: roster }));
+    }
+  }, []);
+
   // Refresh rosters from server
   const refreshRosters = useCallback(async () => {
     if (!isAuthenticated) return;
@@ -746,6 +769,7 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
         addNotificationToSent,
         updateNotificationInCache,
         refreshRosters,
+        addRoster,
         updateRosterDetail,
         refreshActivities,
       }}
