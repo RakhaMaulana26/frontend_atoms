@@ -258,72 +258,84 @@ const NotificationsPage: React.FC = () => {
     setIsComposeModalOpen(true);
   };
 
+  const allCategories = [
+    { 
+      key: 'all' as const,
+      label: 'All', 
+      icon: Archive, 
+      count: stats.inbox + stats.starred + stats.sent + stats.trash,
+      bgGradient: 'from-gray-50 to-gray-100/50',
+      borderColor: 'border-gray-300',
+      iconBg: 'bg-gray-500',
+      iconBorder: 'border-gray-600',
+      textColor: 'text-gray-700',
+      countColor: 'text-gray-900',
+    },
+  ];
+
   const categories = [
     { 
       key: 'inbox' as NotificationCategory, 
       label: 'Inbox', 
       icon: Inbox, 
       count: stats.inbox,
-      bgColor: 'bg-emerald-50',
-      bgColorActive: 'bg-emerald-100',
-      borderColor: 'border-emerald-200',
-      borderColorActive: 'border-emerald-500',
-      iconColor: 'text-emerald-600',
-      textColor: 'text-emerald-700',
-      countColor: 'text-emerald-800',
+      bgGradient: 'from-green-50 to-green-100/50',
+      borderColor: 'border-green-300',
+      iconBg: 'bg-green-500',
+      iconBorder: 'border-green-600',
+      textColor: 'text-green-700',
+      countColor: 'text-green-900',
     },
     { 
       key: 'starred' as NotificationCategory, 
       label: 'Starred', 
       icon: Star, 
       count: stats.starred,
-      bgColor: 'bg-blue-50',
-      bgColorActive: 'bg-blue-100',
-      borderColor: 'border-blue-200',
-      borderColorActive: 'border-blue-500',
-      iconColor: 'text-blue-600',
-      textColor: 'text-blue-700',
-      countColor: 'text-blue-800',
+      bgGradient: 'from-amber-50 to-amber-100/50',
+      borderColor: 'border-amber-300',
+      iconBg: 'bg-amber-500',
+      iconBorder: 'border-amber-600',
+      textColor: 'text-amber-700',
+      countColor: 'text-amber-900',
     },
     { 
       key: 'sent' as NotificationCategory, 
       label: 'Sent', 
       icon: Send, 
       count: stats.sent,
-      bgColor: 'bg-rose-50',
-      bgColorActive: 'bg-rose-100',
-      borderColor: 'border-rose-200',
-      borderColorActive: 'border-rose-500',
-      iconColor: 'text-rose-600',
-      textColor: 'text-rose-700',
-      countColor: 'text-rose-800',
+      bgGradient: 'from-blue-50 to-blue-100/50',
+      borderColor: 'border-blue-300',
+      iconBg: 'bg-blue-500',
+      iconBorder: 'border-blue-600',
+      textColor: 'text-blue-700',
+      countColor: 'text-blue-900',
     },
     { 
       key: 'trash' as NotificationCategory, 
       label: 'Trash', 
       icon: Trash2, 
       count: stats.trash,
-      bgColor: 'bg-red-50',
-      bgColorActive: 'bg-red-100',
-      borderColor: 'border-red-200',
-      borderColorActive: 'border-red-500',
-      iconColor: 'text-red-600',
+      bgGradient: 'from-red-50 to-red-100/50',
+      borderColor: 'border-red-300',
+      iconBg: 'bg-red-500',
+      iconBorder: 'border-red-600',
       textColor: 'text-red-700',
-      countColor: 'text-red-800',
+      countColor: 'text-red-900',
     },
   ];
 
   return (
     <PageHeader
       title="Notifications"
-      subtitle="Manage your inbox, starred, sent, and trash notifications"
+      subtitle="Manage notifications"
       breadcrumbs={[
         { label: 'Notifications', href: '/notifications' }
       ]}
     >
       {/* Category Boxes */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        {categories.map((category) => {
+      {/* Desktop View - Grid */}
+      <div className="hidden md:grid md:grid-cols-5 gap-4 mb-6">
+        {[...allCategories, ...categories].map((category) => {
           const Icon = category.icon;
           const isActive = activeCategory === category.key;
           
@@ -331,29 +343,19 @@ const NotificationsPage: React.FC = () => {
             <button
               key={category.key}
               onClick={() => handleCategoryChange(category.key)}
-              className={`p-5 rounded-xl border-2 transition-all duration-200 ${
-                isActive
-                  ? `${category.borderColorActive} ${category.bgColorActive} shadow-lg ring-2 ring-offset-1 ring-${category.borderColorActive}`
-                  : `${category.borderColor} ${category.bgColor} hover:shadow-md hover:scale-[1.02]`
+              className={`bg-gradient-to-br ${category.bgGradient} rounded-xl border-2 ${category.borderColor} p-5 transition-all duration-200 cursor-pointer ${
+                isActive 
+                  ? `shadow-xl scale-105`
+                  : `hover:shadow-md hover:scale-[1.02] opacity-70 hover:opacity-100`
               }`}
             >
-              <div className="flex items-center justify-between mb-3">
-                <div className={`flex items-center gap-2 text-sm font-medium ${category.textColor}`}>
-                  <Icon className={`h-4 w-4 ${category.iconColor}`} />
-                  <span>{category.label}</span>
+              <div className="flex items-center gap-4">
+                <div className={`flex-shrink-0 w-12 h-12 ${category.iconBg} rounded-lg flex items-center justify-center border-2 ${category.iconBorder}`}>
+                  <Icon className="h-6 w-6 text-white" />
                 </div>
-                <div className={`p-2 rounded-lg ${isActive ? category.bgColorActive : 'bg-white/50'}`}>
-                  <Icon className={`h-5 w-5 ${category.iconColor}`} />
-                </div>
-              </div>
-              <div className="flex items-end justify-between">
-                <span className={`text-4xl font-bold ${category.countColor}`}>
-                  {category.count}
-                </span>
-                <div className={`flex items-center gap-1 ${category.iconColor} opacity-60`}>
-                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                  </svg>
+                <div className="flex-1 text-left">
+                  <p className={`text-sm font-semibold ${category.textColor} mb-0.5`}>{category.label}</p>
+                  <p className={`text-3xl font-bold ${category.countColor}`}>{category.count}</p>
                 </div>
               </div>
             </button>
@@ -361,40 +363,76 @@ const NotificationsPage: React.FC = () => {
         })}
       </div>
 
+      {/* Mobile View - Horizontal Pills */}
+      <div className="md:hidden mb-0 relative">
+        <div className="flex gap-2 pb-2 overflow-x-auto">
+          {[...allCategories, ...categories].map((category) => {
+            const isActive = activeCategory === category.key;
+            
+            return (
+              <button
+                key={category.key}
+                onClick={() => handleCategoryChange(category.key as NotificationCategory)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-full border-2 transition-all duration-200 whitespace-nowrap ${
+                  isActive 
+                    ? `bg-gradient-to-br ${category.bgGradient} ${category.borderColor} shadow-md`
+                    : `bg-white ${category.borderColor} opacity-60 hover:opacity-100`
+                }`}
+              >
+                <span className={`text-sm font-semibold ${category.textColor}`}>
+                  {category.label}
+                </span>
+                <span className={`text-sm font-bold ${category.textColor}`}>
+                  {category.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        {/* Scroll indicator */}
+        <div className="absolute right-0 top-0 bottom-2 w-12 bg-gradient-to-l from-gray-50 to-transparent pointer-events-none flex items-center justify-end pr-2">
+          <svg className="h-5 w-5 text-gray-400 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </div>
+      </div>
+
       {/* Action Bar */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             {(() => {
-              const activeItem = categories.find(c => c.key === activeCategory);
+              const allItems = [...allCategories, ...categories];
+              const activeItem = allItems.find(c => c.key === activeCategory);
               if (!activeItem) return null;
               const ActiveIcon = activeItem.icon;
               return (
-                <div className={`p-2 rounded-lg ${activeItem.bgColorActive}`}>
-                  <ActiveIcon className={`h-5 w-5 ${activeItem.iconColor}`} />
+                <div className={`p-2 rounded-lg ${activeItem.iconBg}`}>
+                  <ActiveIcon className={`h-5 w-5 text-white`} />
                 </div>
               );
             })()}
             <h2 className="text-xl font-semibold text-gray-900">
-              {categories.find(c => c.key === activeCategory)?.label}
+              {[...allCategories, ...categories].find(c => c.key === activeCategory)?.label}
             </h2>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <Button
               variant="outline"
               onClick={handleRefresh}
               disabled={isLoading || isRefreshing}
+              className="text-xs px-2 py-1.5 sm:text-base sm:px-4 sm:py-2"
             >
-              <RefreshCw className={`h-4 w-4 mr-2 ${(isLoading || isRefreshing) ? 'animate-spin' : ''}`} />
-              Refresh
+              <RefreshCw className={`h-3 w-3 sm:h-4 sm:w-4 ${(isLoading || isRefreshing) ? 'animate-spin' : ''}`} />
+              <span className="ml-1 sm:ml-2">Refresh</span>
             </Button>
             <Button
               variant="primary"
               onClick={handleOpenCompose}
-              className="bg-[#222E6A] hover:bg-[#1a2452]"
+              className="bg-[#222E6A] hover:bg-[#1a2452] text-xs px-2 py-1.5 sm:text-base sm:px-4 sm:py-2"
             >
-              <Plus className="h-4 w-4 mr-2" />
-              Compose
+              <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="ml-1 sm:ml-2">Compose</span>
             </Button>
           </div>
         </div>
