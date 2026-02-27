@@ -33,41 +33,49 @@ const LandingPage: React.FC = () => {
         </svg>
       </div>
       
-      <div className="relative z-10 max-w-3xl w-full text-center flex flex-col items-center justify-center space-y-2 py-4">
+      <div className="relative z-10 max-w-3xl w-full text-center flex flex-col items-center justify-center space-y-2 md:space-y-6 py-4">
         {/* Title */}
-        <div className="space-y-0 animate-fade-slide-down">
-          <h1 className="text-3xl md:text-4xl font-bold text-white">
+        <div className="space-y-2 md:space-y-4 animate-fade-slide-down">
+          <h1 className="text-3xl md:text-[32px] font-bold text-white">
             AirNav
           </h1>
-          <h2 className="text-sm md:text-base font-semibold text-gray-200">
+          <h2 className="text-sm md:text-[26px] font-semibold text-gray-200">
             Technical Operation Management System
           </h2>
         </div>
 
         {/* Illustration */}
-        <div className="flex justify-center py-1 animate-fade-slide-up">
+        <div className="flex justify-center py-1 md:py-4 animate-fade-slide-up">
           <img 
             src={IllustrationSvg} 
             alt="AirNav ATOMS Illustration" 
-            className="w-full max-w-[200px] md:max-w-xs h-auto drop-shadow-2xl"
+            className="w-full max-w-[200px] md:max-w-[450px] h-auto drop-shadow-2xl"
           />
         </div>
 
         {/* Welcome Section */}
-        <div className="space-y-2 animate-fade-in-delay-2 w-full max-w-2xl">
-          <h3 className="text-2xl md:text-3xl font-bold text-gray-500">
+        <div className="space-y-2 md:space-y-3 animate-fade-in-delay-2 w-full max-w-2xl">
+          <h3 className="text-2xl md:text-4xl font-bold text-gray-500">
             Welcome!
           </h3>
-          <p className="text-sm md:text-base max-w-2xl mx-auto leading-relaxed" style={{ color: '#929292' }}>
+          <div className="space-y-0 md:hidden">
+            <p className="text-sm max-w-2xl mx-auto leading-tight" style={{ color: '#929292' }}>
+              Enjoy a new experience with ATOMS
+            </p>
+            <p className="text-sm max-w-2xl mx-auto leading-tight" style={{ color: '#929292' }}>
+              (AirNav Technical Operation Management System)
+            </p>
+          </div>
+          <p className="hidden md:block text-base max-w-2xl mx-auto leading-relaxed" style={{ color: '#929292' }}>
             Enjoy a new experience with ATOMS (AirNav Technical Operation Management System)
           </p>
         </div>
 
         {/* Get Started Button */}
-        <div className="pt-4 animate-fade-scale-up w-full max-w-md">
+        <div className="pt-2 md:pt-4 animate-fade-scale-up w-full max-w-md">
           <button
             onClick={handleGetStarted}
-            className="w-full bg-[#1a2547] hover:bg-[#0f1629] text-white font-semibold text-base md:text-lg px-8 py-3 rounded-2xl shadow-lg transition-all duration-300 transform hover:scale-105 hover:shadow-2xl"
+            className="w-full bg-[#1a2547] hover:bg-[#0f1629] md:bg-[#2B3A67] md:hover:bg-[#1a2547] text-white font-semibold text-base md:text-lg px-8 md:px-12 py-3 md:py-4 rounded-2xl md:rounded-full shadow-lg transition-all duration-300 transform hover:scale-105 hover:shadow-2xl"
           >
             Get Started
           </button>
