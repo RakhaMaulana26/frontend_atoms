@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { Input, PageHeader, Button, Modal, Select } from '../../../components';
 import SwapShiftModal from '../../../components/modals/roster/SwapShiftModal';
-import ConfigureSwapShiftModal from '../../../components/modals/roster/ConfigureSwapShiftModal';
-import { Calendar, Plus, X, Upload, FileSpreadsheet, CheckCircle, AlertCircle, Sparkles, Link, Edit2, Trash2, RefreshCw, ArrowUpToLine, Settings, ArrowLeftRight } from 'lucide-react';
+// import ConfigureSwapShiftModal from '../../../components/modals/roster/ConfigureSwapShiftModal';
+import { Calendar, Plus, X, Upload, FileSpreadsheet, CheckCircle, AlertCircle, Sparkles, Link, Edit2, Trash2, RefreshCw, ArrowUpToLine, ArrowLeftRight, Eye } from 'lucide-react';
 import { useDataCache } from '../../../contexts/DataCacheContext';
 import { useAuth } from '../../auth/core/AuthContext';
 import { rosterService } from '../repository/rosterService';
@@ -54,11 +54,11 @@ const CreateRosterModal: React.FC<{
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Create New Roster Template" size="md" headerClassName="bg-[#222E6A] text-white flex items-center justify-between px-6 py-4 rounded-t-lg">
-      <form onSubmit={handleSubmit} className="space-y-6">
+    <Modal isOpen={isOpen} onClose={onClose} title="Create New Roster Template" size="md" headerClassName="bg-[#222E6A] text-white flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 rounded-t-lg">
+      <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
         {/* Information */}
         <div className="bg-[#D8DAED] border border-[#454D7C] rounded-lg p-3">
-          <p className="text-sm text-[#222E6A]">
+          <p className="text-xs sm:text-sm text-[#222E6A]">
             This will create a roster template with all days for the selected month. 
             You can assign managers and shift employees later.
           </p>
@@ -66,8 +66,8 @@ const CreateRosterModal: React.FC<{
 
         {/* Period Selection */}
         <div>
-          <h3 className="text-sm font-semibold text-[#222E6A] mb-4">Period Selection</h3>
-          <div className="grid grid-cols-2 gap-4">
+          <h3 className="text-xs sm:text-sm font-semibold text-[#222E6A] mb-3 sm:mb-4">Period Selection</h3>
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
             <Select
               label="Month"
               options={[...Array(12)].map((_, i) => ({
@@ -86,19 +86,19 @@ const CreateRosterModal: React.FC<{
               max={new Date().getFullYear() + 2}
               required
               leftIcon={
-                <Calendar className="w-5 h-5 text-gray-400" />
+                <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
               }
             />
           </div>
         </div>
         
         {/* Action Buttons */}
-        <div className="flex gap-3 pt-4 border-t w-full -mx-6 px-6">
+        <div className="flex flex-col sm:flex-row items-stretch gap-2 sm:gap-3 pt-4 border-t mt-4 sm:mt-6">
           <Button
             type="button"
             variant="outline"
             onClick={onClose}
-            className="flex-1"
+            className="w-full sm:flex-1 text-sm"
             disabled={isLoading}
           >
             Cancel
@@ -107,9 +107,10 @@ const CreateRosterModal: React.FC<{
             type="submit"
             variant="primary"
             isLoading={isLoading}
-            className="flex-1 bg-[#222E6A] hover:bg-[#1a2452]"
+            className="w-full sm:flex-1 bg-[#222E6A] hover:bg-[#1a2452] text-sm whitespace-normal leading-tight py-2.5 sm:py-2"
           >
-            Create Roster Template
+            <span className="hidden sm:inline">Create Roster Template</span>
+            <span className="sm:hidden">Create Template</span>
           </Button>
         </div>
       </form>
@@ -167,38 +168,38 @@ const EditRosterModal: React.FC<{
         ></div>
 
         <div className="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
-          <div className="absolute top-0 right-0 pt-4 pr-4">
+          <div className="absolute top-0 right-0 pt-3 pr-3 sm:pt-4 sm:pr-4">
             <button
               type="button"
               className="bg-white rounded-md text-gray-400 hover:text-gray-600 focus:outline-none"
               onClick={onClose}
             >
-              <X className="h-6 w-6" />
+              <X className="h-5 w-5 sm:h-6 sm:w-6" />
             </button>
           </div>
           
           <div className="sm:flex sm:items-start">
-            <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-[#D8DAED] sm:mx-0 sm:h-10 sm:w-10">
-              <Edit2 className="h-6 w-6 text-[#454D7C]" />
+            <div className="mx-auto flex-shrink-0 flex items-center justify-center h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-[#D8DAED] sm:mx-0">
+              <Edit2 className="h-5 w-5 sm:h-6 sm:w-6 text-[#454D7C]" />
             </div>
             <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left flex-1">
-              <h3 className="text-lg leading-6 font-medium text-gray-900">
+              <h3 className="text-base sm:text-lg leading-6 font-medium text-gray-900">
                 Edit Roster
               </h3>
-              <p className="mt-2 text-sm text-gray-600">
+              <p className="mt-2 text-xs sm:text-sm text-gray-600">
                 Update the month and year for this roster period.
               </p>
               <div className="mt-4">
                 <form onSubmit={handleSubmit}>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-3 sm:gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                         Month
                       </label>
                       <select
                         value={month}
                         onChange={(e) => setMonth(parseInt(e.target.value))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm"
                         required
                       >
                         {Array.from({ length: 12 }, (_, i) => (
@@ -209,13 +210,13 @@ const EditRosterModal: React.FC<{
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                         Year
                       </label>
                       <select
                         value={year}
                         onChange={(e) => setYear(parseInt(e.target.value))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-2 sm:px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm"
                         required
                       >
                         {Array.from({ length: 10 }, (_, i) => {
@@ -226,12 +227,12 @@ const EditRosterModal: React.FC<{
                     </div>
                   </div>
                   
-                  <div className="flex gap-3 pt-4 border-t w-full -mx-6 px-6 mt-6">
+                  <div className="flex flex-col sm:flex-row items-stretch gap-2 sm:gap-3 pt-4 border-t mt-4 sm:mt-6">
                     <Button
                       type="button"
                       variant="outline"
                       onClick={onClose}
-                      className="flex-1"
+                      className="w-full sm:flex-1 text-sm"
                     >
                       Cancel
                     </Button>
@@ -240,7 +241,7 @@ const EditRosterModal: React.FC<{
                       disabled={isLoading}
                       variant="primary"
                       isLoading={isLoading}
-                      className="flex-1 bg-[#222E6A] hover:bg-[#1a2452]"
+                      className="w-full sm:flex-1 bg-[#222E6A] hover:bg-[#1a2452] text-sm"
                     >
                       {isLoading ? 'Saving...' : 'Save Changes'}
                     </Button>
@@ -296,27 +297,27 @@ const DeleteRosterModal: React.FC<{
 
         <div className="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
           <div className="sm:flex sm:items-start">
-            <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
-              <Trash2 className="h-6 w-6 text-red-600" />
+            <div className="mx-auto flex-shrink-0 flex items-center justify-center h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-red-100 sm:mx-0">
+              <Trash2 className="h-5 w-5 sm:h-6 sm:w-6 text-red-600" />
             </div>
             <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
-              <h3 className="text-lg leading-6 font-medium text-gray-900">
+              <h3 className="text-base sm:text-lg leading-6 font-medium text-gray-900">
                 Delete Roster
               </h3>
               <div className="mt-2">
-                <p className="text-sm text-gray-500">
+                <p className="text-xs sm:text-sm text-gray-500">
                   Are you sure you want to delete the roster for <span className="font-semibold">{monthName} {roster.year}</span>? 
                   This action cannot be undone and will delete all shift assignments.
                 </p>
               </div>
             </div>
           </div>
-          <div className="flex gap-3 pt-4 border-t w-full -mx-6 px-6 mt-5">
+          <div className="flex flex-col sm:flex-row items-stretch gap-2 sm:gap-3 pt-4 border-t mt-4 sm:mt-5">
             <Button
               type="button"
               variant="outline"
               onClick={onClose}
-              className="flex-1"
+              className="w-full sm:flex-1 text-sm"
             >
               Cancel
             </Button>
@@ -326,7 +327,7 @@ const DeleteRosterModal: React.FC<{
               disabled={isLoading}
               variant="danger"
               isLoading={isLoading}
-              className="flex-1"
+              className="w-full sm:flex-1 text-sm"
             >
               {isLoading ? 'Deleting...' : 'Delete'}
             </Button>
@@ -452,12 +453,12 @@ const ImportRosterModal: React.FC<{
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="Import Roster" size="md" headerClassName="bg-gradient-to-r from-[#454D7C] to-[#222E6A] text-white flex items-center justify-between px-6 py-4 rounded-t-lg">
+    <Modal isOpen={isOpen} onClose={handleClose} title="Import Roster" size="md" headerClassName="bg-gradient-to-r from-[#454D7C] to-[#222E6A] text-white flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 rounded-t-lg">
       <div>
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {/* Information */}
           <div className="bg-[#D8DAED] border border-[#454D7C] rounded-lg p-3">
-            <p className="text-sm text-[#222E6A]">
+            <p className="text-xs sm:text-sm text-[#222E6A]">
               Import roster from Excel file or Google Spreadsheet URL. Use AI parser for flexible format support.
             </p>
           </div>
@@ -468,26 +469,28 @@ const ImportRosterModal: React.FC<{
             <button
               type="button"
               onClick={() => setImportMode('file')}
-              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              className={`flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium border-b-2 transition-colors flex-1 justify-center sm:flex-initial sm:justify-start ${
                 importMode === 'file'
                   ? 'border-[#454D7C] text-[#454D7C]'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
             >
-              <FileSpreadsheet className="h-4 w-4" />
-              Upload File
+              <FileSpreadsheet className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Upload File</span>
+              <span className="sm:hidden">File</span>
             </button>
             <button
               type="button"
               onClick={() => setImportMode('url')}
-              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              className={`flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium border-b-2 transition-colors flex-1 justify-center sm:flex-initial sm:justify-start ${
                 importMode === 'url'
                   ? 'border-[#454D7C] text-[#454D7C]'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
             >
-              <Link className="h-4 w-4" />
-              Spreadsheet URL
+              <Link className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Spreadsheet URL</span>
+              <span className="sm:hidden">URL</span>
             </button>
           </div>
 
@@ -500,15 +503,15 @@ const ImportRosterModal: React.FC<{
                       onChange={(e) => setUseAI(e.target.checked)}
                       className="sr-only peer"
                     />
-                    <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#454D7C]/30 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#454D7C]"></div>
-                    <div className="ms-3 flex items-center gap-2">
-                      <Sparkles className={`h-4 w-4 ${useAI ? 'text-[#454D7C]' : 'text-gray-400'}`} />
-                      <span className={`text-sm font-medium ${useAI ? 'text-[#222E6A]' : 'text-gray-600'}`}>
+                    <div className="relative w-10 h-5 sm:w-11 sm:h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#454D7C]/30 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 sm:after:h-5 sm:after:w-5 after:transition-all peer-checked:bg-[#454D7C]"></div>
+                    <div className="ms-2 sm:ms-3 flex items-center gap-1 sm:gap-2">
+                      <Sparkles className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${useAI ? 'text-[#454D7C]' : 'text-gray-400'}`} />
+                      <span className={`text-xs sm:text-sm font-medium ${useAI ? 'text-[#222E6A]' : 'text-gray-600'}`}>
                         Smart AI Parser
                       </span>
                     </div>
                   </label>
-                  <p className="mt-1 text-xs text-gray-500 ml-14">
+                  <p className="mt-1 text-xs text-gray-500 ml-12 sm:ml-14">
                     {useAI 
                       ? '✨ AI will intelligently parse any Excel format' 
                       : 'Use standard parser (requires specific format)'}
@@ -518,7 +521,7 @@ const ImportRosterModal: React.FC<{
           {/* File Upload Mode */}
           {importMode === 'file' && (
             <div
-              className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
+              className={`border-2 border-dashed rounded-lg p-4 sm:p-6 text-center cursor-pointer transition-colors ${
                 selectedFile 
                   ? 'border-[#454D7C] bg-[#D8DAED]' 
                   : 'border-gray-300 hover:border-[#454D7C] bg-gray-50'
@@ -536,10 +539,10 @@ const ImportRosterModal: React.FC<{
                     />
                     
               {selectedFile ? (
-                <div className="flex items-center justify-center gap-3">
-                  <FileSpreadsheet className="h-8 w-8 text-[#454D7C]" />
-                        <div className="text-left">
-                          <p className="text-sm font-medium text-gray-900">{selectedFile.name}</p>
+                <div className="flex items-center justify-center gap-2 sm:gap-3">
+                  <FileSpreadsheet className="h-6 w-6 sm:h-8 sm:w-8 text-[#454D7C] flex-shrink-0" />
+                        <div className="text-left flex-1 min-w-0">
+                          <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">{selectedFile.name}</p>
                           <p className="text-xs text-gray-500">
                             {(selectedFile.size / 1024).toFixed(1)} KB
                           </p>
@@ -551,16 +554,16 @@ const ImportRosterModal: React.FC<{
                             setSelectedFile(null);
                             setImportResult(null);
                           }}
-                          className="ml-2 text-gray-400 hover:text-gray-600"
+                          className="ml-2 text-gray-400 hover:text-gray-600 flex-shrink-0"
                         >
-                          <X className="h-5 w-5" />
+                          <X className="h-4 w-4 sm:h-5 sm:w-5" />
                         </button>
                       </div>
                     ) : (
                 <>
-                  <FileSpreadsheet className="h-10 w-10 text-gray-400 mx-auto mb-2" />
-                  <p className="text-sm text-gray-600">
-                    <span className="text-[#454D7C] font-medium">Click to upload</span> or drag and drop
+                  <FileSpreadsheet className="h-8 w-8 sm:h-10 sm:w-10 text-gray-400 mx-auto mb-2" />
+                  <p className="text-xs sm:text-sm text-gray-600">
+                    <span className="text-[#454D7C] font-medium">Click to upload</span> <span className="hidden sm:inline">or drag and drop</span>
                   </p>
                         <p className="text-xs text-gray-500 mt-1">
                           Excel files only (.xlsx, .xls)
@@ -574,7 +577,7 @@ const ImportRosterModal: React.FC<{
                 {importMode === 'url' && (
                   <div className="space-y-3">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                         Google Spreadsheet URL
                       </label>
                       <input
@@ -585,7 +588,7 @@ const ImportRosterModal: React.FC<{
                           setImportResult(null);
                         }}
                         placeholder="https://docs.google.com/spreadsheets/d/..."
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#454D7C] text-sm"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#454D7C] text-xs sm:text-sm"
                       />
                       <p className="mt-1 text-xs text-gray-500">
                         Make sure the spreadsheet is set to "Anyone with the link can view"
@@ -595,9 +598,9 @@ const ImportRosterModal: React.FC<{
                       <p className="text-xs text-[#222E6A] font-medium">
                         <strong>Supported formats:</strong>
                       </p>
-                      <ul className="text-xs text-[#454D7C] mt-1 space-y-0.5">
-                        <li>• https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/edit</li>
-                        <li>• https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/view</li>
+                      <ul className="text-xs text-[#454D7C] mt-1 space-y-0.5 break-all">
+                        <li className="break-all">• https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/edit</li>
+                        <li className="break-all">• https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/view</li>
                       </ul>
                     </div>
                   </div>
@@ -605,34 +608,34 @@ const ImportRosterModal: React.FC<{
 
                 {/* Import Result */}
                 {importResult && (
-                  <div className={`mt-4 p-4 rounded-lg ${
+                  <div className={`mt-4 p-3 sm:p-4 rounded-lg ${
                     importResult.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
                   }`}>
                     <div className="flex items-start gap-2">
                       {importResult.success ? (
-                        <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+                        <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 text-green-600 flex-shrink-0 mt-0.5" />
                       ) : (
-                        <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                        <AlertCircle className="h-4 w-4 sm:h-5 sm:w-5 text-red-600 flex-shrink-0 mt-0.5" />
                       )}
-                      <div className="flex-1">
-                        <p className={`text-sm font-medium ${
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-xs sm:text-sm font-medium ${
                           importResult.success ? 'text-green-800' : 'text-red-800'
                         }`}>
                           {importResult.message}
                         </p>
                         {importResult.stats && (
                           <div className="mt-2 text-xs text-gray-600 space-y-1">
-                            <p>• Employees processed: {importResult.stats.employees_processed}</p>
-                            <p>• New employees created: {importResult.stats.employees_created}</p>
-                            <p>• Assignments created: {importResult.stats.assignments_created}</p>
+                            <p className="truncate">• Employees processed: {importResult.stats.employees_processed}</p>
+                            <p className="truncate">• New employees created: {importResult.stats.employees_created}</p>
+                            <p className="truncate">• Assignments created: {importResult.stats.assignments_created}</p>
                             {importResult.stats.assignments_skipped > 0 && (
-                              <p>• Assignments updated: {importResult.stats.assignments_skipped}</p>
+                              <p className="truncate">• Assignments updated: {importResult.stats.assignments_skipped}</p>
                             )}
                             {importResult.stats.errors.length > 0 && (
                               <div className="mt-2 text-red-600">
                                 <p className="font-medium">Errors:</p>
                                 {importResult.stats.errors.map((err, i) => (
-                                  <p key={i}>- {err}</p>
+                                  <p key={i} className="break-words">- {err}</p>
                                 ))}
                               </div>
                             )}
@@ -646,12 +649,12 @@ const ImportRosterModal: React.FC<{
         </div>
         
         {/* Action Buttons */}
-        <div className="flex gap-3 pt-4 border-t w-full -mx-6 px-6 mt-6">
+        <div className="flex flex-col sm:flex-row items-stretch gap-2 sm:gap-3 pt-4 border-t mt-4 sm:mt-6">
           <Button
             type="button"
             variant="outline"
             onClick={handleClose}
-            className="flex-1"
+            className="w-full sm:flex-1 text-sm"
           >
             {importResult?.success ? 'Close' : 'Cancel'}
           </Button>
@@ -661,8 +664,8 @@ const ImportRosterModal: React.FC<{
             disabled={(importMode === 'file' ? !selectedFile : !spreadsheetUrl) || isLoading}
             variant="primary"
             isLoading={isLoading}
-            leftIcon={!isLoading ? <Upload /> : undefined}
-            className="flex-1 bg-[#222E6A] hover:bg-[#1a2452]"
+            leftIcon={!isLoading ? <Upload className="h-4 w-4" /> : undefined}
+            className="w-full sm:flex-1 bg-[#222E6A] hover:bg-[#1a2452] text-sm"
           >
             {isLoading ? 'Importing...' : 'Import Roster'}
           </Button>
@@ -688,7 +691,7 @@ const RostersPage: React.FC = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isSwapShiftModalOpen, setIsSwapShiftModalOpen] = useState(false);
-  const [isConfigureSwapShiftModalOpen, setIsConfigureSwapShiftModalOpen] = useState(false);
+  // const [isConfigureSwapShiftModalOpen, setIsConfigureSwapShiftModalOpen] = useState(false);
   const [selectedRoster, setSelectedRoster] = useState<RosterPeriod | null>(null);
   const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'published'>('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -718,10 +721,10 @@ const RostersPage: React.FC = () => {
     console.log('Shift swap request submitted');
   };
 
-  const handleConfigureSwapShiftSuccess = () => {
-    // Placeholder for future functionality
-    console.log('Swap shift rules saved');
-  };
+  // const handleConfigureSwapShiftSuccess = () => {
+  //   // Placeholder for future functionality
+  //   console.log('Swap shift rules saved');
+  // };
 
   const handleSyncRoster = async (roster: RosterPeriod) => {
     if (!roster.spreadsheet_url) {
@@ -835,29 +838,33 @@ const RostersPage: React.FC = () => {
       ]}
     >
       {/* Header Actions */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 sm:p-6 mb-6">
-        <div className="flex items-center justify-between gap-4">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-5 lg:p-6 mb-6">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="flex items-center gap-3">
-            <Calendar className="h-8 w-8 text-[#222E6A]" />
+            <Calendar className="h-7 w-7 sm:h-8 sm:w-8 text-[#222E6A] flex-shrink-0" />
             <div>
-              <h2 className="text-xl font-semibold text-gray-900">Manage Rosters</h2>
-              <p className="text-gray-600 text-sm">{rosters.length} roster{rosters.length !== 1 ? 's' : ''} available</p>
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Manage Rosters</h2>
+              <p className="text-gray-600 text-xs sm:text-sm">{rosters.length} roster{rosters.length !== 1 ? 's' : ''} available</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            {canManageRoster && (
+          <div className="grid grid-cols-2 sm:flex sm:flex-row sm:flex-wrap lg:flex-nowrap items-stretch sm:items-center gap-2 sm:gap-3">
+            {/* Temporarily disabled Configure Swap Shift */}
+            {/* {canManageRoster && (
               <Button
                 variant="outline"
-                leftIcon={<Settings />}
+                leftIcon={<Settings className="h-4 w-4" />}
                 onClick={() => setIsConfigureSwapShiftModalOpen(true)}
+                className="justify-center sm:justify-start text-xs sm:text-sm whitespace-nowrap w-full sm:w-auto"
               >
-                Configuration Swap Shift
+                <span className="hidden sm:inline">Configuration Swap Shift</span>
+                <span className="sm:hidden">Config Swap</span>
               </Button>
-            )}
+            )} */}
             <Button
               variant="secondary"
-              leftIcon={<ArrowLeftRight />}
+              leftIcon={<ArrowLeftRight className="h-4 w-4" />}
               onClick={() => setIsSwapShiftModalOpen(true)}
+              className="justify-center sm:justify-start text-xs sm:text-sm whitespace-nowrap w-full sm:w-auto"
             >
               Swap Shift
             </Button>
@@ -865,27 +872,31 @@ const RostersPage: React.FC = () => {
               <>
                 <Button
                   variant="success"
-                  leftIcon={<Upload />}
+                  leftIcon={<Upload className="h-4 w-4" />}
                   onClick={openImportModal}
+                  className="justify-center sm:justify-start text-xs sm:text-sm whitespace-nowrap w-full sm:w-auto"
                 >
-                  Import Roster
+                  <span className="hidden sm:inline">Import Roster</span>
+                  <span className="sm:hidden">Import</span>
                 </Button>
                 <Button
                   variant="primary"
-                  leftIcon={<Plus />}
+                  leftIcon={<Plus className="h-4 w-4" />}
                   onClick={openCreateModal}
+                  className="col-span-2 sm:col-span-1 justify-center sm:justify-start text-xs sm:text-sm whitespace-nowrap w-full sm:flex-1"
                 >
-                  Create New Roster
+                  <span className="hidden sm:inline">Create New Roster</span>
+                  <span className="sm:hidden">Create</span>
                 </Button>
               </>
             )}
           </div>
         </div>
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-3 text-sm font-medium text-gray-800">
-          <div className="flex items-center justify-between border rounded-lg px-3 py-2">
-            <span>Year</span>
+        <div className="mt-4 grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 text-xs sm:text-sm font-medium text-gray-800">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border rounded-lg px-3 py-2 gap-1 sm:gap-0">
+            <span className="text-gray-600">Year</span>
             <select
-              className="border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none"
+              className="border border-gray-300 rounded-md px-2 py-1 text-xs sm:text-sm focus:outline-none w-full sm:w-auto"
               value={yearFilter === 'all' ? '' : yearFilter}
               onChange={(e) => setYearFilter(e.target.value === '' ? 'all' : parseInt(e.target.value))}
             >
@@ -895,50 +906,50 @@ const RostersPage: React.FC = () => {
               ))}
             </select>
           </div>
-          <div className="flex items-center justify-between border rounded-lg px-3 py-2">
-            <span>Draft Rosters</span>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border rounded-lg px-3 py-2 gap-1 sm:gap-0">
+            <span className="text-gray-600">Draft</span>
             <span className="text-gray-900 font-semibold">{draftCount}</span>
           </div>
-          <div className="flex items-center justify-between border rounded-lg px-3 py-2">
-            <span>Published Rosters</span>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border rounded-lg px-3 py-2 gap-1 sm:gap-0">
+            <span className="text-gray-600">Published</span>
             <span className="text-gray-900 font-semibold">{publishedCount}</span>
           </div>
-          <div className="flex items-center justify-between border rounded-lg px-3 py-2">
-            <span>Last Update</span>
-            <span className="text-gray-600 text-xs sm:text-sm">{lastUpdated ? new Date(lastUpdated).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</span>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border rounded-lg px-3 py-2 gap-1 sm:gap-0">
+            <span className="text-gray-600">Last Update</span>
+            <span className="text-gray-600 text-xs sm:text-sm truncate">{lastUpdated ? new Date(lastUpdated).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</span>
           </div>
         </div>
       </div>
 
       {/* Filters */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-5 mb-6">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
-          <div className="flex items-center gap-2 text-sm font-semibold text-gray-800">
-            <span>Filter:</span>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <div className="flex items-center gap-2 text-xs sm:text-sm font-semibold text-gray-800">
+            <span className="whitespace-nowrap">Filter:</span>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as 'all' | 'draft' | 'published')}
-              className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none"
+              className="border border-gray-300 rounded-md px-3 py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#222E6A] w-full sm:w-auto"
             >
               <option value="all">All Status</option>
               <option value="published">Published</option>
               <option value="draft">Draft</option>
             </select>
           </div>
-          <div className="flex-1 w-full">
+          <div className="flex-1">
             <input
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               type="text"
               placeholder="Search month or year..."
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#222E6A]"
             />
           </div>
         </div>
       </div>
 
       {/* Rosters Grid */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 sm:p-6">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-5 lg:p-6">
         {loadingStates.rosters ? (
           <div className="text-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#454D7C] mx-auto"></div>
@@ -962,7 +973,7 @@ const RostersPage: React.FC = () => {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
             {filteredRosters.map((roster) => {
               const label = `${new Date(0, roster.month - 1).toLocaleString('default', { month: 'long' })} ${roster.year}`;
               const badge = badgeByStatus[roster.status] || badgeByStatus.default;
@@ -971,35 +982,27 @@ const RostersPage: React.FC = () => {
               return (
                 <div
                   key={roster.id}
-                  className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                  className="border border-gray-200 rounded-lg p-3 sm:p-4 hover:shadow-md transition-shadow"
                 >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-semibold text-gray-900">{label}</p>
+                  <div className="flex items-start justify-between mb-3 gap-2">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <p className="text-xs sm:text-sm font-semibold text-gray-900 truncate">{label}</p>
                       {hasSpreadsheetLink && (
-                        <span title="Linked to Google Spreadsheet" className="text-green-600">
-                          <Link className="h-3.5 w-3.5" />
+                        <span title="Linked to Google Spreadsheet" className="text-green-600 flex-shrink-0">
+                          <Link className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                         </span>
                       )}
                     </div>
-                    <span className={`text-xs font-semibold px-2 py-1 rounded ${badge}`}>
+                    <span className={`text-xs font-semibold px-2 py-0.5 sm:py-1 rounded whitespace-nowrap flex-shrink-0 ${badge}`}>
                       {roster.status ? roster.status.charAt(0).toUpperCase() + roster.status.slice(1) : 'Draft'}
                     </span>
                   </div>
-                  <div className="text-xs text-gray-700 space-y-1 mb-4">
-                    <p>Staffing Coverage: 100%</p>
-                    <p>Last Edited: {roster.updated_at ? new Date(roster.updated_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'}</p>
+                  <div className="text-xs text-gray-700 space-y-1 mb-3 sm:mb-4">
+                    <p className="truncate">Staffing Coverage: 100%</p>
+                    <p className="truncate">Last Edited: {roster.updated_at ? new Date(roster.updated_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'}</p>
                     {roster.last_synced_at && (
-                      <p className="text-green-600">Last Synced: {new Date(roster.last_synced_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                      <p className="text-green-600 truncate">Last Synced: {new Date(roster.last_synced_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
                     )}
-                  </div>
-                  <div className="mb-2">
-                    <button
-                      onClick={() => navigate(`/rosters/${roster.id}`)}
-                      className="w-full text-xs border border-gray-300 rounded px-2 py-1.5 text-gray-800 hover:bg-gray-50"
-                    >
-                      View
-                    </button>
                   </div>
                   {/* Sync button - show if roster has spreadsheet link */}
                   {canManageRoster && hasSpreadsheetLink && roster.status === 'draft' && (
@@ -1010,10 +1013,10 @@ const RostersPage: React.FC = () => {
                           handleSyncRoster(roster);
                         }}
                         disabled={isSyncing}
-                        className="w-full text-xs border border-green-300 rounded px-2 py-1.5 text-green-600 hover:bg-green-50 inline-flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full text-xs sm:text-sm border border-green-300 rounded px-2 py-1.5 sm:py-2 text-green-600 hover:bg-green-50 inline-flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
                       >
-                        <RefreshCw className={`h-3 w-3 ${isSyncing ? 'animate-spin' : ''}`} />
-                        {isSyncing ? 'Syncing...' : 'Sync from Spreadsheet'}
+                        <RefreshCw className={`h-3 w-3 sm:h-3.5 sm:w-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                        <span className="truncate">{isSyncing ? 'Syncing...' : 'Sync from Spreadsheet'}</span>
                       </button>
                     </div>
                   )}
@@ -1026,15 +1029,38 @@ const RostersPage: React.FC = () => {
                           handlePushToSpreadsheet(roster);
                         }}
                         disabled={pushingRosterId === roster.id}
-                        className="w-full text-xs border border-[#454D7C] rounded px-2 py-1.5 text-[#454D7C] hover:bg-[#D8DAED] inline-flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full text-xs sm:text-sm border border-[#454D7C] rounded px-2 py-1.5 sm:py-2 text-[#454D7C] hover:bg-[#D8DAED] inline-flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
                       >
-                        <ArrowUpToLine className={`h-3 w-3 ${pushingRosterId === roster.id ? 'animate-pulse' : ''}`} />
-                        {pushingRosterId === roster.id ? 'Pushing...' : 'Push to Spreadsheet'}
+                        <ArrowUpToLine className={`h-3 w-3 sm:h-3.5 sm:w-3.5 ${pushingRosterId === roster.id ? 'animate-pulse' : ''}`} />
+                        <span className="truncate">{pushingRosterId === roster.id ? 'Pushing...' : 'Push to Spreadsheet'}</span>
                       </button>
                     </div>
                   )}
+                  
+                  {/* View Details button - separate row on desktop, same row on mobile */}
+                  <div className="hidden sm:block mb-2">
+                    <button
+                      onClick={() => navigate(`/rosters/${roster.id}`)}
+                      className="w-full text-xs sm:text-sm border border-gray-300 rounded px-2 py-1.5 sm:py-2 text-gray-800 hover:bg-gray-50 font-medium transition-colors"
+                    >
+                      View Details
+                    </button>
+                  </div>
+                  
+                  {/* Edit and Delete (+ View on mobile) buttons - all in one row on mobile, Edit+Delete only on desktop */}
                   {canManageRoster && roster.status === 'draft' && (
                     <div className="flex gap-2">
+                      {/* View Details on mobile only */}
+                      <Button
+                        onClick={() => navigate(`/rosters/${roster.id}`)}
+                        variant="outline"
+                        size="sm"
+                        leftIcon={<Eye className="h-3 w-3 sm:h-4 sm:w-4" />}
+                        className="sm:hidden flex-1 text-xs !border-gray-300 !text-gray-800 hover:!bg-gray-50"
+                        effect3d={false}
+                      >
+                        View
+                      </Button>
                       <Button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -1042,25 +1068,38 @@ const RostersPage: React.FC = () => {
                         }}
                         variant="outline"
                         size="sm"
-                        leftIcon={<Edit2 />}
-                        className="flex-1 text-xs"
+                        leftIcon={<Edit2 className="h-3 w-3 sm:h-4 sm:w-4" />}
+                        className="flex-1 text-xs sm:text-sm"
                         effect3d={false}
                       >
-                        Edit Period
+                        <span className="hidden sm:inline">Edit Period</span>
+                        <span className="sm:hidden">Edit</span>
                       </Button>
                       <Button
                         onClick={(e) => {
                           e.stopPropagation();
                           openDeleteModal(roster);
                         }}
-                        variant="danger"
+                        variant="outline"
                         size="sm"
-                        leftIcon={<Trash2 />}
-                        className="flex-1 text-xs"
+                        leftIcon={<Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />}
+                        className="flex-1 text-xs sm:text-sm !border-red-300 !text-red-600 hover:!bg-red-50"
                         effect3d={false}
                       >
                         Delete
                       </Button>
+                    </div>
+                  )}
+                  
+                  {/* View Details button for non-draft rosters (no Edit/Delete buttons) */}
+                  {(!canManageRoster || roster.status !== 'draft') && (
+                    <div className="mb-2">
+                      <button
+                        onClick={() => navigate(`/rosters/${roster.id}`)}
+                        className="w-full text-xs sm:text-sm border border-gray-300 rounded px-2 py-1.5 sm:py-2 text-gray-800 hover:bg-gray-50 font-medium transition-colors"
+                      >
+                        View Details
+                      </button>
                     </div>
                   )}
                 </div>
@@ -1107,12 +1146,12 @@ const RostersPage: React.FC = () => {
         onSuccess={handleSwapShiftSuccess}
       />
 
-      {/* Configure Swap Shift Modal */}
-      <ConfigureSwapShiftModal
+      {/* Configure Swap Shift Modal - Temporarily disabled */}
+      {/* <ConfigureSwapShiftModal
         isOpen={isConfigureSwapShiftModalOpen}
         onClose={() => setIsConfigureSwapShiftModalOpen(false)}
         onSuccess={handleConfigureSwapShiftSuccess}
-      />
+      /> */}
     </PageHeader>
   );
 };

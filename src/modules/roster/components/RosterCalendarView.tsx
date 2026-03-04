@@ -115,7 +115,7 @@ const RosterCalendarView: React.FC<RosterCalendarViewProps> = ({
     weeks.push(currentWeek);
 
     return (
-      <div className="rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-12 shadow-lg border border-gray-100 -mx-7 sm:mx-0" style={{ backgroundColor: '#222E6A' }}>
+      <div className="rounded-2xl sm:rounded-3xl p-3 sm:p-6 lg:p-8 shadow-lg border border-gray-100 -mx-4 sm:mx-0" style={{ backgroundColor: '#222E6A' }}>
         {/* Header */}
         <div className="flex items-center justify-center mb-4 sm:mb-8 lg:mb-12">
           <h2 className="text-xl sm:text-3xl lg:text-4xl font-bold text-white">
@@ -124,8 +124,8 @@ const RosterCalendarView: React.FC<RosterCalendarViewProps> = ({
         </div>
 
         {/* Calendar Grid */}
-        <div className="overflow-x-auto -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8">
-          <table className="w-full border-collapse mx-auto">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse">
             <colgroup>
               <col style={{ width: '14.28%' }} />
               <col style={{ width: '14.28%' }} />
@@ -190,10 +190,10 @@ const RosterCalendarView: React.FC<RosterCalendarViewProps> = ({
   return (
     <>
       {/* Print Button */}
-      <div className="flex justify-end mb-4 px-2">
+      <div className="flex justify-end mb-4 -mx-4 sm:mx-0 pr-0 sm:pr-0">
         <button 
           onClick={onPrint}
-          className="flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-white hover:bg-gray-100 rounded-md transition-colors font-medium text-gray-900 shadow-md border border-gray-200 text-sm sm:text-base"
+          className="flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-white hover:bg-gray-100 rounded-xl transition-colors font-medium text-gray-900 shadow-md border border-gray-200 text-sm sm:text-base"
         >
           <Printer className="h-4 w-4 sm:h-5 sm:w-5" />
           <span>Print View</span>

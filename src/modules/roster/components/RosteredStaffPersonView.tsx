@@ -1380,7 +1380,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
         <table className="w-full border-collapse">
           <thead>
             <tr>
-              <th className="text-left text-[11px] sm:text-xs lg:text-sm font-semibold text-white px-3 sm:px-4 py-2 sm:py-3 rounded-tl-xl whitespace-nowrap sticky left-0 z-10" style={{ backgroundColor: '#222E6A' }}>
+              <th className="text-left text-[11px] sm:text-xs lg:text-sm font-semibold text-white px-3 sm:px-4 py-2 sm:py-3 whitespace-nowrap sticky left-0 z-10" style={{ backgroundColor: '#222E6A' }}>
                 Name
               </th>
               <th className="text-center text-[11px] sm:text-xs lg:text-sm font-semibold text-white px-2 sm:px-3 py-2 sm:py-3 whitespace-nowrap" style={{ backgroundColor: '#222E6A' }}>
@@ -1395,7 +1395,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
                   <div className="font-bold">{day}</div>
                 </th>
               ))}
-              <th className="w-6 sm:w-12 rounded-tr-xl" style={{ backgroundColor: '#222E6A' }}></th>
+              <th className="w-6 sm:w-12" style={{ backgroundColor: '#222E6A' }}></th>
             </tr>
           </thead>
           <tbody>
@@ -1411,10 +1411,20 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
                   {/* Employee Type Header */}
                   <tr>
                     <td 
-                      colSpan={displayedDays.length + 4}
-                      className="px-3 sm:px-4 py-3 text-sm sm:text-base font-bold text-white bg-gradient-to-r from-[#222E6A] to-[#2a3a7f] border-y-2 border-[#1a235c]"
+                      className="px-3 sm:px-4 py-3 text-sm sm:text-base font-bold text-white sticky left-0 z-20 whitespace-nowrap"
+                      style={{
+                        backgroundColor: '#222E6A'
+                      }}
                     >
                       {typeGroup.type}
+                    </td>
+                    <td 
+                      colSpan={displayedDays.length + 3}
+                      className="px-3 sm:px-4 py-3 text-sm sm:text-base font-bold text-white"
+                      style={{
+                        backgroundColor: '#222E6A'
+                      }}
+                    >
                     </td>
                   </tr>
                   
@@ -1427,10 +1437,20 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
                         {/* Group Header Row */}
                         <tr>
                           <td 
-                            colSpan={displayedDays.length + 4}
-                            className="px-3 sm:px-4 py-2 text-[11px] sm:text-sm font-bold text-gray-800 bg-gradient-to-r from-orange-200 to-orange-100 border-y border-orange-300"
+                            className="px-3 sm:px-4 py-2 text-[11px] sm:text-sm font-bold text-gray-800 sticky left-0 z-20 whitespace-nowrap"
+                            style={{
+                              backgroundColor: '#fed7aa'
+                            }}
                           >
                             Grup {actualGroupNumber}
+                          </td>
+                          <td 
+                            colSpan={displayedDays.length + 3}
+                            className="px-3 sm:px-4 py-2 text-[11px] sm:text-sm font-bold text-gray-800"
+                            style={{
+                              backgroundColor: '#fed7aa'
+                            }}
+                          >
                           </td>
                         </tr>
                       

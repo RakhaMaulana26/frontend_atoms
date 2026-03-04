@@ -143,17 +143,17 @@ const SwapShiftModal: React.FC<SwapShiftModalProps> = ({ isOpen, onClose, onSucc
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Request Shift Swap" size="lg" headerClassName="bg-[#222E6A] text-white flex items-center justify-between px-6 py-4 rounded-t-lg">
-      <form onSubmit={handleSubmit} className="space-y-6">
+    <Modal isOpen={isOpen} onClose={onClose} title="Request Shift Swap" size="lg" headerClassName="bg-[#222E6A] text-white flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 rounded-t-lg">
+      <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
         {isLoadingData && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <p className="text-sm text-blue-700">Loading data...</p>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 sm:p-3">
+            <p className="text-xs sm:text-sm text-blue-700">Loading data...</p>
           </div>
         )}
 
         {/* Current Shift Section */}
         <div>
-          <h3 className="text-sm font-semibold text-[#222E6A] mb-4">Current Shift (Your Shift)</h3>
+          <h3 className="text-xs sm:text-sm font-semibold text-[#222E6A] mb-3 sm:mb-4">Current Shift (Your Shift)</h3>
           <Select
             label="Select Your Shift to Swap"
             options={[
@@ -171,7 +171,7 @@ const SwapShiftModal: React.FC<SwapShiftModalProps> = ({ isOpen, onClose, onSucc
             disabled={isLoadingData}
           />
           {myShifts.length === 0 && !isLoadingData && (
-            <p className="mt-2 text-xs text-gray-500 italic">
+            <p className="mt-2 text-[10px] sm:text-xs text-gray-500 italic">
               No upcoming shifts available
             </p>
           )}
@@ -179,10 +179,10 @@ const SwapShiftModal: React.FC<SwapShiftModalProps> = ({ isOpen, onClose, onSucc
 
         {/* Partner Selection - Select partner first */}
         <div>
-          <h3 className="text-sm font-semibold text-[#222E6A] mb-4">Swap Partner</h3>
-          <div className="space-y-3">
+          <h3 className="text-xs sm:text-sm font-semibold text-[#222E6A] mb-3 sm:mb-4">Swap Partner</h3>
+          <div className="space-y-2 sm:space-y-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                 Search Partner by Name
               </label>
               <input
@@ -226,7 +226,7 @@ const SwapShiftModal: React.FC<SwapShiftModalProps> = ({ isOpen, onClose, onSucc
         {/* Requested Shift Section - Show partner's available dates */}
         {selectedPartner && (
           <div>
-            <h3 className="text-sm font-semibold text-[#222E6A] mb-4">Requested Shift (Partner's Shift)</h3>
+            <h3 className="text-xs sm:text-sm font-semibold text-[#222E6A] mb-3 sm:mb-4">Requested Shift (Partner's Shift)</h3>
             <Select
               label="Select Partner's Shift"
               options={[
@@ -243,7 +243,7 @@ const SwapShiftModal: React.FC<SwapShiftModalProps> = ({ isOpen, onClose, onSucc
               }}
               disabled={isLoadingData}
             />
-            <p className="mt-2 text-xs text-gray-500 italic">
+            <p className="mt-2 text-[10px] sm:text-xs text-gray-500 italic">
               * Only shifts where both you and partner have the same role are shown
             </p>
           </div>
@@ -251,16 +251,16 @@ const SwapShiftModal: React.FC<SwapShiftModalProps> = ({ isOpen, onClose, onSucc
 
         {/* Reason Section */}
         <div>
-          <h3 className="text-sm font-semibold text-[#222E6A] mb-4">Reason</h3>
+          <h3 className="text-xs sm:text-sm font-semibold text-[#222E6A] mb-3 sm:mb-4">Reason</h3>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
               Reason for Swap
             </label>
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#222E6A] text-sm resize-none"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#222E6A] text-xs sm:text-sm resize-none"
               placeholder="Please provide a reason for this shift swap request..."
               required
               disabled={isLoadingData}
@@ -269,7 +269,7 @@ const SwapShiftModal: React.FC<SwapShiftModalProps> = ({ isOpen, onClose, onSucc
         </div>
         
         {/* Action Buttons */}
-        <div className="flex gap-3 pt-4 border-t w-full -mx-6 px-6">
+        <div className="flex gap-2 sm:gap-3 pt-3 sm:pt-4 border-t w-full -mx-4 sm:-mx-6 px-4 sm:px-6">
           <Button
             type="button"
             variant="outline"
@@ -277,7 +277,7 @@ const SwapShiftModal: React.FC<SwapShiftModalProps> = ({ isOpen, onClose, onSucc
             className="flex-1"
             disabled={isLoading || isLoadingData}
           >
-            Cancel
+            <span className="text-xs sm:text-sm">Cancel</span>
           </Button>
           <Button
             type="submit"
@@ -286,7 +286,7 @@ const SwapShiftModal: React.FC<SwapShiftModalProps> = ({ isOpen, onClose, onSucc
             className="flex-1 bg-[#222E6A] hover:bg-[#1a2452]"
             disabled={isLoadingData}
           >
-            Submit Request
+            <span className="text-xs sm:text-sm">Submit Request</span>
           </Button>
         </div>
       </form>

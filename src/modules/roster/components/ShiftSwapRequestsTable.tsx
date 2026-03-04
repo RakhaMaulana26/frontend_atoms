@@ -55,22 +55,19 @@ const ShiftSwapRequestsTable: React.FC<ShiftSwapRequestsTableProps> = ({
     <div>
       {/* Request Button */}
       {onRequestNew && (
-        <div className="mb-4 sm:mb-6 px-2">
+        <div className="mb-4 sm:mb-6 -mx-4 sm:mx-0 pl-0 sm:pl-0">
           <button 
             onClick={onRequestNew}
-            className="group relative flex items-center gap-2 px-3 sm:px-6 py-2 sm:py-3 bg-gradient-to-br from-[#222E6A] via-[#2a3a7f] to-[#1a235c] hover:from-[#1a235c] hover:via-[#222E6A] hover:to-[#2a3a7f] rounded-xl transition-all duration-300 font-semibold text-white text-sm sm:text-base shadow-lg hover:shadow-2xl transform hover:-translate-y-0.5 active:translate-y-0 active:shadow-md"
-            style={{
-              boxShadow: '0 8px 16px rgba(34, 46, 106, 0.3), inset 0 -2px 8px rgba(0, 0, 0, 0.2)',
-            }}
+            className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-gradient-to-br from-[#222E6A] via-[#2a3a7f] to-[#1a235c] hover:from-[#1a235c] hover:via-[#222E6A] hover:to-[#2a3a7f] rounded-xl transition-colors font-semibold text-white text-xs sm:text-sm shadow-md border border-gray-200"
           >
-            <span className="text-xl">+</span>
+            <span className="text-lg sm:text-xl">+</span>
             <span>Request Shift Swap</span>
           </button>
         </div>
       )}
 
       {/* Table Container */}
-      <div className="bg-white rounded-3xl shadow-lg border border-gray-100 -mx-7 sm:mx-0 p-4 sm:p-6 lg:p-8">
+      <div className="bg-white rounded-3xl shadow-lg border border-gray-100 -mx-4 sm:mx-0 p-4 sm:p-6 lg:p-8">
         {/* Header */}
         <div className="p-4 sm:p-6 border-b border-gray-200">
           <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-1 sm:mb-2">Shift Swap Request List</h3>

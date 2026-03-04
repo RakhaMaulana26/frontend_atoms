@@ -410,21 +410,30 @@ const RosterDetailPage: React.FC = () => {
       <div className="min-h-screen bg-gray-50 py-4 sm:py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Tab Navigation */}
-          <div className="flex items-center justify-center mb-6 sm:mb-8 overflow-x-auto px-2">
-            <div className="relative inline-flex items-center gap-1 p-1 sm:p-1.5 bg-white rounded-2xl shadow-lg border border-gray-200 min-w-max overflow-hidden">
-              {/* Animated Sliding Indicator */}
+          <div className="flex items-center justify-center mb-6 sm:mb-8 -mx-4 sm:mx-0">
+            <div className="relative flex items-center gap-1.5 sm:gap-3 p-1.5 sm:p-2 bg-white rounded-2xl shadow-lg border border-gray-200 w-full sm:max-w-2xl">
+              {/* Animated Sliding Indicator - Mobile */}
               <div
-                className="absolute h-[calc(100%-12px)] bg-gradient-to-br from-[#222E6A] via-[#2a3a7f] to-[#1a235c] rounded-xl transition-all duration-300 ease-out shadow-md"
+                className="absolute h-[calc(100%-12px)] bg-gradient-to-br from-[#222E6A] via-[#2a3a7f] to-[#1a235c] rounded-xl transition-all duration-300 ease-out shadow-md sm:hidden"
                 style={{
-                  width: activeTab === 'calendar' ? '135px' : activeTab === 'staff' ? '170px' : '200px',
-                  left: activeTab === 'calendar' ? '6px' : activeTab === 'staff' ? '145px' : '319px',
+                  width: activeTab === 'calendar' ? 'calc(33.33% - 4px)' : activeTab === 'staff' ? 'calc(33.33% - 4px)' : 'calc(33.33% - 4px)',
+                  left: activeTab === 'calendar' ? '6px' : activeTab === 'staff' ? 'calc(33.33% + 2px)' : 'calc(66.66% - 2px)',
+                }}
+              />
+              
+              {/* Animated Sliding Indicator - Desktop */}
+              <div
+                className="absolute h-[calc(100%-16px)] bg-gradient-to-br from-[#222E6A] via-[#2a3a7f] to-[#1a235c] rounded-xl transition-all duration-300 ease-out shadow-md hidden sm:block"
+                style={{
+                  width: activeTab === 'calendar' ? 'calc(33.33% - 8px)' : activeTab === 'staff' ? 'calc(33.33% - 8px)' : 'calc(33.33% - 8px)',
+                  left: activeTab === 'calendar' ? '8px' : activeTab === 'staff' ? 'calc(33.33% + 4px)' : 'calc(66.66% + 0px)',
                 }}
               />
 
               {/* Tab Buttons */}
               <button
                 onClick={() => setActiveTab('calendar')}
-                className={`relative z-10 flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl text-sm sm:text-base font-semibold transition-colors duration-300 whitespace-nowrap ${
+                className={`relative z-10 flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-8 py-2.5 sm:py-3 rounded-xl text-sm sm:text-base font-semibold transition-colors duration-300 whitespace-nowrap flex-1 ${
                   activeTab === 'calendar' ? 'text-white' : 'text-gray-700 hover:text-gray-900'
                 }`}
               >
@@ -434,17 +443,18 @@ const RosterDetailPage: React.FC = () => {
 
               <button
                 onClick={() => setActiveTab('staff')}
-                className={`relative z-10 flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl text-sm sm:text-base font-semibold transition-colors duration-300 whitespace-nowrap ${
+                className={`relative z-10 flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-8 py-2.5 sm:py-3 rounded-xl text-sm sm:text-base font-semibold transition-colors duration-300 whitespace-nowrap flex-1 ${
                   activeTab === 'staff' ? 'text-white' : 'text-gray-700 hover:text-gray-900'
                 }`}
               >
                 <Users className="h-4 w-4 sm:h-5 sm:w-5" />
-                <span>Rostered Staff</span>
+                <span className="hidden sm:inline">Rostered Staff</span>
+                <span className="sm:hidden">Staff</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('swap')}
-                className={`relative z-10 flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl text-sm sm:text-base font-semibold transition-colors duration-300 whitespace-nowrap ${
+                className={`relative z-10 flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-8 py-2.5 sm:py-3 rounded-xl text-sm sm:text-base font-semibold transition-colors duration-300 whitespace-nowrap flex-1 ${
                   activeTab === 'swap' ? 'text-white' : 'text-gray-700 hover:text-gray-900'
                 }`}
               >
@@ -468,11 +478,11 @@ const RosterDetailPage: React.FC = () => {
 
             {activeTab === 'staff' && (
               <div className="space-y-4 sm:space-y-6">
-                <div className="flex items-center justify-end px-2">
+                <div className="flex items-center justify-end -mx-4 sm:mx-0 pr-0 sm:pr-0">
                   <div className="inline-flex items-center p-1 sm:p-1.5 bg-white rounded-2xl shadow-md border border-gray-200">
                     <button
                       onClick={() => setStaffView('person')}
-                      className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
+                      className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-medium transition-all duration-300 whitespace-nowrap ${
                         staffView === 'person'
                           ? 'bg-gradient-to-r from-[#454D7C] to-[#5A6299] text-white'
                           : 'text-gray-700 hover:text-gray-900'
@@ -482,7 +492,7 @@ const RosterDetailPage: React.FC = () => {
                     </button>
                     <button
                       onClick={() => setStaffView('week')}
-                      className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
+                      className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-medium transition-all duration-300 whitespace-nowrap ${
                         staffView === 'week'
                           ? 'bg-gradient-to-r from-[#454D7C] to-[#5A6299] text-white'
                           : 'text-gray-700 hover:text-gray-900'
@@ -492,7 +502,7 @@ const RosterDetailPage: React.FC = () => {
                     </button>
                     <button
                       onClick={() => setStaffView('calendar')}
-                      className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
+                      className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-medium transition-all duration-300 whitespace-nowrap ${
                         staffView === 'calendar'
                           ? 'bg-gradient-to-r from-[#454D7C] to-[#5A6299] text-white'
                           : 'text-gray-700 hover:text-gray-900'
