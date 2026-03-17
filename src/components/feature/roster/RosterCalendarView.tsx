@@ -17,11 +17,13 @@ interface RosterDay {
 
 interface ShiftAssignment {
   id: number;
-  shift_id: number;
-  shift: {
+  shift_id: number | null;
+  employee_id?: number;
+  notes: string;
+  shift?: {
     id: number;
     name: string;
-  };
+  } | null;
 }
 
 interface RosterPeriod {
@@ -62,12 +64,79 @@ const RosterCalendarView: React.FC<RosterCalendarViewProps> = ({
     return day === 0 ? 6 : day - 1;
   };
 
-  const getShiftColor = (shiftName: string): string => {
-    const name = shiftName.toLowerCase();
-    if (name.includes('morning') || name.includes('pagi')) return 'bg-blue-500';
-    if (name.includes('afternoon') || name.includes('siang')) return 'bg-yellow-400';
-    if (name.includes('night') || name.includes('malam')) return 'bg-green-500';
-    return 'bg-red-500';
+  /**
+   * Get shift type from notes or shift name - same logic as RosteredStaffPersonView
+   */
+  const getShiftType = (notes: string | undefined, shiftName: string | undefined): string => {
+    // Prioritize notes field first (same as personView)
+    const note = (notes || '').toLowerCase().trim();
+    const name = (shiftName || '').toLowerCase().trim();
+    
+    // Check notes first
+    if (note) {
+      // Regular shifts
+      if (note === 'pagi' || note === 'p') return 'pagi';
+      if (note === 'siang' || note === 's') return 'siang';
+      if (note === 'malam' || note === 'm') return 'malam';
+      
+      // Libur/Off status
+      if (note === 'l' || note === 'libur' || note === 'off') return 'libur';
+      if (note === 'l1' || note === 'l2' || note === 'libur1' || note === 'libur2') return 'libur';
+      
+      // Cuti types
+      if (note === 'ct' || note === 'cuti tahunan' || note.includes('cuti tahunan')) return 'cuti';
+      if (note === 'cs' || note === 'cuti sakit' || note === 'cuti dokter' || note.includes('cuti sakit') || note.includes('cuti dokter')) return 'sakit';
+      if (note.includes('cuti') || note.includes('leave')) return 'cuti';
+      
+      // Special status
+      if (note === 'oh' || note === 'office hour' || note.includes('office hour')) return 'oh';
+      if (note === 'dl' || note === 'dinas luar' || note.includes('dinas luar')) return 'dl';
+      if (note === 'tb' || note === 'tugas belajar' || note.includes('tugas belajar')) return 'tb';
+      if (note === '-' || note === 'lepas malam' || note === 'lepas dinas malam' || note.includes('lepas')) return 'lepas';
+      if (note === 'sc' || note === 'standby on call' || note === 'stby' || note.includes('standby')) return 'standby';
+      if (note === 's/p' || note === 'standby pagi') return 'standby';
+      if (note === 's/s' || note === 'standby siang') return 'standby';
+      if (note === 's/m' || note === 'standby malam') return 'standby';
+      if (note.includes('sakit') || note.includes('sick')) return 'sakit';
+      if (note.includes('training') || note.includes('pelatihan')) return 'training';
+      
+      // Partial matches for regular shifts
+      if (note.includes('pagi')) return 'pagi';
+      if (note.includes('siang')) return 'siang';
+      if (note.includes('malam')) return 'malam';
+    }
+    
+    // Fallback to shift name
+    if (name) {
+      if (name.includes('morning') || name.includes('pagi') || name.includes('shift 1') || name === 'pagi') return 'pagi';
+      if (name.includes('afternoon') || name.includes('siang') || name.includes('shift 2') || name === 'siang') return 'siang';
+      if (name.includes('night') || name.includes('malam') || name.includes('shift 3') || name === 'malam') return 'malam';
+      if (name.includes('libur') || name.includes('off') || name === 'l' || name === 'l1' || name === 'l2') return 'libur';
+    }
+    
+    return 'unknown';
+  };
+
+  /**
+   * Get CSS color class based on shift type - same colors as RosteredStaffPersonView
+   */
+  const getShiftColor = (shiftType: string): string => {
+    switch (shiftType) {
+      case 'pagi': return 'bg-blue-500';
+      case 'siang': return 'bg-orange-500';
+      case 'malam': return 'bg-emerald-600';
+      case 'libur': return 'bg-slate-400';
+      case 'cuti': return 'bg-amber-400';
+      case 'sakit': return 'bg-rose-500';
+      case 'oh': return 'bg-cyan-500';
+      case 'dl': return 'bg-teal-500';
+      case 'tb': return 'bg-indigo-500';
+      case 'lepas': return 'bg-gray-600';
+      case 'standby': return 'bg-purple-500';
+      case 'training': return 'bg-sky-500';
+      case 'unknown': return 'bg-lime-500';
+      default: return 'bg-gray-400';
+    }
   };
 
   const renderCalendar = () => {
@@ -81,6 +150,7 @@ const RosterCalendarView: React.FC<RosterCalendarViewProps> = ({
       (_, i) => prevMonthDays - firstDay + i + 1
     );
 
+    // Create map of dates to shift types
     const dateShiftMap = new Map<number, string>();
     roster.roster_days?.forEach(day => {
       const dateObj = new Date(day.work_date);
@@ -92,12 +162,13 @@ const RosterCalendarView: React.FC<RosterCalendarViewProps> = ({
         assignments = assignments.filter(a => a.employee_id === currentEmployeeId);
       }
       
-      // Get shift name (or 'off' if no assignments)
+      // Get shift type using same logic as RosteredStaffPersonView
       if (assignments.length > 0) {
-        const shiftName = assignments[0].shift.name;
-        dateShiftMap.set(dayOfMonth, shiftName);
+        const assignment = assignments[0];
+        const shiftType = getShiftType(assignment.notes, assignment.shift?.name);
+        dateShiftMap.set(dayOfMonth, shiftType);
       } else {
-        dateShiftMap.set(dayOfMonth, 'off');
+        dateShiftMap.set(dayOfMonth, 'libur'); // No assignment = off
       }
     });
 
@@ -162,12 +233,12 @@ const RosterCalendarView: React.FC<RosterCalendarViewProps> = ({
                         </div>
                       );
                     } else if (typeof dayValue === 'number') {
-                      const shiftName = dateShiftMap.get(dayValue) || 'off';
-                      const bgColor = getShiftColor(shiftName);
+                      const shiftType = dateShiftMap.get(dayValue) || 'libur';
+                      const bgColor = getShiftColor(shiftType);
                       content = (
                         <div
                           className={`w-10 h-10 sm:w-16 sm:h-16 flex items-center justify-center rounded-lg font-bold text-white text-xs sm:text-base cursor-pointer hover:shadow-xl transition-shadow mx-auto ${bgColor}`}
-                          title={shiftName}
+                          title={shiftType}
                         >
                           {dayValue}
                         </div>
@@ -206,19 +277,19 @@ const RosterCalendarView: React.FC<RosterCalendarViewProps> = ({
       <div className="flex items-center justify-center gap-8 sm:gap-16 mt-8 flex-wrap">
         <div className="flex items-center gap-3">
           <div className="w-6 h-6 bg-blue-500 rounded" />
-          <span className="text-sm font-medium text-black">Morning</span>
+          <span className="text-sm font-medium text-black">Pagi</span>
         </div>
         <div className="flex items-center gap-3">
-          <div className="w-6 h-6 bg-yellow-400 rounded" />
-          <span className="text-sm font-medium text-black">Afternoon</span>
+          <div className="w-6 h-6 bg-orange-500 rounded" />
+          <span className="text-sm font-medium text-black">Siang</span>
         </div>
         <div className="flex items-center gap-3">
-          <div className="w-6 h-6 bg-green-500 rounded" />
-          <span className="text-sm font-medium text-black">Night</span>
+          <div className="w-6 h-6 bg-emerald-600 rounded" />
+          <span className="text-sm font-medium text-black">Malam</span>
         </div>
         <div className="flex items-center gap-3">
-          <div className="w-6 h-6 bg-red-500 rounded" />
-          <span className="text-sm font-medium text-black">Off</span>
+          <div className="w-6 h-6 bg-slate-400 rounded" />
+          <span className="text-sm font-medium text-black">Libur</span>
         </div>
       </div>
     </>

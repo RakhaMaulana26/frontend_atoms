@@ -2,6 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
 import { notificationService } from '../repository/notificationService';
+import { shiftRequestService } from '../../roster/repository/shiftRequestService';
 import { leaveRequestService } from '../../roster/repository/leaveRequestService';
 import { PageHeader, Button, Modal } from '../../../components';
 import LeaveRequestApprovalModal from '../../../components/modals/roster/LeaveRequestApprovalModal';
@@ -14,7 +15,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 
-type NotificationCategory = 'inbox' | 'starred' | 'sent' | 'trash';
+type NotificationCategory = 'all' | 'inbox' | 'starred' | 'sent' | 'trash';
 
 const NotificationsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -50,6 +51,78 @@ const NotificationsPage: React.FC = () => {
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [processingShiftRequestIds, setProcessingShiftRequestIds] = useState<Set<number>>(new Set());
+  const [shiftRequestStatusById, setShiftRequestStatusById] = useState<Record<number, string>>({});
+  
+  // Track notifications that have been actioned (approved/rejected) to hide buttons
+  const [actionedNotificationIds, setActionedNotificationIds] = useState<Set<number>>(() => {
+    try {
+      const stored = sessionStorage.getItem('actionedNotificationIds');
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+  
+  // Persist actioned notifications to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem('actionedNotificationIds', JSON.stringify([...actionedNotificationIds]));
+  }, [actionedNotificationIds]);
+
+  // Sync shift request status for actionable notifications
+  useEffect(() => {
+    const currentList = activeCategory === 'all'
+      ? (() => {
+          const inboxNotifications = notificationsByCategory.inbox || [];
+          const sentNotifications = notificationsByCategory.sent || [];
+          const allNotificationsMap = new Map<number, Notification>();
+          inboxNotifications.forEach(n => allNotificationsMap.set(n.id, n));
+          sentNotifications.forEach(n => allNotificationsMap.set(n.id, n));
+          return Array.from(allNotificationsMap.values());
+        })()
+      : (notificationsByCategory[activeCategory] || []);
+
+    const shiftRequestIds = Array.from(
+      new Set(
+        currentList
+          .filter(n => n.category === 'shift_request' && !!n.reference_id)
+          .map(n => n.reference_id as number)
+      )
+    );
+
+    if (shiftRequestIds.length === 0) {
+      setShiftRequestStatusById({});
+      return;
+    }
+
+    let mounted = true;
+    const fetchStatuses = async () => {
+      const results = await Promise.all(
+        shiftRequestIds.map(async (id) => {
+          try {
+            const response = await shiftRequestService.getShiftRequest(id);
+            return [id, response.data?.status || 'unknown'] as const;
+          } catch {
+            return [id, 'unknown'] as const;
+          }
+        })
+      );
+
+      if (!mounted) return;
+
+      const statusMap: Record<number, string> = {};
+      results.forEach(([id, status]) => {
+        statusMap[id] = status;
+      });
+      setShiftRequestStatusById(statusMap);
+    };
+
+    fetchStatuses();
+
+    return () => {
+      mounted = false;
+    };
+  }, [activeCategory, notificationsByCategory]);
   
   // Ref for user dropdown to detect click outside
   const userDropdownRef = useRef<HTMLDivElement>(null);
@@ -72,7 +145,25 @@ const NotificationsPage: React.FC = () => {
   }, [isUserDropdownOpen]);
   
   // Get notifications for current category from cache
-  const notifications = notificationsByCategory[activeCategory] || [];
+  // For 'all' category, combine all unique notifications from inbox + sent (starred and trash overlap)
+  const notifications = useMemo(() => {
+    if (activeCategory === 'all') {
+      // Combine inbox and sent notifications (starred items are already in inbox or sent)
+      const inboxNotifications = notificationsByCategory.inbox || [];
+      const sentNotifications = notificationsByCategory.sent || [];
+      
+      // Merge and deduplicate by id
+      const allNotificationsMap = new Map<number, Notification>();
+      inboxNotifications.forEach(n => allNotificationsMap.set(n.id, n));
+      sentNotifications.forEach(n => allNotificationsMap.set(n.id, n));
+      
+      // Convert to array and sort by date (newest first)
+      return Array.from(allNotificationsMap.values())
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    }
+    return notificationsByCategory[activeCategory] || [];
+  }, [activeCategory, notificationsByCategory]);
+  
   const stats = notificationStats;
   const isLoading = loadingStates.notifications;
   const isManager = user?.role === 'Manager Teknik' || user?.role === 'General Manager';
@@ -391,8 +482,18 @@ const NotificationsPage: React.FC = () => {
 
   const handleDelete = async (notification: Notification) => {
     try {
+      // Determine actual category for the cache update
+      // 'all' is just a UI display category, actual data is in inbox or sent
+      let fromCategory: 'inbox' | 'starred' | 'sent' | 'trash' = 'inbox';
+      if (activeCategory === 'all') {
+        // Check if notification is in inbox or sent based on type
+        fromCategory = notification.type === 'sent' ? 'sent' : 'inbox';
+      } else {
+        fromCategory = activeCategory;
+      }
+      
       // Optimistic update - move to trash locally
-      moveNotificationToTrash(notification.id, activeCategory);
+      moveNotificationToTrash(notification.id, fromCategory);
       
       await notificationService.deleteNotification(notification.id);
       toast.success('Moved to trash');
@@ -430,6 +531,90 @@ const NotificationsPage: React.FC = () => {
       toast.error(error.response?.data?.message || 'Failed to delete');
       // Refresh to restore state on error
       await refreshNotificationsByCategory();
+    }
+  };
+
+  // Shift Request Quick Actions
+  const handleApproveShiftRequest = async (notification: Notification) => {
+    if (!notification.reference_id) return;
+    
+    setProcessingShiftRequestIds(prev => new Set(prev).add(notification.id));
+    try {
+      // Always check latest status before taking action
+      const latest = await shiftRequestService.getShiftRequest(notification.reference_id);
+      const latestStatus = latest.data?.status;
+
+      if (latestStatus !== 'pending') {
+        setActionedNotificationIds(prev => new Set(prev).add(notification.id));
+        toast.info(latestStatus === 'cancelled' ? 'Permintaan sudah dibatalkan dan tidak bisa di-approve' : 'Permintaan ini sudah tidak bisa diproses');
+        await refreshNotificationsByCategory();
+        return;
+      }
+
+      // Check notification title to determine which approval endpoint to call
+      if (notification.title === 'Approval Diperlukan') {
+        // Manager approval
+        await shiftRequestService.approveAsManager(notification.reference_id);
+        toast.success('Permintaan tukar shift diapprove oleh manager');
+      } else {
+        // Target approval (default for 'Permintaan Tukar Shift')
+        await shiftRequestService.approveAsTarget(notification.reference_id);
+        toast.success('Permintaan tukar shift disetujui');
+      }
+      // Mark as actioned so buttons won't show again
+      setActionedNotificationIds(prev => new Set(prev).add(notification.id));
+      // Mark notification as read and refresh
+      if (!notification.is_read) {
+        await handleMarkAsRead(notification);
+      }
+      await refreshNotificationsByCategory();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Gagal menyetujui permintaan');
+    } finally {
+      setProcessingShiftRequestIds(prev => {
+        const next = new Set(prev);
+        next.delete(notification.id);
+        return next;
+      });
+    }
+  };
+
+  const handleRejectShiftRequest = async (notification: Notification) => {
+    if (!notification.reference_id) return;
+    
+    const reason = prompt('Alasan penolakan (opsional):');
+    if (reason === null) return; // User cancelled
+    
+    setProcessingShiftRequestIds(prev => new Set(prev).add(notification.id));
+    try {
+      // Always check latest status before taking action
+      const latest = await shiftRequestService.getShiftRequest(notification.reference_id);
+      const latestStatus = latest.data?.status;
+
+      if (latestStatus !== 'pending') {
+        setActionedNotificationIds(prev => new Set(prev).add(notification.id));
+        toast.info(latestStatus === 'cancelled' ? 'Permintaan sudah dibatalkan dan tidak bisa ditolak' : 'Permintaan ini sudah tidak bisa diproses');
+        await refreshNotificationsByCategory();
+        return;
+      }
+
+      await shiftRequestService.rejectRequest(notification.reference_id, { reason: reason || undefined });
+      toast.success('Permintaan tukar shift ditolak');
+      // Mark as actioned so buttons won't show again
+      setActionedNotificationIds(prev => new Set(prev).add(notification.id));
+      // Mark notification as read and refresh
+      if (!notification.is_read) {
+        await handleMarkAsRead(notification);
+      }
+      await refreshNotificationsByCategory();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Gagal menolak permintaan');
+    } finally {
+      setProcessingShiftRequestIds(prev => {
+        const next = new Set(prev);
+        next.delete(notification.id);
+        return next;
+      });
     }
   };
 
@@ -530,10 +715,10 @@ const NotificationsPage: React.FC = () => {
 
   const allCategories = [
     { 
-      key: 'all' as const,
+      key: 'all' as NotificationCategory,
       label: 'All', 
       icon: Archive, 
-      count: stats.inbox + stats.starred + stats.sent + stats.trash,
+      count: stats.inbox + stats.sent, // Inbox + Sent (non-duplicated)
       bgGradient: 'from-gray-50 to-gray-100/50',
       borderColor: 'border-gray-300',
       iconBg: 'bg-gray-500',
@@ -776,6 +961,80 @@ const NotificationsPage: React.FC = () => {
                     </div>
 
                     <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
+                    {/* Quick Actions for Shift Request Notifications - status-aware */}
+                    {notification.category === 'shift_request' && notification.reference_id && activeCategory !== 'trash' && activeCategory !== 'sent' && (() => {
+                      const shiftStatus = shiftRequestStatusById[notification.reference_id];
+                      const isActionableTitle = notification.title === 'Permintaan Tukar Shift' || notification.title === 'Approval Diperlukan';
+                      const canShowActions = isActionableTitle
+                        && !actionedNotificationIds.has(notification.id)
+                        && shiftStatus === 'pending';
+
+                      if (canShowActions) {
+                        return (
+                          <>
+                            <Button
+                              variant="outline"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleApproveShiftRequest(notification);
+                              }}
+                              disabled={processingShiftRequestIds.has(notification.id)}
+                              className="text-sm text-green-600 hover:bg-green-50 border-green-300"
+                              title="Setujui"
+                            >
+                              <Check className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRejectShiftRequest(notification);
+                              }}
+                              disabled={processingShiftRequestIds.has(notification.id)}
+                              className="text-sm text-red-600 hover:bg-red-50 border-red-300"
+                              title="Tolak"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </>
+                        );
+                      }
+
+                      const badgeClass = actionedNotificationIds.has(notification.id)
+                        ? 'bg-blue-100 text-blue-700'
+                        : shiftStatus === 'cancelled' || notification.title === 'Permintaan Dibatalkan'
+                        ? 'bg-gray-100 text-gray-700'
+                        : shiftStatus === 'completed' || notification.title === 'Tukar Shift Selesai'
+                        ? 'bg-green-100 text-green-700'
+                        : shiftStatus === 'rejected' || notification.title === 'Permintaan Ditolak' || notification.title === 'Tukar Shift Ditolak'
+                        ? 'bg-red-100 text-red-700'
+                        : shiftStatus === 'approved' || notification.title === 'Tukar Shift Disetujui'
+                        ? 'bg-yellow-100 text-yellow-700'
+                        : shiftStatus === 'pending'
+                        ? 'bg-yellow-100 text-yellow-700'
+                        : 'bg-blue-100 text-blue-700';
+
+                      const badgeLabel = actionedNotificationIds.has(notification.id)
+                        ? 'Sudah Diproses'
+                        : shiftStatus === 'cancelled' || notification.title === 'Permintaan Dibatalkan'
+                        ? 'Dibatalkan'
+                        : shiftStatus === 'completed' || notification.title === 'Tukar Shift Selesai'
+                        ? 'Selesai'
+                        : shiftStatus === 'rejected' || notification.title === 'Permintaan Ditolak' || notification.title === 'Tukar Shift Ditolak'
+                        ? 'Ditolak'
+                        : shiftStatus === 'approved' || notification.title === 'Tukar Shift Disetujui'
+                        ? 'Menunggu Manager'
+                        : shiftStatus === 'pending'
+                        ? 'Menunggu'
+                        : 'Memuat Status';
+
+                      return (
+                        <span className={`text-xs px-2 py-1 rounded-full font-medium ${badgeClass}`}>
+                          {badgeLabel}
+                        </span>
+                      );
+                    })()}
+                    
                       {activeCategory === 'trash' ? (
                         <>
                           <Button

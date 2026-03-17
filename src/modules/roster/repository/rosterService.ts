@@ -49,6 +49,9 @@ export const rosterService = {
   /**
    * Get detailed roster information with all assignments
    * GET /rosters/:id
+   * 
+   * Response is optimized with compact shift_assignments (only IDs).
+   * This function hydrates the data with full employee/shift objects.
    */
   async getRoster(rosterId: number): Promise<{ 
     roster_period: RosterPeriod; 
@@ -60,7 +63,54 @@ export const rosterService = {
       all_employees: Employee[];
       all_shifts: Shift[];
     }>(`/rosters/${rosterId}`);
-    return response.data;
+    
+    const { roster_period, all_employees, all_shifts } = response.data;
+    
+    // Create lookup maps for fast hydration
+    const employeeMap = new Map<number, Employee>();
+    all_employees.forEach(emp => employeeMap.set(emp.id, emp));
+    
+    const shiftMap = new Map<number, Shift>();
+    all_shifts.forEach(shift => shiftMap.set(shift.id, shift));
+    
+    // Hydrate roster_days with full employee/shift objects
+    const hydratedRosterPeriod: RosterPeriod = {
+      ...roster_period,
+      roster_days: roster_period.roster_days?.map(day => ({
+        ...day,
+        // Hydrate shift_assignments with employee and shift objects
+        shift_assignments: day.shift_assignments?.map(assignment => ({
+          ...assignment,
+          employee: employeeMap.get(assignment.employee_id) || {
+            id: assignment.employee_id,
+            user_id: 0,
+            employee_type: 'CNS' as const,
+            user: { id: 0, name: 'Unknown', email: '' }
+          },
+          shift: shiftMap.get(assignment.shift_id) || {
+            id: assignment.shift_id,
+            name: 'Unknown'
+          },
+        })),
+        // Hydrate manager_duties with employee and shift objects
+        manager_duties: day.manager_duties?.map(duty => ({
+          ...duty,
+          employee: employeeMap.get(duty.employee_id) || {
+            id: duty.employee_id,
+            user_id: 0,
+            employee_type: 'Manager Teknik' as const,
+            user: { id: 0, name: 'Unknown', email: '' }
+          },
+          shift: shiftMap.get(duty.shift_id),
+        })),
+      }))
+    };
+    
+    return {
+      roster_period: hydratedRosterPeriod,
+      all_employees,
+      all_shifts
+    };
   },
 
   /**
@@ -107,21 +157,24 @@ export const rosterService = {
   /**
    * Quick update assignment (simplified endpoint)
    * POST /rosters/:roster_id/assignments/quick-update
+   * 
+   * Uses `notes` as primary identifier (P, S, M, L, CT, CS, DL, TB, etc.)
+   * `shift_id` is optional - auto-resolved from notes when not provided
    */
   async quickUpdateAssignment(
     rosterId: number,
     data: {
       employee_id: number;
       work_dates: string[]; // Array of dates in 'YYYY-MM-DD' format
-      shift: string; // Shift name (e.g., 'pagi', 'siang', 'malam') or shift ID
-      notes?: string;
+      notes: string; // Primary identifier (e.g., 'P', 'S', 'M', 'L', 'CT', 'CS', 'DL', 'TB')
+      shift_id?: number; // Optional - auto-resolved from notes if not provided
     }
   ): Promise<{
     message: string;
     data: {
       roster_id: number;
       employee_id: number;
-      shift: string;
+      notes: string;
       dates_updated: number;
       updated_days: any[];
     };
@@ -136,14 +189,17 @@ export const rosterService = {
   /**
    * Batch update assignments for multiple employees and dates
    * POST /rosters/:roster_id/assignments/batch-update
+   * 
+   * Uses `notes` as primary identifier (P, S, M, L, CT, CS, DL, TB, etc.)
+   * `shift_id` is optional - auto-resolved from notes when not provided
    */
   async batchUpdateAssignments(
     rosterId: number,
     assignments: Array<{
       employee_id: number;
       work_dates: string[]; // Array of dates in 'YYYY-MM-DD' format
-      shift: string; // Shift ID as string
-      notes?: string;
+      notes: string; // Primary identifier (e.g., 'P', 'S', 'M', 'L', 'CT', 'CS', 'DL', 'TB')
+      shift_id?: number; // Optional - auto-resolved from notes if not provided
     }>
   ): Promise<{
     message: string;
@@ -173,9 +229,22 @@ export const rosterService = {
   /**
    * Publish roster (with automatic validation)
    * POST /rosters/:id/publish
+   * @param skipValidation - If true, skip validation and force publish
    */
-  async publishRoster(rosterId: number): Promise<PublishRosterResponse> {
-    const response = await apiClient.post<PublishRosterResponse>(`/rosters/${rosterId}/publish`);
+  async publishRoster(rosterId: number, skipValidation: boolean = false): Promise<PublishRosterResponse> {
+    const url = skipValidation 
+      ? `/rosters/${rosterId}/publish?skip_validation=1`
+      : `/rosters/${rosterId}/publish`;
+    const response = await apiClient.post<PublishRosterResponse>(url);
+    return response.data;
+  },
+
+  /**
+   * Unpublish roster (change status back to draft)
+   * POST /rosters/:id/unpublish
+   */
+  async unpublishRoster(rosterId: number): Promise<{ message: string; data: RosterPeriod }> {
+    const response = await apiClient.post<{ message: string; data: RosterPeriod }>(`/rosters/${rosterId}/unpublish`);
     return response.data;
   },
 

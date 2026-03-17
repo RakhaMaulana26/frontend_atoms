@@ -28,10 +28,11 @@ interface ShiftAssignment {
   id: number;
   roster_day_id: number;
   employee_id: number;
-  shift_id: number;
+  shift_id: number | null;
+  notes: string;
   created_at: string;
   employee: Employee;
-  shift: Shift;
+  shift?: Shift | null;
 }
 
 interface ManagerDuty {

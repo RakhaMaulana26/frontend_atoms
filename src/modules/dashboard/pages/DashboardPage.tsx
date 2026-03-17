@@ -27,7 +27,7 @@ const DashboardPage: React.FC = () => {
       roles: ['Admin', 'Manager Teknik', 'General Manager'],
     },
     {
-      title: 'Pending Requests',
+      title: 'Tukar Shift',
       value: '0',
       icon: RefreshCw,
       color: 'bg-yellow-500',

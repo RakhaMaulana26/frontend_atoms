@@ -156,9 +156,10 @@ export interface ShiftAssignment {
   id: number;
   roster_day_id: number;
   employee_id: number;
-  shift_id: number;
+  shift_id: number | null; // Can be null when only notes is used
+  notes: string; // Primary identifier (e.g., P, S, M, L, CT, CS, DL, TB)
   employee?: Employee;
-  shift?: Shift;
+  shift?: Shift | null;
   created_at: string;
   updated_at: string;
 }
@@ -169,21 +170,32 @@ export interface CreateRosterRequest {
 }
 
 // Shift Request Types
+export type ShiftRequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled' | 'completed';
+
 export interface ShiftRequest {
   id: number;
-  requester_id: number;
+  requester_employee_id: number;
   target_employee_id: number;
   from_roster_day_id: number;
   to_roster_day_id: number;
-  shift_id: number;
-  reason: string;
-  status: 'pending' | 'approved_target' | 'approved_manager' | 'rejected';
+  requester_notes: string;
+  target_notes: string;
+  reason?: string | null;
+  status: ShiftRequestStatus;
+  approved_by_target: boolean;
+  approved_by_from_manager: boolean;
+  approved_by_to_manager: boolean;
+  cancelled_at?: string | null;
+  cancelled_by?: number | null;
   rejection_reason?: string | null;
-  requester?: Employee;
-  target_employee?: Employee;
-  from_roster_day?: RosterDay;
-  to_roster_day?: RosterDay;
-  shift?: Shift;
+  swap_executed_at?: string | null;
+  // API returns snake_case relationships
+  requester_employee?: Employee & { user?: User };
+  target_employee?: Employee & { user?: User };
+  from_roster_day?: RosterDay & { roster_period?: RosterPeriod };
+  to_roster_day?: RosterDay & { roster_period?: RosterPeriod };
+  requester_shift_id?: number | null;
+  target_shift_id?: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -192,12 +204,51 @@ export interface CreateShiftRequestRequest {
   target_employee_id: number;
   from_roster_day_id: number;
   to_roster_day_id: number;
-  shift_id: number;
-  reason: string;
+  requester_notes: string;
+  target_notes: string;
+  reason?: string;
 }
 
 export interface ApproveRejectRequest {
-  rejection_reason?: string;
+  reason?: string;
+}
+
+// My Shift (for swap selection)
+export interface MyShift {
+  roster_day_id: number;
+  work_date: string;
+  shift_id: number;
+  shift_name: string;
+  notes: string;
+  has_pending_request: boolean;
+  roster_period_id: number;
+  roster_period_name: string;
+}
+
+// Available Partner for swap
+export interface AvailableSwapPartner {
+  employee_id: number;
+  employee_name: string;
+  employee_type: string;
+  group_number?: number | null;
+  available_shifts: {
+    roster_day_id: number;
+    work_date: string;
+    shift_id: number;
+    shift_name: string;
+    notes: string;
+    has_pending_request: boolean;
+  }[];
+}
+
+// Pending Count Response
+export interface ShiftRequestPendingCount {
+  counts: {
+    as_target: number;
+    as_manager: number;
+    my_pending: number;
+  };
+  total: number;
 }
 
 // Notification Types
@@ -216,6 +267,8 @@ export interface Notification {
   created_at: string;
   updated_at: string;
   deleted_at?: string | null;
+  category?: string;
+  reference_id?: number;
   sender?: {
     id: number;
     name: string;

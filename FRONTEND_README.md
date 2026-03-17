@@ -89,8 +89,13 @@ src/
 ## 🔐 Default Credentials
 
 ```
-Email: admin@airnav.com
-Password: admin123
+Admin:
+  Email: admin@airnav.com
+  Password: password
+
+Employees:
+  Email: user1@airnav.com s/d user50@airnav.com
+  Password: password
 ```
 
 ## 🤝 Integration dengan Backend

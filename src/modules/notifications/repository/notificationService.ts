@@ -30,8 +30,31 @@ interface SendNotificationData {
   send_email?: boolean;
 }
 
+// Response type for all notifications endpoint
+interface AllNotificationsResponse {
+  data: {
+    inbox: Notification[];
+    starred: Notification[];
+    sent: Notification[];
+    trash: Notification[];
+  };
+  stats: {
+    inbox: number;
+    starred: number;
+    sent: number;
+    trash: number;
+    unread: number;
+  };
+}
+
 export const notificationService = {
-  // Get Notifications with category filter
+  // Get ALL notifications in one request (categorized)
+  async getAllNotifications(): Promise<AllNotificationsResponse> {
+    const response = await apiClient.get<AllNotificationsResponse>('/notifications/all');
+    return response.data;
+  },
+
+  // Get Notifications with category filter (legacy, still works)
   async getNotifications(params: GetNotificationsParams = {}): Promise<PaginatedResponse<Notification>> {
     const response = await apiClient.get<PaginatedResponse<Notification>>('/notifications', {
       params
