@@ -1,9 +1,14 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { toast } from 'react-toastify';
+import { useNavigate } from 'react-router-dom';
 import { notificationService } from '../repository/notificationService';
+import { leaveRequestService } from '../../roster/repository/leaveRequestService';
 import { PageHeader, Button, Modal } from '../../../components';
+import LeaveRequestApprovalModal from '../../../components/modals/roster/LeaveRequestApprovalModal';
 import { useDataCache } from '../../../contexts/DataCacheContext';
+import { useAuth } from '../../auth/core/AuthContext';
 import type { User, Notification } from '../../../types';
+import type { LeaveRequest } from '../../roster/types/leaveRequest';
 import { 
   Inbox, Star, Send, Trash2, Mail, MailOpen, X, Clock, Plus, RefreshCw, Archive, Check, Search
 } from 'lucide-react';
@@ -12,6 +17,8 @@ import { format } from 'date-fns';
 type NotificationCategory = 'inbox' | 'starred' | 'sent' | 'trash';
 
 const NotificationsPage: React.FC = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const { 
     users, 
     notificationsByCategory, 
@@ -30,6 +37,8 @@ const NotificationsPage: React.FC = () => {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isComposeModalOpen, setIsComposeModalOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [selectedLeaveRequest, setSelectedLeaveRequest] = useState<LeaveRequest | null>(null);
+  const [isLeaveApprovalModalOpen, setIsLeaveApprovalModalOpen] = useState(false);
   
   // Compose form state
   const [composeForm, setComposeForm] = useState({
@@ -66,6 +75,258 @@ const NotificationsPage: React.FC = () => {
   const notifications = notificationsByCategory[activeCategory] || [];
   const stats = notificationStats;
   const isLoading = loadingStates.notifications;
+  const isManager = user?.role === 'Manager Teknik' || user?.role === 'General Manager';
+
+  const parseNotificationData = (notification: Notification): Record<string, any> | null => {
+    if (!notification.data) return null;
+
+    if (typeof notification.data === 'object') {
+      return notification.data as Record<string, any>;
+    }
+
+    if (typeof notification.data === 'string') {
+      try {
+        return JSON.parse(notification.data) as Record<string, any>;
+      } catch {
+        return null;
+      }
+    }
+
+    return null;
+  };
+
+  const parseDateLabelToISO = (value: string): string | null => {
+    const cleanValue = value.trim().replace(/\s+/g, ' ');
+    const match = cleanValue.match(/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/);
+
+    if (!match) return null;
+
+    const day = match[1].padStart(2, '0');
+    const monthRaw = match[2].toLowerCase();
+    const year = match[3];
+
+    const monthMap: Record<string, string> = {
+      jan: '01',
+      january: '01',
+      feb: '02',
+      february: '02',
+      mar: '03',
+      march: '03',
+      apr: '04',
+      april: '04',
+      mei: '05',
+      may: '05',
+      jun: '06',
+      june: '06',
+      jul: '07',
+      july: '07',
+      agu: '08',
+      agt: '08',
+      aug: '08',
+      august: '08',
+      sep: '09',
+      sept: '09',
+      september: '09',
+      okt: '10',
+      oct: '10',
+      october: '10',
+      nov: '11',
+      november: '11',
+      des: '12',
+      dec: '12',
+      december: '12',
+    };
+
+    const month = monthMap[monthRaw];
+    if (!month) return null;
+
+    return `${year}-${month}-${day}`;
+  };
+
+  const parseLeaveMessage = (message: string): {
+    employeeName: string;
+    requestTypeName: string;
+    startDate: string;
+    endDate: string;
+  } | null => {
+    const pattern = /^(.+?)\s+mengajukan permohonan\s+(.+?)\s+\((.+?)\s+-\s+(.+?)\)$/i;
+    const match = message.trim().match(pattern);
+
+    if (!match) return null;
+
+    const startDate = parseDateLabelToISO(match[3]);
+    const endDate = parseDateLabelToISO(match[4]);
+
+    if (!startDate || !endDate) return null;
+
+    return {
+      employeeName: match[1].trim(),
+      requestTypeName: match[2].trim(),
+      startDate,
+      endDate,
+    };
+  };
+
+  const isLeaveRequestNotification = (notification: Notification) => {
+    const title = notification.title.toLowerCase();
+    const message = notification.message.toLowerCase();
+
+    if (notification.category === 'leave_request') return true;
+    if (title.includes('permohonan cuti')) return true;
+
+    return message.includes('mengajukan permohonan') && message.includes('cuti');
+  };
+
+  const getLeaveRequestIdFromNotification = (notification: Notification): number | null => {
+    const data = parseNotificationData(notification);
+
+    const idFromData = data?.leave_request_id ?? data?.leaveRequestId;
+    if (typeof idFromData === 'number') return idFromData;
+    if (typeof idFromData === 'string' && /^\d+$/.test(idFromData)) return Number(idFromData);
+
+    const idFromTitle = notification.title.match(/(?:id|ref|#)\s*[:\-]?\s*(\d+)/i);
+    if (idFromTitle) return Number(idFromTitle[1]);
+
+    const idFromMessage = notification.message.match(/(?:id|ref|#)\s*[:\-]?\s*(\d+)/i);
+    if (idFromMessage) return Number(idFromMessage[1]);
+
+    return null;
+  };
+
+  const findLeaveRequestByMessage = async (notification: Notification): Promise<LeaveRequest | null> => {
+    const parsedData = parseNotificationData(notification);
+    const parsedMessage = parseLeaveMessage(notification.message);
+
+    const pickClosestByCreatedAt = (candidates: LeaveRequest[]): LeaveRequest | null => {
+      if (candidates.length === 0) return null;
+
+      const notificationTime = new Date(notification.created_at).getTime();
+      if (Number.isNaN(notificationTime)) {
+        return candidates[0] ?? null;
+      }
+
+      return [...candidates].sort((a, b) => {
+        const aTime = new Date(a.created_at).getTime();
+        const bTime = new Date(b.created_at).getTime();
+        const aDiff = Number.isNaN(aTime) ? Number.MAX_SAFE_INTEGER : Math.abs(aTime - notificationTime);
+        const bDiff = Number.isNaN(bTime) ? Number.MAX_SAFE_INTEGER : Math.abs(bTime - notificationTime);
+        return aDiff - bDiff;
+      })[0] ?? null;
+    };
+
+    if (!parsedMessage && !parsedData) return null;
+
+    const response = await leaveRequestService.getLeaveRequests({
+      per_page: 200,
+      page: 1,
+    });
+
+    const leaveRequests = response.data.data || [];
+
+    const normalize = (value: string) => value.trim().toLowerCase();
+
+    const dataEmployeeName = typeof parsedData?.employee_name === 'string'
+      ? normalize(parsedData.employee_name)
+      : null;
+    const dataRequestType = typeof parsedData?.request_type === 'string'
+      ? parsedData.request_type
+      : null;
+    const dataStartDate = typeof parsedData?.start_date === 'string'
+      ? parsedData.start_date.slice(0, 10)
+      : null;
+    const dataEndDate = typeof parsedData?.end_date === 'string'
+      ? parsedData.end_date.slice(0, 10)
+      : null;
+
+    const dataDrivenMatches = leaveRequests.filter((request) => {
+      const employeeName = normalize(request.employee?.user?.name || '');
+      const requestType = request.request_type;
+      const startDate = request.start_date?.slice(0, 10);
+      const endDate = request.end_date?.slice(0, 10);
+
+      if (dataEmployeeName && employeeName !== dataEmployeeName) return false;
+      if (dataRequestType && requestType !== dataRequestType) return false;
+      if (dataStartDate && startDate !== dataStartDate) return false;
+      if (dataEndDate && endDate !== dataEndDate) return false;
+
+      return Boolean(dataEmployeeName || dataRequestType || dataStartDate || dataEndDate);
+    });
+
+    if (dataDrivenMatches.length === 1) {
+      return dataDrivenMatches[0] ?? null;
+    }
+
+    if (dataDrivenMatches.length > 1) {
+      return pickClosestByCreatedAt(dataDrivenMatches);
+    }
+
+    if (!parsedMessage) {
+      return null;
+    }
+
+    const exactMatches = leaveRequests.filter((request) => {
+      const employeeName = normalize(request.employee?.user?.name || '');
+      const requestTypeName = normalize(request.request_type_name || '');
+      const startDate = request.start_date?.slice(0, 10);
+      const endDate = request.end_date?.slice(0, 10);
+
+      return (
+        employeeName === normalize(parsedMessage.employeeName) &&
+        requestTypeName === normalize(parsedMessage.requestTypeName) &&
+        startDate === parsedMessage.startDate &&
+        endDate === parsedMessage.endDate
+      );
+    });
+
+    if (exactMatches.length === 1) {
+      return exactMatches[0] ?? null;
+    }
+
+    if (exactMatches.length > 1) {
+      return pickClosestByCreatedAt(exactMatches);
+    }
+
+    return null;
+  };
+
+  const openLeaveApprovalFromNotification = async (notification: Notification) => {
+    if (!isManager) {
+      navigate('/leave-requests');
+      return;
+    }
+
+    try {
+      let leaveRequest: LeaveRequest | null = null;
+      const leaveRequestId = getLeaveRequestIdFromNotification(notification);
+
+      if (leaveRequestId) {
+        const response = await leaveRequestService.getLeaveRequestById(leaveRequestId);
+        leaveRequest = response.data;
+      } else {
+        leaveRequest = await findLeaveRequestByMessage(notification);
+      }
+
+      if (!leaveRequest) {
+        toast.info('Detail permohonan cuti tidak ditemukan dari notifikasi ini. Silakan buka menu Leave Requests.');
+        navigate('/leave-requests');
+        return;
+      }
+
+      if (!notification.is_read) {
+        handleMarkAsRead(notification);
+      }
+
+      setSelectedLeaveRequest(leaveRequest);
+      setSelectedNotification(notification);
+      setIsLeaveApprovalModalOpen(true);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Gagal membuka detail permohonan cuti');
+    }
+  };
+
+  const handleLeaveApprovalSuccess = async () => {
+    await refreshNotificationsByCategory();
+  };
 
   // Filter users based on search query
   const filteredUsers = useMemo(() => {
@@ -173,11 +434,20 @@ const NotificationsPage: React.FC = () => {
   };
 
   const handleViewDetail = (notification: Notification) => {
-    setSelectedNotification(notification);
-    setIsDetailModalOpen(true);
+    // Mark as read
     if (!notification.is_read) {
       handleMarkAsRead(notification);
     }
+
+    // Handle leave request notifications directly from inbox for managers
+    if (isLeaveRequestNotification(notification) && isManager) {
+      openLeaveApprovalFromNotification(notification);
+      return;
+    }
+
+    // Default: show detail modal
+    setSelectedNotification(notification);
+    setIsDetailModalOpen(true);
   };
 
   const handleToggleUserSelection = (userId: number) => {
@@ -337,12 +607,12 @@ const NotificationsPage: React.FC = () => {
       <div className="hidden md:grid md:grid-cols-5 gap-4 mb-6">
         {[...allCategories, ...categories].map((category) => {
           const Icon = category.icon;
-          const isActive = activeCategory === category.key;
+          const isActive = category.key !== 'all' && activeCategory === category.key;
           
           return (
             <button
               key={category.key}
-              onClick={() => handleCategoryChange(category.key)}
+              onClick={() => handleCategoryChange(category.key === 'all' ? 'inbox' : category.key)}
               className={`bg-gradient-to-br ${category.bgGradient} rounded-xl border-2 ${category.borderColor} p-5 transition-all duration-200 cursor-pointer ${
                 isActive 
                   ? `shadow-xl scale-105`
@@ -367,12 +637,12 @@ const NotificationsPage: React.FC = () => {
       <div className="md:hidden mb-0 relative">
         <div className="flex gap-2 pb-2 overflow-x-auto">
           {[...allCategories, ...categories].map((category) => {
-            const isActive = activeCategory === category.key;
+            const isActive = category.key !== 'all' && activeCategory === category.key;
             
             return (
               <button
                 key={category.key}
-                onClick={() => handleCategoryChange(category.key as NotificationCategory)}
+                onClick={() => handleCategoryChange(category.key === 'all' ? 'inbox' : category.key as NotificationCategory)}
                 className={`flex items-center gap-2 px-4 py-2 rounded-full border-2 transition-all duration-200 whitespace-nowrap ${
                   isActive 
                     ? `bg-gradient-to-br ${category.bgGradient} ${category.borderColor} shadow-md`
@@ -454,14 +724,14 @@ const NotificationsPage: React.FC = () => {
             {notifications.map((notification) => (
               <div
                 key={notification.id}
-                className={`p-4 hover:bg-gray-50 transition-colors ${
+                className={`p-3 sm:p-4 hover:bg-gray-50 transition-colors ${
                   !notification.is_read ? 'bg-blue-50' : ''
                 }`}
               >
-                <div className="flex items-start gap-4">
+                <div className="flex items-start gap-3 sm:gap-4">
                   <button
                     onClick={() => handleToggleStar(notification)}
-                    className="flex-shrink-0 mt-1"
+                    className="flex-shrink-0 mt-0.5 sm:mt-1"
                   >
                     <Star
                       className={`h-5 w-5 ${
@@ -472,65 +742,83 @@ const NotificationsPage: React.FC = () => {
                     />
                   </button>
 
-                  <div
-                    className="flex-1 cursor-pointer"
-                    onClick={() => handleViewDetail(notification)}
-                  >
-                    <div className="flex items-center gap-2 mb-1">
-                      {!notification.is_read ? (
-                        <Mail className="h-4 w-4 text-blue-600" />
-                      ) : (
-                        <MailOpen className="h-4 w-4 text-gray-400" />
-                      )}
-                      <h3 className={`font-semibold ${
-                        !notification.is_read ? 'text-gray-900' : 'text-gray-600'
-                      }`}>
-                        {notification.title}
-                      </h3>
-                    </div>
-                    <p className="text-sm text-gray-600 line-clamp-2 mb-2">
-                      {notification.message}
-                    </p>
-                    <div className="flex items-center gap-4 text-xs text-gray-400">
-                      {notification.sender && (
-                        <span className="flex items-center gap-1">
-                          From: {notification.sender.name}
+                  <div className="flex-1 min-w-0">
+                    <div
+                      className="cursor-pointer"
+                      onClick={() => handleViewDetail(notification)}
+                    >
+                      <div className="flex items-start gap-2 mb-1.5">
+                        {!notification.is_read ? (
+                          <Mail className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                        ) : (
+                          <MailOpen className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                        )}
+                        <h3 className={`min-w-0 text-sm sm:text-base leading-snug line-clamp-2 font-semibold ${
+                          !notification.is_read ? 'text-gray-900' : 'text-gray-600'
+                        }`}>
+                          {notification.title}
+                        </h3>
+                      </div>
+                      <p className="text-sm text-gray-600 line-clamp-2 mb-2.5">
+                        {notification.message}
+                      </p>
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-400">
+                        {notification.sender && (
+                          <span className="flex items-center gap-1 truncate">
+                            From: {notification.sender.name}
+                          </span>
+                        )}
+                        <span className="flex items-center gap-1 whitespace-nowrap">
+                          <Clock className="h-3 w-3" />
+                          {format(new Date(notification.created_at), 'MMM dd, yyyy HH:mm')}
                         </span>
-                      )}
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {format(new Date(notification.created_at), 'MMM dd, yyyy HH:mm')}
-                      </span>
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="flex items-center gap-2">
-                    {activeCategory === 'trash' ? (
-                      <>
-                        <Button
-                          variant="outline"
-                          onClick={() => handleRestore(notification)}
-                          className="text-sm"
-                        >
-                          Restore
-                        </Button>
-                        <Button
-                          variant="outline"
-                          onClick={() => handlePermanentDelete(notification)}
-                          className="text-sm text-red-600 hover:bg-red-50"
-                        >
-                          Delete Forever
-                        </Button>
-                      </>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        onClick={() => handleDelete(notification)}
-                        className="text-sm"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
+                    <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
+                      {activeCategory === 'trash' ? (
+                        <>
+                          <Button
+                            variant="outline"
+                            effect3d={false}
+                            onClick={() => handleRestore(notification)}
+                            className="text-xs sm:text-sm"
+                          >
+                            Restore
+                          </Button>
+                          <Button
+                            variant="outline"
+                            effect3d={false}
+                            onClick={() => handlePermanentDelete(notification)}
+                            className="text-xs sm:text-sm text-red-600 border-red-300 hover:bg-red-50"
+                          >
+                            Delete Forever
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          {isManager && isLeaveRequestNotification(notification) && (
+                            <Button
+                              variant="success"
+                              effect3d={false}
+                              onClick={() => openLeaveApprovalFromNotification(notification)}
+                              className="w-full sm:w-auto text-xs sm:text-sm px-3 py-2 whitespace-nowrap"
+                            >
+                              Proses Cuti
+                            </Button>
+                          )}
+                          <Button
+                            variant="outline"
+                            effect3d={false}
+                            size="sm"
+                            onClick={() => handleDelete(notification)}
+                            className="h-10 w-10 p-0 border-gray-300 text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-300"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -554,12 +842,12 @@ const NotificationsPage: React.FC = () => {
             {selectedNotification.sender && (
               <div className="bg-gray-50 p-4 rounded-lg">
                 <p className="text-sm text-gray-600">
-                  <strong>From:</strong> {selectedNotification.sender.name} ({selectedNotification.sender.email})
+                  <strong>From:</strong> {selectedNotification.sender.name} <span className="break-all">({selectedNotification.sender.email})</span>
                 </p>
               </div>
             )}
             <div>
-              <p className="text-gray-700 whitespace-pre-wrap">{selectedNotification.message}</p>
+              <p className="text-gray-700 whitespace-pre-wrap break-words">{selectedNotification.message}</p>
             </div>
             <div className="flex items-center gap-2 text-xs text-gray-400">
               <Clock className="h-3 w-3" />
@@ -568,6 +856,16 @@ const NotificationsPage: React.FC = () => {
           </div>
         </Modal>
       )}
+
+      <LeaveRequestApprovalModal
+        isOpen={isLeaveApprovalModalOpen}
+        onClose={() => {
+          setIsLeaveApprovalModalOpen(false);
+          setSelectedLeaveRequest(null);
+        }}
+        leaveRequest={selectedLeaveRequest}
+        onSuccess={handleLeaveApprovalSuccess}
+      />
 
       {/* Compose Modal */}
       <Modal

@@ -20,6 +20,7 @@ import RosteredStaffCalendarView from '../components/RosteredStaffCalendarView';
 import RosteredStaffPersonView from '../components/RosteredStaffPersonView';
 import ShiftSwapRequestsTable from '../components/ShiftSwapRequestsTable';
 import SwapShiftModal from '../../../components/modals/roster/SwapShiftModal';
+import LeaveRequestModal from '../../../components/modals/roster/LeaveRequestModal';
 
 type TabType = 'calendar' | 'staff' | 'swap';
 type StaffViewType = 'week' | 'calendar' | 'person';
@@ -268,6 +269,7 @@ const RosterDetailPage: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedRosterDay, setSelectedRosterDay] = useState<RosterDay | null>(null);
   const [isSwapShiftModalOpen, setIsSwapShiftModalOpen] = useState(false);
+  const [isLeaveRequestModalOpen, setIsLeaveRequestModalOpen] = useState(false);
 
   // Get roster from cache (already loaded at startup)
   const roster = id ? getRosterDetail(Number(id)) : null;
@@ -537,6 +539,7 @@ const RosterDetailPage: React.FC = () => {
               <ShiftSwapRequestsTable
                 requests={mockShiftSwapRequests}
                 onRequestNew={() => setIsSwapShiftModalOpen(true)}
+                onRequestLeave={() => setIsLeaveRequestModalOpen(true)}
               />
             )}
           </div>
@@ -551,6 +554,17 @@ const RosterDetailPage: React.FC = () => {
           // Refresh shift swap requests after successful submission
           // TODO: Re-fetch shift swap requests from backend
           setIsSwapShiftModalOpen(false);
+        }}
+      />
+
+      {/* Leave Request Modal */}
+      <LeaveRequestModal
+        isOpen={isLeaveRequestModalOpen}
+        onClose={() => setIsLeaveRequestModalOpen(false)}
+        onSuccess={() => {
+          // Refresh leave requests after successful submission
+          // TODO: Re-fetch leave requests from backend
+          setIsLeaveRequestModalOpen(false);
         }}
       />
     </PageHeader>

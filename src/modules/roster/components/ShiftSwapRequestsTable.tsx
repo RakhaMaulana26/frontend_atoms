@@ -22,11 +22,13 @@ interface ShiftSwapRequest {
 interface ShiftSwapRequestsTableProps {
   requests: ShiftSwapRequest[];
   onRequestNew?: () => void;
+  onRequestLeave?: () => void;
 }
 
 const ShiftSwapRequestsTable: React.FC<ShiftSwapRequestsTableProps> = ({
   requests,
   onRequestNew,
+  onRequestLeave,
 }) => {
   const [itemsPerPage, setItemsPerPage] = useState(25);
   const [searchQuery, setSearchQuery] = useState('');
@@ -53,16 +55,33 @@ const ShiftSwapRequestsTable: React.FC<ShiftSwapRequestsTableProps> = ({
 
   return (
     <div>
-      {/* Request Button */}
-      {onRequestNew && (
-        <div className="mb-4 sm:mb-6 -mx-4 sm:mx-0 pl-0 sm:pl-0">
-          <button 
-            onClick={onRequestNew}
-            className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-gradient-to-br from-[#222E6A] via-[#2a3a7f] to-[#1a235c] hover:from-[#1a235c] hover:via-[#222E6A] hover:to-[#2a3a7f] rounded-xl transition-colors font-semibold text-white text-xs sm:text-sm shadow-md border border-gray-200"
-          >
-            <span className="text-lg sm:text-xl">+</span>
-            <span>Request Shift Swap</span>
-          </button>
+      {/* Title */}
+      <div className="mb-4 sm:mb-6">
+        <h2 className="text-xl sm:text-2xl font-bold text-[#222E6A]">Shift Swap & Leave Requests</h2>
+        <p className="text-sm text-gray-600 mt-1">Manage your shift swap requests and leave applications</p>
+      </div>
+
+      {/* Request Buttons */}
+      {(onRequestNew || onRequestLeave) && (
+        <div className="mb-4 sm:mb-6 -mx-4 sm:mx-0 pl-0 sm:pl-0 flex gap-2 sm:gap-3 flex-wrap">
+          {onRequestNew && (
+            <button 
+              onClick={onRequestNew}
+              className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-gradient-to-br from-[#222E6A] via-[#2a3a7f] to-[#1a235c] hover:from-[#1a235c] hover:via-[#222E6A] hover:to-[#2a3a7f] rounded-xl transition-colors font-semibold text-white text-xs sm:text-sm shadow-md border border-gray-200"
+            >
+              <span className="text-lg sm:text-xl">+</span>
+              <span>Request Shift Swap</span>
+            </button>
+          )}
+          {onRequestLeave && (
+            <button 
+              onClick={onRequestLeave}
+              className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-gradient-to-br from-green-600 via-green-700 to-green-800 hover:from-green-700 hover:via-green-800 hover:to-green-900 rounded-xl transition-colors font-semibold text-white text-xs sm:text-sm shadow-md border border-gray-200"
+            >
+              <span className="text-lg sm:text-xl">+</span>
+              <span>Request Leave</span>
+            </button>
+          )}
         </div>
       )}
 
@@ -70,9 +89,9 @@ const ShiftSwapRequestsTable: React.FC<ShiftSwapRequestsTableProps> = ({
       <div className="bg-white rounded-3xl shadow-lg border border-gray-100 -mx-4 sm:mx-0 p-4 sm:p-6 lg:p-8">
         {/* Header */}
         <div className="p-4 sm:p-6 border-b border-gray-200">
-          <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-1 sm:mb-2">Shift Swap Request List</h3>
+          <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-1 sm:mb-2">Request List</h3>
           <p className="text-xs sm:text-sm text-gray-600">
-            The following is a list of submitted requests and their verification status
+            The following is a list of submitted shift swap and leave requests with their verification status
           </p>
         </div>
 

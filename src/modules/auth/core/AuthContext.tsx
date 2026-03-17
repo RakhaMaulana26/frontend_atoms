@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import type { User, LoginCredentials } from '../../../types';
 import { authService } from '../repository/authService';
+import { clearStoredAuth, getStoredToken, getStoredUser, migrateLegacyAuthStorage, setStoredAuth } from './authStorage';
 
 interface AuthContextType {
   user: User | null;
@@ -21,9 +22,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Load user from localStorage on mount
-    const storedToken = localStorage.getItem('auth_token');
-    const storedUser = localStorage.getItem('user');
+    migrateLegacyAuthStorage();
+
+    const storedToken = getStoredToken();
+    const storedUser = getStoredUser();
 
     if (storedToken && storedUser) {
       setToken(storedToken);
@@ -34,7 +36,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         .then(response => {
           const updatedUser = response.user;
           setUser(updatedUser);
-          localStorage.setItem('user', JSON.stringify(updatedUser));
+          setStoredAuth(storedToken, JSON.stringify(updatedUser));
         })
         .catch(error => {
           console.error('Failed to refresh user data:', error);
@@ -48,8 +50,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const response = await authService.login(credentials);
     const { access_token, user: userData } = response;
 
-    localStorage.setItem('auth_token', access_token);
-    localStorage.setItem('user', JSON.stringify(userData));
+    setStoredAuth(access_token, JSON.stringify(userData));
 
     setToken(access_token);
     setUser(userData);
@@ -61,8 +62,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('user');
+      clearStoredAuth();
       setToken(null);
       setUser(null);
     }
@@ -70,7 +70,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const updateUser = (updatedUser: User) => {
     setUser(updatedUser);
-    localStorage.setItem('user', JSON.stringify(updatedUser));
+    if (token) {
+      setStoredAuth(token, JSON.stringify(updatedUser));
+    }
   };
 
   return (

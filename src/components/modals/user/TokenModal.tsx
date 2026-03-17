@@ -85,11 +85,11 @@ const TokenModal: React.FC<TokenModalProps> = ({
           </Button>
           {token && (
             <Button
-              variant="primary"
+              variant="success"
               onClick={onSendEmail}
               isLoading={isSending}
               disabled={isSending}
-              className="flex-1 bg-green-600 hover:bg-green-700"
+              className="flex-1"
             >
               Send via Email
             </Button>

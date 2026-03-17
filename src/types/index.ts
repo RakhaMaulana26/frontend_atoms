@@ -208,6 +208,7 @@ export interface Notification {
   type: 'inbox' | 'sent';
   title: string;
   message: string;
+  category?: string; // e.g., 'leave_request', 'shift_request', etc.
   data?: any;
   is_read: boolean;
   is_starred: boolean;

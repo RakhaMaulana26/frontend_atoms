@@ -1,5 +1,6 @@
 import apiClient from '../lib/api';
 import { simpleGet, canUseSimpleRequest } from '../utils/simpleRequest';
+import { hasStoredToken } from '../modules/auth/core/authStorage';
 import type {
   User,
   PaginatedResponse,
@@ -17,7 +18,7 @@ export const adminService = {
     employee_type?: string;
     all?: string;
   }): Promise<PaginatedResponse<User>> {
-    const hasToken = !!localStorage.getItem('auth_token');
+    const hasToken = hasStoredToken();
     
     // Use simple request if no auth token is needed (for public endpoints)
     if (!hasToken && canUseSimpleRequest('GET', false)) {

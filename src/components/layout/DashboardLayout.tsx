@@ -10,7 +10,8 @@ import {
   LogOut,
   Menu,
   X,
-  Home
+  Home,
+  FileText
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -34,6 +35,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
     { icon: Users, label: 'Users', path: '/admin/users', roles: ['admin'] },
     { icon: Calendar, label: 'Rosters', path: '/rosters', roles: ['all'] },
     { icon: RefreshCw, label: 'Shift Requests', path: '/shift-requests', roles: ['all'] },
+    { icon: FileText, label: 'Leave Requests', path: '/leave-requests', roles: ['all'] },
     { icon: Bell, label: 'Notifications', path: '/notifications', roles: ['all'] },
   ];
 

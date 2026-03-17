@@ -22,6 +22,7 @@ import AuthPage from './modules/auth/pages/AuthPage';
 import UsersPage from './modules/admin/pages/UsersPage';
 import RostersPage from './modules/roster/pages/RostersPage';
 import RosterDetailPage from './modules/roster/pages/RosterDetailPage';
+import LeaveRequestsPage from './modules/roster/pages/LeaveRequestsPage';
 import ShiftRequestsPage from './modules/shift-request/pages/ShiftRequestsPage';
 import NotificationsPage from './modules/notifications/pages/NotificationsPage';
 
@@ -119,6 +120,16 @@ function App() {
             element={
               <ProtectedRoute>
                 <ShiftRequestsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Leave Request Routes */}
+          <Route
+            path="/leave-requests"
+            element={
+              <ProtectedRoute>
+                <LeaveRequestsPage />
               </ProtectedRoute>
             }
           />

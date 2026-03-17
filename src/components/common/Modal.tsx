@@ -60,23 +60,23 @@ const Modal: React.FC<ModalProps> = ({
         >
           {/* Header */}
           {title && (
-            <div className={headerClassName || `flex items-center justify-between px-6 py-4 rounded-t-lg ${
+            <div className={`flex items-start justify-between gap-3 px-4 py-3 sm:px-6 sm:py-4 rounded-t-lg ${
               headerVariant === 'danger' 
                 ? 'bg-gradient-to-r from-red-600 to-red-700' 
                 : 'bg-gradient-to-r from-[#454D7C] to-[#222E6A]'
-            }`}>
-              <h2 className="text-xl font-semibold text-white">{title}</h2>
+            } ${headerClassName || ''}`}>
+              <h2 className="min-w-0 flex-1 text-lg sm:text-xl font-semibold leading-tight text-white">{title}</h2>
               <button
                 onClick={onClose}
-                className="text-white hover:text-gray-200 transition-colors"
+                className="shrink-0 rounded-md p-1 text-white transition-colors hover:bg-white/10 hover:text-gray-200"
               >
-                <X className="h-6 w-6" />
+                <X className="h-5 w-5 sm:h-6 sm:w-6" />
               </button>
             </div>
           )}
 
           {/* Content */}
-          <div className="px-6 py-4">{children}</div>
+          <div className="px-4 py-4 sm:px-6">{children}</div>
 
           {/* Footer */}
           {footer && (
