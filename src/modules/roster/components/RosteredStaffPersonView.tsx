@@ -6,6 +6,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import { toast } from 'react-toastify';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { RosterPeriod, Shift, Employee, ShiftAssignment } from '../types/roster';
 import { useAuth } from '../../auth/core/AuthContext';
@@ -22,6 +23,8 @@ type EmployeeRosterRow = {
   assignmentsByDay: Map<number, ShiftAssignment>; // day number -> assignment
 };
 
+const waitForNextPaint = () => new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+
 const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
   roster,
   shifts
@@ -36,6 +39,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
   const [toolbarPosition, setToolbarPosition] = useState<{ top: number; left: number } | null>(null);
   const [autoFillPattern, setAutoFillPattern] = useState(false);
   const [applyToGroup, setApplyToGroup] = useState(false);
+  const [optimisticAssignments, setOptimisticAssignments] = useState<Record<string, ShiftAssignment>>({});
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const tableContainerRef = useRef<HTMLDivElement>(null);
@@ -179,6 +183,39 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
   };
 
   const shiftOptions = getShiftOptions();
+
+  const getCellKey = (employeeId: number, day: number) => `${employeeId}-${day}`;
+
+  const setOptimisticAssignmentsFromRoster = (nextRoster: RosterPeriod, cells: Array<{ employeeId: number; day: number }>) => {
+    setOptimisticAssignments((prev) => {
+      const next = { ...prev };
+
+      cells.forEach((cell) => {
+        const workDate = `${nextRoster.year}-${String(nextRoster.month).padStart(2, '0')}-${String(cell.day).padStart(2, '0')}`;
+        const rosterDay = nextRoster.roster_days?.find((day) => day.work_date === workDate);
+        const assignment = rosterDay?.shift_assignments?.find((item) => item.employee_id === cell.employeeId);
+        const key = getCellKey(cell.employeeId, cell.day);
+
+        if (assignment) {
+          next[key] = assignment;
+        } else {
+          delete next[key];
+        }
+      });
+
+      return next;
+    });
+  };
+
+  const clearOptimisticAssignments = (cells: Array<{ employeeId: number; day: number }>) => {
+    setOptimisticAssignments((prev) => {
+      const next = { ...prev };
+      cells.forEach((cell) => {
+        delete next[getCellKey(cell.employeeId, cell.day)];
+      });
+      return next;
+    });
+  };
 
   // Check if a cell is selected
   const isCellSelected = (employeeId: number, day: number): boolean => {
@@ -373,8 +410,8 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
       };
     }
 
-    // Update cache with optimistic data
-    updateRosterDetail(roster.id, updatedRoster);
+    const affectedCells = patternCells.map((pc) => ({ employeeId: startCell.employeeId, day: pc.day }));
+    setOptimisticAssignmentsFromRoster(updatedRoster, affectedCells);
 
     // Clear selection
     setSelectedCells([]);
@@ -382,6 +419,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
 
     // Send updates to backend using batch update
     try {
+      await waitForNextPaint();
       // Group pattern cells by shift to minimize API calls
       const cellsByShift = patternCells.reduce((acc, pc) => {
         if (!acc[pc.patternValue]) {
@@ -442,6 +480,9 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
       updateRosterDetail(roster.id, finalRoster);
     } catch (error) {
       console.error('Failed to update pattern:', error);
+      toast.error('Gagal menyimpan perubahan roster');
+    } finally {
+      clearOptimisticAssignments(affectedCells);
     }
   };
 
@@ -532,8 +573,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
       };
     }
 
-    // Update cache
-    updateRosterDetail(roster.id, updatedRoster);
+    setOptimisticAssignmentsFromRoster(updatedRoster, cellsToUpdate);
 
     // Clear selection
     setSelectedCells([]);
@@ -541,6 +581,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
 
     // Send batch update to backend
     try {
+      await waitForNextPaint();
       const assignments = groupEmployeeIds.map(empId => ({
         employee_id: empId,
         work_dates: [dateStr],
@@ -581,6 +622,9 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
       updateRosterDetail(roster.id, finalRoster);
     } catch (error) {
       console.error('Failed to update group:', error);
+      toast.error('Gagal menyimpan perubahan roster');
+    } finally {
+      clearOptimisticAssignments(cellsToUpdate);
     }
   };
 
@@ -674,8 +718,8 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
       };
     }
 
-    // Update cache
-    updateRosterDetail(roster.id, updatedRoster);
+    const affectedCells = allPatternCells.map((cell) => ({ employeeId: cell.employeeId, day: cell.day }));
+    setOptimisticAssignmentsFromRoster(updatedRoster, affectedCells);
 
     // Clear selection
     setSelectedCells([]);
@@ -683,6 +727,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
 
     // Send batch update to backend
     try {
+      await waitForNextPaint();
       // Group by shift pattern for efficiency
       const assignmentsByShift: Record<string, Array<{ employeeId: number; dates: Set<string> }>> = {};
 
@@ -751,6 +796,9 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
       updateRosterDetail(roster.id, finalRoster);
     } catch (error) {
       console.error('Failed to update group pattern:', error);
+      toast.error('Gagal menyimpan perubahan roster');
+    } finally {
+      clearOptimisticAssignments(affectedCells);
     }
   };
 
@@ -855,8 +903,8 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
       };
     }
 
-    // Update cache with optimistic data
-    updateRosterDetail(roster.id, updatedRoster);
+    const affectedCells = [...selectedCells];
+    setOptimisticAssignmentsFromRoster(updatedRoster, affectedCells);
 
     // Clear selection and close editor
     setSelectedCells([]);
@@ -864,6 +912,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
 
     // Send batch update to API - ONE call for all employees and dates
     try {
+      await waitForNextPaint();
       const assignments = Object.entries(cellsByEmployee).map(([employeeIdStr, days]) => {
         const employeeId = parseInt(employeeIdStr);
         const workDates = days.map(day => 
@@ -916,6 +965,9 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
       updateRosterDetail(roster.id, finalRoster);
     } catch (error) {
       console.error('Failed to update assignments:', error);
+      toast.error('Gagal menyimpan perubahan roster');
+    } finally {
+      clearOptimisticAssignments(affectedCells);
     }
   };
 
@@ -970,25 +1022,11 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
       shift: selectedShift,
     };
 
-    // Optimistic update - update cache immediately
-    const updatedAssignments = [
-      ...(rosterDay.shift_assignments?.filter(a => a.employee_id !== employeeId) || []),
-      optimisticAssignment
-    ];
-
-    const optimisticRosterDay = {
-      ...rosterDay,
-      shift_assignments: updatedAssignments
-    };
-
-    const updatedRosterDays = roster.roster_days?.map(d => 
-      d.id === rosterDay.id ? optimisticRosterDay : d
-    );
-
-    updateRosterDetail(roster.id, {
-      ...roster,
-      roster_days: updatedRosterDays,
-    });
+    const affectedCells = [{ employeeId, day }];
+    setOptimisticAssignments((prev) => ({
+      ...prev,
+      [getCellKey(employeeId, day)]: optimisticAssignment as ShiftAssignment,
+    }));
 
     // Close dropdown immediately
     setEditingCell(null);
@@ -996,10 +1034,11 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
 
     // Send to API in background using new simplified endpoint
     try {
+      await waitForNextPaint();
       const response = await rosterService.quickUpdateAssignment(roster.id, {
         employee_id: employeeId,
         work_dates: [dateStr],
-        shift: selectedShift.id.toString(),
+        shift_id: selectedShift.id,
         notes: finalNotes,
       });
 
@@ -1030,7 +1069,9 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
       }
     } catch (error) {
       console.error('Failed to update assignment:', error);
-      // Silently fail or show subtle notification - data already updated in UI
+      toast.error('Gagal menyimpan perubahan roster');
+    } finally {
+      clearOptimisticAssignments(affectedCells);
     }
   };
 
@@ -1200,6 +1241,17 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
           existing.assignmentsByDay.set(dayNumber, assignment);
         }
       });
+    });
+
+    Object.entries(optimisticAssignments).forEach(([key, assignment]) => {
+      const [employeeIdStr, dayStr] = key.split('-');
+      const employeeId = Number(employeeIdStr);
+      const dayNumber = Number(dayStr);
+      const existing = employeeRowsMap.get(employeeId);
+
+      if (existing) {
+        existing.assignmentsByDay.set(dayNumber, assignment);
+      }
     });
 
     return Array.from(employeeRowsMap.values()).sort((a, b) =>
@@ -1380,7 +1432,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
         <table className="w-full border-collapse">
           <thead>
             <tr>
-              <th className="text-left text-[11px] sm:text-xs lg:text-sm font-semibold text-white px-3 sm:px-4 py-2 sm:py-3 whitespace-nowrap sticky left-0 z-10" style={{ backgroundColor: '#222E6A' }}>
+              <th className="text-left text-[11px] sm:text-xs lg:text-sm font-semibold text-white px-3 sm:px-4 py-2 sm:py-3 rounded-tl-xl whitespace-nowrap sticky left-0 z-10" style={{ backgroundColor: '#222E6A' }}>
                 Name
               </th>
               <th className="text-center text-[11px] sm:text-xs lg:text-sm font-semibold text-white px-2 sm:px-3 py-2 sm:py-3 whitespace-nowrap" style={{ backgroundColor: '#222E6A' }}>
@@ -1395,7 +1447,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
                   <div className="font-bold">{day}</div>
                 </th>
               ))}
-              <th className="w-6 sm:w-12" style={{ backgroundColor: '#222E6A' }}></th>
+              <th className="w-6 sm:w-12 rounded-tr-xl" style={{ backgroundColor: '#222E6A' }}></th>
             </tr>
           </thead>
           <tbody>
@@ -1411,20 +1463,10 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
                   {/* Employee Type Header */}
                   <tr>
                     <td 
-                      className="px-3 sm:px-4 py-3 text-sm sm:text-base font-bold text-white sticky left-0 z-20 whitespace-nowrap"
-                      style={{
-                        backgroundColor: '#222E6A'
-                      }}
+                      colSpan={displayedDays.length + 4}
+                      className="px-3 sm:px-4 py-3 text-sm sm:text-base font-bold text-white bg-gradient-to-r from-[#222E6A] to-[#2a3a7f] border-y-2 border-[#1a235c]"
                     >
                       {typeGroup.type}
-                    </td>
-                    <td 
-                      colSpan={displayedDays.length + 3}
-                      className="px-3 sm:px-4 py-3 text-sm sm:text-base font-bold text-white"
-                      style={{
-                        backgroundColor: '#222E6A'
-                      }}
-                    >
                     </td>
                   </tr>
                   
@@ -1437,20 +1479,10 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
                         {/* Group Header Row */}
                         <tr>
                           <td 
-                            className="px-3 sm:px-4 py-2 text-[11px] sm:text-sm font-bold text-gray-800 sticky left-0 z-20 whitespace-nowrap"
-                            style={{
-                              backgroundColor: '#fed7aa'
-                            }}
+                            colSpan={displayedDays.length + 4}
+                            className="px-3 sm:px-4 py-2 text-[11px] sm:text-sm font-bold text-gray-800 bg-gradient-to-r from-orange-200 to-orange-100 border-y border-orange-300"
                           >
                             Grup {actualGroupNumber}
-                          </td>
-                          <td 
-                            colSpan={displayedDays.length + 3}
-                            className="px-3 sm:px-4 py-2 text-[11px] sm:text-sm font-bold text-gray-800"
-                            style={{
-                              backgroundColor: '#fed7aa'
-                            }}
-                          >
                           </td>
                         </tr>
                       
@@ -1529,7 +1561,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
                                   }
                                   return false;
                                 })();
-                                
+
                                 const cellClasses = hasSelectedDay
                                   ? 'bg-blue-200 border-2 border-blue-500 shadow-lg'
                                   : (assignment 

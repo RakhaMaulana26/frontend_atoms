@@ -35,12 +35,12 @@ export interface ShiftAssignment {
   id: number;
   roster_day_id: number;
   employee_id: number;
-  shift_id: number;
-  notes?: string | null; // Custom notes/status for assignment (e.g., Libur, Cuti, Training, Dinas Luar)
+  shift_id: number | null; // Can be null when only notes is used
+  notes: string; // Primary identifier for shift (e.g., P, S, M, L, CT, CS, DL, TB)
   span_days?: number; // Number of consecutive days this assignment spans (for merged cells)
   created_at: string;
   employee: Employee;
-  shift: Shift;
+  shift?: Shift | null; // Optional - may not exist when shift_id is null
 }
 
 // Manager Duty (Manager assigned to specific shift on specific day)
@@ -84,8 +84,8 @@ export interface RosterPeriod {
 // Assignment Creation Requests
 export interface CreateShiftAssignmentRequest {
   employee_id: number;
-  shift_id: number;
-  notes?: string | null; // Optional custom notes/status
+  shift_id?: number | null; // Optional - auto-resolved from notes if not provided
+  notes: string; // Primary identifier (e.g., 'P', 'S', 'M', 'L', 'CT', 'CS', 'DL', 'TB')
   span_days?: number; // Optional span for merged cells
 }
 

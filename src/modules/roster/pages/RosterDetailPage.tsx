@@ -60,45 +60,7 @@ const extractShiftsFromRoster = (roster: any): Shift[] => {
   return extractedShifts;
 };
 
-// Mock swap requests - TODO: Fetch from backend (/shift-swap-requests endpoint)
-const mockShiftSwapRequests = [
-  {
-    id: 1,
-    type: 'Swap Request',
-    employee: { name: 'Budi', position: 'CNS Technician' },
-    originalShift: 'Morning (07:00 - 15:00)',
-    requestedShift: 'Night (19:00 - 07:00)',
-    submittedDate: '2026-01-18',
-    status: 'Approved' as const
-  },
-  {
-    id: 2,
-    type: 'Swap Request',
-    employee: { name: 'Siti', position: 'CNS Technician' },
-    originalShift: 'Afternoon (13:00 - 19:00)',
-    requestedShift: 'Morning (07:00 - 15:00)',
-    submittedDate: '2026-01-19',
-    status: 'Rejected' as const
-  },
-  {
-    id: 3,
-    type: 'Overtime Request',
-    employee: { name: 'Joko', position: 'Support Technician' },
-    originalShift: 'Night (19:00 - 07:00)',
-    requestedShift: 'Morning (07:00 - 15:00)',
-    submittedDate: '2026-01-20',
-    status: 'Pending' as const
-  },
-  {
-    id: 4,
-    type: 'Swap Request',
-    employee: { name: 'Aldi', position: 'Support Technician' },
-    originalShift: 'Night (19:00 - 07:00)',
-    requestedShift: 'Morning (07:00 - 15:00)',
-    submittedDate: '2026-01-21',
-    status: 'Pending' as const
-  }
-];
+
 
 // Temporary inline component - will be moved back to separate file after TS cache refresh
 const RosterWeekView: React.FC<{
@@ -478,6 +440,7 @@ const RosterDetailPage: React.FC = () => {
 
             {activeTab === 'staff' && (
               <div className="space-y-4 sm:space-y-6">
+                {/* View toggle buttons - commented out, only showing Per Person view
                 <div className="flex items-center justify-end -mx-4 sm:mx-0 pr-0 sm:pr-0">
                   <div className="inline-flex items-center p-1 sm:p-1.5 bg-white rounded-2xl shadow-md border border-gray-200">
                     <button
@@ -512,7 +475,12 @@ const RosterDetailPage: React.FC = () => {
                     </button>
                   </div>
                 </div>
+                */}
 
+                {/* Only showing Per Person view */}
+                <RosteredStaffPersonView roster={roster} shifts={shifts} />
+
+                {/* Other views - commented out
                 {staffView === 'week' ? (
                   <RosterWeekView
                     weekDays={getDaysInWeek(selectedDate)}
@@ -530,12 +498,12 @@ const RosterDetailPage: React.FC = () => {
                 ) : (
                   <RosteredStaffCalendarView roster={roster} shifts={shifts} />
                 )}
+                */}
               </div>
             )}
 
             {activeTab === 'swap' && (
               <ShiftSwapRequestsTable
-                requests={mockShiftSwapRequests}
                 onRequestNew={() => setIsSwapShiftModalOpen(true)}
               />
             )}

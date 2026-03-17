@@ -77,6 +77,7 @@ interface DataCacheContextType {
   updateNotificationInCache: (id: number, updates: Partial<Notification>) => void;
   refreshRosters: () => Promise<void>;
   addRoster: (roster: RosterPeriod) => void;
+  updateRosterInList: (rosterId: number, updates: Partial<RosterPeriod>) => void;
   updateRosterDetail: (rosterId: number, updatedRoster: RosterPeriod) => void;
   refreshActivities: () => Promise<void>;
 }
@@ -221,10 +222,16 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
             all_employees: response.all_employees,
             all_shifts: response.all_shifts
           };
+          console.log(`📥 loadRosterDetails: Loaded roster ${roster.id}:`, {
+            roster_days_count: roster.roster_days?.length,
+            all_employees_count: roster.all_employees?.length,
+            all_shifts_count: roster.all_shifts?.length
+          });
           detailsMap[roster.id] = roster;
         }
       });
       
+      console.log('📦 loadRosterDetails: Setting rosterDetails cache with', Object.keys(detailsMap).length, 'rosters');
       setRosterDetails(detailsMap);
     } catch (error) {
       console.error('Failed to load roster details cache:', error);
@@ -272,7 +279,14 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
 
   // Get roster detail from cache (synchronous)
   const getRosterDetail = useCallback((rosterId: number): RosterPeriod | null => {
-    return rosterDetails[rosterId] || null;
+    const cached = rosterDetails[rosterId] || null;
+    console.log(`📦 getRosterDetail(${rosterId}):`, cached ? {
+      id: cached.id,
+      roster_days_count: cached.roster_days?.length,
+      all_employees_count: cached.all_employees?.length,
+      all_shifts_count: cached.all_shifts?.length
+    } : 'NOT IN CACHE');
+    return cached;
   }, [rosterDetails]);
 
   // Update roster detail in cache
@@ -315,7 +329,7 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
     setLoadingStates(prev => ({ ...prev, notifications: true }));
     try {
       if (singleCategory) {
-        // Load only one category
+        // Load only one category (legacy, still supported)
         const response = await notificationService.getNotifications({ category: singleCategory });
         const data = response?.data || [];
         const total = response?.total || 0;
@@ -329,26 +343,21 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
           [singleCategory]: total,
         }));
       } else {
-        // Load all categories in parallel
-        const [inboxRes, starredRes, sentRes, trashRes] = await Promise.all([
-          notificationService.getNotifications({ category: 'inbox' }),
-          notificationService.getNotifications({ category: 'starred' }),
-          notificationService.getNotifications({ category: 'sent' }),
-          notificationService.getNotifications({ category: 'trash' }),
-        ]);
+        // Load all categories in single request
+        const response = await notificationService.getAllNotifications();
         
         setNotificationsByCategory({
-          inbox: inboxRes?.data || [],
-          starred: starredRes?.data || [],
-          sent: sentRes?.data || [],
-          trash: trashRes?.data || [],
+          inbox: response.data?.inbox || [],
+          starred: response.data?.starred || [],
+          sent: response.data?.sent || [],
+          trash: response.data?.trash || [],
         });
         
         setNotificationStats({
-          inbox: inboxRes?.total || 0,
-          starred: starredRes?.total || 0,
-          sent: sentRes?.total || 0,
-          trash: trashRes?.total || 0,
+          inbox: response.stats?.inbox || 0,
+          starred: response.stats?.starred || 0,
+          sent: response.stats?.sent || 0,
+          trash: response.stats?.trash || 0,
         });
       }
     } catch (error) {
@@ -675,11 +684,37 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
 
   // Add new roster to cache
   const addRoster = useCallback((roster: RosterPeriod) => {
+    console.log('🆕 addRoster called:', {
+      id: roster.id,
+      month: roster.month,
+      year: roster.year,
+      roster_days_count: roster.roster_days?.length,
+      all_employees_count: roster.all_employees?.length,
+      all_shifts_count: roster.all_shifts?.length
+    });
     setRosters(prev => [...prev, roster]);
     // Also add to rosterDetails cache if it has all roster_days loaded
     if (roster.roster_days) {
+      console.log(`✅ Adding roster ${roster.id} to rosterDetails cache`);
       setRosterDetails(prev => ({ ...prev, [roster.id]: roster }));
+    } else {
+      console.log(`⚠️ Roster ${roster.id} has no roster_days, not adding to rosterDetails cache`);
     }
+  }, []);
+
+  // Update a roster in the list (for optimistic updates)
+  const updateRosterInList = useCallback((rosterId: number, updates: Partial<RosterPeriod>) => {
+    console.log('📝 updateRosterInList called:', { rosterId, updates });
+    setRosters(prev => prev.map(roster => 
+      roster.id === rosterId ? { ...roster, ...updates } : roster
+    ));
+    // Also update in rosterDetails cache if exists
+    setRosterDetails(prev => {
+      if (prev[rosterId]) {
+        return { ...prev, [rosterId]: { ...prev[rosterId], ...updates } };
+      }
+      return prev;
+    });
   }, []);
 
   // Refresh rosters from server
@@ -770,6 +805,7 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
         updateNotificationInCache,
         refreshRosters,
         addRoster,
+        updateRosterInList,
         updateRosterDetail,
         refreshActivities,
       }}

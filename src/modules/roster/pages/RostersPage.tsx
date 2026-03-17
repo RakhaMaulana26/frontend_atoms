@@ -4,7 +4,7 @@ import { toast } from 'react-toastify';
 import { Input, PageHeader, Button, Modal, Select } from '../../../components';
 import SwapShiftModal from '../../../components/modals/roster/SwapShiftModal';
 // import ConfigureSwapShiftModal from '../../../components/modals/roster/ConfigureSwapShiftModal';
-import { Calendar, Plus, X, Upload, FileSpreadsheet, CheckCircle, AlertCircle, Sparkles, Link, Edit2, Trash2, RefreshCw, ArrowUpToLine, ArrowLeftRight, Eye } from 'lucide-react';
+import { Calendar, Plus, X, Upload, FileSpreadsheet, CheckCircle, AlertCircle, Sparkles, Link, Edit2, Trash2, RefreshCw, ArrowUpToLine, ArrowLeftRight, Eye, XCircle } from 'lucide-react';
 import { useDataCache } from '../../../contexts/DataCacheContext';
 import { useAuth } from '../../auth/core/AuthContext';
 import { rosterService } from '../repository/rosterService';
@@ -681,7 +681,8 @@ const RostersPage: React.FC = () => {
     rosters, 
     loadingStates,
     refreshRosters,
-    addRoster
+    addRoster,
+    updateRosterInList
   } = useDataCache();
 
   // Only Admin, Manager Teknik, General Manager can create/edit/delete rosters
@@ -698,6 +699,11 @@ const RostersPage: React.FC = () => {
   const [yearFilter, setYearFilter] = useState<'all' | number>('all');
   const [syncingRosterId, setSyncingRosterId] = useState<number | null>(null);
   const [pushingRosterId, setPushingRosterId] = useState<number | null>(null);
+  const [publishingRosterId, setPublishingRosterId] = useState<number | null>(null);
+  const [unpublishingRosterId, setUnpublishingRosterId] = useState<number | null>(null);
+  const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
+  const [rosterToPublish, setRosterToPublish] = useState<RosterPeriod | null>(null);
+  const [skipValidation, setSkipValidation] = useState(false);
   const navigate = useNavigate();
 
   const handleCreateSuccess = (roster: RosterPeriod) => {
@@ -763,6 +769,60 @@ const RostersPage: React.FC = () => {
       toast.error(error.response?.data?.error || error.response?.data?.message || 'Failed to push to spreadsheet');
     } finally {
       setPushingRosterId(null);
+    }
+  };
+
+  const openPublishModal = (roster: RosterPeriod) => {
+    setRosterToPublish(roster);
+    setIsPublishModalOpen(true);
+  };
+
+  const closePublishModal = () => {
+    setIsPublishModalOpen(false);
+    setRosterToPublish(null);
+    setSkipValidation(false);
+  };
+
+  const handlePublishRoster = async () => {
+    if (!rosterToPublish) return;
+
+    setPublishingRosterId(rosterToPublish.id);
+    
+    // Optimistic update - update UI immediately
+    updateRosterInList(rosterToPublish.id, { status: 'published' });
+    closePublishModal();
+    
+    try {
+      await rosterService.publishRoster(rosterToPublish.id, skipValidation);
+      toast.success('Roster berhasil dipublish!');
+    } catch (error: any) {
+      console.error('Failed to publish roster:', error);
+      const errorMsg = error.response?.data?.message || 'Gagal publish roster';
+      toast.error(errorMsg);
+      // Revert optimistic update on error
+      updateRosterInList(rosterToPublish.id, { status: 'draft' });
+    } finally {
+      setPublishingRosterId(null);
+    }
+  };
+
+  const handleUnpublishRoster = async (roster: RosterPeriod) => {
+    setUnpublishingRosterId(roster.id);
+    
+    // Optimistic update - update UI immediately
+    updateRosterInList(roster.id, { status: 'draft' });
+    
+    try {
+      await rosterService.unpublishRoster(roster.id);
+      toast.success('Roster berhasil di-unpublish!');
+    } catch (error: any) {
+      console.error('Failed to unpublish roster:', error);
+      const errorMsg = error.response?.data?.message || 'Gagal unpublish roster';
+      toast.error(errorMsg);
+      // Revert optimistic update on error
+      updateRosterInList(roster.id, { status: 'published' });
+    } finally {
+      setUnpublishingRosterId(null);
     }
   };
 
@@ -860,14 +920,14 @@ const RostersPage: React.FC = () => {
                 <span className="sm:hidden">Config Swap</span>
               </Button>
             )} */}
-            <Button
+            {/* <Button
               variant="secondary"
               leftIcon={<ArrowLeftRight className="h-4 w-4" />}
               onClick={() => setIsSwapShiftModalOpen(true)}
               className="justify-center sm:justify-start text-xs sm:text-sm whitespace-nowrap w-full sm:w-auto"
             >
               Swap Shift
-            </Button>
+            </Button> */}
             {canManageRoster && (
               <>
                 <Button
@@ -1037,7 +1097,7 @@ const RostersPage: React.FC = () => {
                     </div>
                   )}
                   
-                  {/* View Details button - separate row on desktop, same row on mobile */}
+                  {/* View Details button - separate row on desktop for all users */}
                   <div className="hidden sm:block mb-2">
                     <button
                       onClick={() => navigate(`/rosters/${roster.id}`)}
@@ -1047,7 +1107,24 @@ const RostersPage: React.FC = () => {
                     </button>
                   </div>
                   
-                  {/* Edit and Delete (+ View on mobile) buttons - all in one row on mobile, Edit+Delete only on desktop */}
+                  {/* Publish button - show for draft rosters */}
+                  {canManageRoster && roster.status === 'draft' && (
+                    <div className="mb-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openPublishModal(roster);
+                        }}
+                        disabled={publishingRosterId === roster.id}
+                        className="w-full text-xs sm:text-sm border border-green-400 rounded px-2 py-1.5 sm:py-2 text-green-700 bg-green-50 hover:bg-green-100 inline-flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
+                      >
+                        <CheckCircle className={`h-3 w-3 sm:h-3.5 sm:w-3.5 ${publishingRosterId === roster.id ? 'animate-pulse' : ''}`} />
+                        <span className="truncate">{publishingRosterId === roster.id ? 'Publishing...' : 'Publish Roster'}</span>
+                      </button>
+                    </div>
+                  )}
+                  
+                  {/* Edit and Delete (+ View on mobile) buttons - for draft rosters only */}
                   {canManageRoster && roster.status === 'draft' && (
                     <div className="flex gap-2">
                       {/* View Details on mobile only */}
@@ -1091,12 +1168,43 @@ const RostersPage: React.FC = () => {
                     </div>
                   )}
                   
-                  {/* View Details button for non-draft rosters (no Edit/Delete buttons) */}
-                  {(!canManageRoster || roster.status !== 'draft') && (
-                    <div className="mb-2">
+                  {/* Unpublish button (+ View on mobile) - for published rosters only */}
+                  {canManageRoster && roster.status === 'published' && (
+                    <div className="flex gap-2">
+                      {/* View Details on mobile only */}
+                      <Button
+                        onClick={() => navigate(`/rosters/${roster.id}`)}
+                        variant="outline"
+                        size="sm"
+                        leftIcon={<Eye className="h-3 w-3 sm:h-4 sm:w-4" />}
+                        className="sm:hidden flex-1 text-xs !border-gray-300 !text-gray-800 hover:!bg-gray-50"
+                        effect3d={false}
+                      >
+                        View
+                      </Button>
+                      <Button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleUnpublishRoster(roster);
+                        }}
+                        variant="outline"
+                        size="sm"
+                        leftIcon={<XCircle className={`h-3 w-3 sm:h-4 sm:w-4 ${unpublishingRosterId === roster.id ? 'animate-pulse' : ''}`} />}
+                        className="flex-1 text-xs sm:text-sm !border-orange-300 !text-orange-600 hover:!bg-orange-50"
+                        effect3d={false}
+                        disabled={unpublishingRosterId === roster.id}
+                      >
+                        {unpublishingRosterId === roster.id ? 'Unpublishing...' : 'Unpublish'}
+                      </Button>
+                    </div>
+                  )}
+                  
+                  {/* View Details button for users without manage permission - mobile only */}
+                  {!canManageRoster && (
+                    <div className="sm:hidden">
                       <button
                         onClick={() => navigate(`/rosters/${roster.id}`)}
-                        className="w-full text-xs sm:text-sm border border-gray-300 rounded px-2 py-1.5 sm:py-2 text-gray-800 hover:bg-gray-50 font-medium transition-colors"
+                        className="w-full text-xs border border-gray-300 rounded px-2 py-1.5 text-gray-800 hover:bg-gray-50 font-medium transition-colors"
                       >
                         View Details
                       </button>
@@ -1145,6 +1253,81 @@ const RostersPage: React.FC = () => {
         onClose={() => setIsSwapShiftModalOpen(false)}
         onSuccess={handleSwapShiftSuccess}
       />
+
+      {/* Publish Roster Confirmation Modal */}
+      <Modal
+        isOpen={isPublishModalOpen}
+        onClose={closePublishModal}
+        title="Publish Roster"
+        size="md"
+        headerClassName="bg-[#222E6A] text-white flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 rounded-t-lg"
+      >
+        <div className="space-y-4">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <h4 className="font-semibold text-green-800">Publish Roster</h4>
+                <p className="text-sm text-green-700 mt-1">
+                  Anda akan mempublish roster <strong>{rosterToPublish ? `${new Date(0, rosterToPublish.month - 1).toLocaleString('default', { month: 'long' })} ${rosterToPublish.year}` : ''}</strong>.
+                </p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <h4 className="font-semibold text-amber-800">Perhatian</h4>
+                <ul className="text-sm text-amber-700 mt-1 list-disc list-inside space-y-1">
+                  <li>Roster yang sudah dipublish tidak dapat diedit</li>
+                  <li>Karyawan akan dapat melihat jadwal mereka</li>
+                  <li>Fitur tukar shift akan aktif untuk roster ini</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          {/* Skip Validation Option */}
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={skipValidation}
+                onChange={(e) => setSkipValidation(e.target.checked)}
+                className="mt-1 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              />
+              <div>
+                <span className="font-semibold text-gray-800">Lewati Validasi (Force Publish)</span>
+                <p className="text-sm text-gray-600 mt-1">
+                  Centang opsi ini jika ingin publish roster tanpa memeriksa kelengkapan shift (4 CNS, 2 Support, 1 Manager per shift).
+                </p>
+              </div>
+            </label>
+          </div>
+
+          <div className="flex gap-3 pt-4 border-t">
+            <Button
+              variant="outline"
+              onClick={closePublishModal}
+              className="flex-1"
+              disabled={publishingRosterId !== null}
+            >
+              Batal
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handlePublishRoster}
+              isLoading={publishingRosterId !== null}
+              className="flex-1 bg-green-600 hover:bg-green-700"
+            >
+              <CheckCircle className="h-4 w-4 mr-2" />
+              {skipValidation ? 'Force Publish' : 'Publish Roster'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Configure Swap Shift Modal - Temporarily disabled */}
       {/* <ConfigureSwapShiftModal

@@ -3,36 +3,88 @@ import type {
   ShiftRequest,
   CreateShiftRequestRequest,
   ApproveRejectRequest,
+  MyShift,
+  AvailableSwapPartner,
+  ShiftRequestPendingCount,
 } from '../../../types';
 
+interface PaginatedShiftRequestResponse {
+  data: ShiftRequest[];
+  meta: {
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+  };
+}
+
 export const shiftRequestService = {
-  // Create Shift Request
-  async createShiftRequest(data: CreateShiftRequestRequest): Promise<ShiftRequest> {
-    const response = await apiClient.post<ShiftRequest>('/shift-requests', data);
+  // Get list of shift requests with optional filters
+  async getShiftRequests(params?: { 
+    status?: string;
+    type?: 'pending_approval' | 'my_requests';
+    per_page?: number;
+    page?: number;
+  }): Promise<PaginatedShiftRequestResponse> {
+    const response = await apiClient.get<PaginatedShiftRequestResponse>('/shift-requests', { params });
     return response.data;
   },
 
-  // Get Shift Requests (optional, not in docs but useful)
-  async getShiftRequests(params?: { status?: string }): Promise<ShiftRequest[]> {
-    const response = await apiClient.get<ShiftRequest[]>('/shift-requests', { params });
+  // Get single shift request detail
+  async getShiftRequest(id: number): Promise<{ data: ShiftRequest; managers: any }> {
+    const response = await apiClient.get<{ data: ShiftRequest; managers: any }>(`/shift-requests/${id}`);
+    return response.data;
+  },
+
+  // Create new shift swap request
+  async createShiftRequest(data: CreateShiftRequestRequest): Promise<{ message: string; data: ShiftRequest }> {
+    const response = await apiClient.post<{ message: string; data: ShiftRequest }>('/shift-requests', data);
+    return response.data;
+  },
+
+  // Get current user's swappable shifts
+  async getMyShifts(): Promise<{ data: MyShift[]; count: number }> {
+    const response = await apiClient.get<{ data: MyShift[]; count: number }>('/shift-requests/my-shifts');
+    return response.data;
+  },
+
+  // Get available partners for swap
+  async getAvailablePartners(params?: {
+    roster_day_id?: number;
+    shift_id?: number;
+    employee_id?: number;
+  }): Promise<{ data: AvailableSwapPartner[]; count: number }> {
+    const response = await apiClient.get<{ data: AvailableSwapPartner[]; count: number }>('/shift-requests/available-partners', { params });
+    return response.data;
+  },
+
+  // Get pending request counts
+  async getPendingCount(): Promise<ShiftRequestPendingCount> {
+    const response = await apiClient.get<ShiftRequestPendingCount>('/shift-requests/pending-count');
     return response.data;
   },
 
   // Approve as Target Employee
-  async approveAsTarget(id: number): Promise<ShiftRequest> {
-    const response = await apiClient.post<ShiftRequest>(`/shift-requests/${id}/approve-target`);
+  async approveAsTarget(id: number): Promise<{ message: string; data: ShiftRequest }> {
+    const response = await apiClient.post<{ message: string; data: ShiftRequest }>(`/shift-requests/${id}/approve-target`);
     return response.data;
   },
 
   // Approve as Manager
-  async approveAsManager(id: number): Promise<ShiftRequest> {
-    const response = await apiClient.post<ShiftRequest>(`/shift-requests/${id}/approve-manager`);
+  async approveAsManager(id: number): Promise<{ message: string; data: ShiftRequest }> {
+    const response = await apiClient.post<{ message: string; data: ShiftRequest }>(`/shift-requests/${id}/approve-manager`);
     return response.data;
   },
 
   // Reject Request
-  async rejectRequest(id: number, data: ApproveRejectRequest): Promise<ShiftRequest> {
-    const response = await apiClient.post<ShiftRequest>(`/shift-requests/${id}/reject`, data);
+  async rejectRequest(id: number, data?: ApproveRejectRequest): Promise<{ message: string }> {
+    const response = await apiClient.post<{ message: string }>(`/shift-requests/${id}/reject`, data);
+    return response.data;
+  },
+
+  // Cancel own request
+  async cancelRequest(id: number): Promise<{ message: string }> {
+    const response = await apiClient.post<{ message: string }>(`/shift-requests/${id}/cancel`);
     return response.data;
   },
 };
