@@ -1,8 +1,42 @@
 /**
  * Leave Request Types
- * 
+ *
  * TypeScript interfaces for Leave Request feature
  */
+
+export interface LeaveRequestManager {
+  id: number;
+  employee_id: number;
+  name: string;
+  email: string;
+  role: string;
+}
+
+export interface LeaveRequestDateApproval {
+  id: number | null;
+  work_date: string | null;
+  roster_day_id?: number | null;
+  employee_shift_notes?: string | null;
+  status: 'pending' | 'approved' | 'rejected';
+  status_name: string;
+  approval_notes?: string | null;
+  approved_at?: string | null;
+  manager_employee_id?: number | null;
+  manager?: LeaveRequestManager | null;
+  current_user_is_assigned_manager?: boolean;
+  current_user_can_approve?: boolean;
+  current_user_already_approved?: boolean;
+  needs_assignment?: boolean;
+  label?: string;
+}
+
+export interface LeaveRequestApprovalSummary {
+  total_dates: number;
+  approved_dates: number;
+  pending_dates: number;
+  rejected_dates: number;
+  is_fully_approved: boolean;
+}
 
 export interface LeaveRequest {
   id: number;
@@ -27,6 +61,12 @@ export interface LeaveRequest {
   approved_at?: string;
   created_at: string;
   updated_at: string;
+  current_user_can_approve?: boolean;
+  current_user_pending_approval_dates?: string[];
+  current_user_already_approved?: boolean;
+  approval_dates?: LeaveRequestDateApproval[];
+  approval_summary?: LeaveRequestApprovalSummary;
+  assigned_managers?: LeaveRequestManager[];
   employee?: {
     id: number;
     user_id: number;
@@ -56,7 +96,7 @@ export interface CreateLeaveRequestData {
   institution?: string;
   education_type?: string;
   program_course?: string;
-  document?: File; // Optional for annual_leave
+  document?: File;
 }
 
 export interface UpdateLeaveRequestStatusData {
@@ -88,7 +128,6 @@ export interface LeaveRequestStatistics {
   total_approved_days: number;
 }
 
-// API Response Types
 export interface LeaveRequestResponse {
   message: string;
   data: LeaveRequest;
@@ -112,7 +151,6 @@ export interface LeaveRequestStatisticsResponse {
   data: LeaveRequestStatistics;
 }
 
-// Constants
 export const LEAVE_REQUEST_TYPES = {
   DOCTOR_LEAVE: 'doctor_leave',
   ANNUAL_LEAVE: 'annual_leave',

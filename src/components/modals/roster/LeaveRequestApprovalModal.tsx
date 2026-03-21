@@ -1,8 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 import Modal from '../../common/Modal';
 import Button from '../../ui/Button';
-import type { LeaveRequest } from '../../../modules/roster/types/leaveRequest';
+import type { LeaveRequest, LeaveRequestDateApproval } from '../../../modules/roster/types/leaveRequest';
 import { leaveRequestService } from '../../../modules/roster/repository/leaveRequestService';
 
 interface LeaveRequestApprovalModalProps {
@@ -11,6 +11,12 @@ interface LeaveRequestApprovalModalProps {
   leaveRequest: LeaveRequest | null;
   onSuccess: () => void;
 }
+
+const statusBadgeClassMap: Record<'pending' | 'approved' | 'rejected', string> = {
+  pending: 'bg-yellow-100 text-yellow-800',
+  approved: 'bg-green-100 text-green-800',
+  rejected: 'bg-red-100 text-red-800',
+};
 
 const LeaveRequestApprovalModal: React.FC<LeaveRequestApprovalModalProps> = ({
   isOpen,
@@ -23,17 +29,63 @@ const LeaveRequestApprovalModal: React.FC<LeaveRequestApprovalModalProps> = ({
   const [actionType, setActionType] = useState<'approve' | 'reject' | null>(null);
   const [isOpeningDocument, setIsOpeningDocument] = useState(false);
   const [isDownloadingDocument, setIsDownloadingDocument] = useState(false);
+  const [detailLeaveRequest, setDetailLeaveRequest] = useState<LeaveRequest | null>(null);
+  const [isFetchingDetail, setIsFetchingDetail] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen || !leaveRequest) {
+      setDetailLeaveRequest(null);
+      setApprovalNotes('');
+      setActionType(null);
+      setIsFetchingDetail(false);
+      return;
+    }
+
+    let isCancelled = false;
+
+    setDetailLeaveRequest(leaveRequest);
+    setIsFetchingDetail(true);
+
+    leaveRequestService.getLeaveRequestById(leaveRequest.id)
+      .then((response) => {
+        if (!isCancelled) {
+          setDetailLeaveRequest(response.data);
+        }
+      })
+      .catch((error: any) => {
+        if (!isCancelled) {
+          console.error('Failed to fetch leave request detail:', error);
+          toast.error(error.response?.data?.message || 'Gagal memuat detail permohonan cuti');
+        }
+      })
+      .finally(() => {
+        if (!isCancelled) {
+          setIsFetchingDetail(false);
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [isOpen, leaveRequest]);
+
+  const activeLeaveRequest = detailLeaveRequest ?? leaveRequest;
 
   const hasDocument = useMemo(() => {
-    if (!leaveRequest) return false;
+    if (!activeLeaveRequest) return false;
 
     return Boolean(
-      leaveRequest.document_url ||
-      leaveRequest.document_path ||
-      leaveRequest.document_original_name ||
-      leaveRequest.document_mime_type
+      activeLeaveRequest.document_url ||
+      activeLeaveRequest.document_path ||
+      activeLeaveRequest.document_original_name ||
+      activeLeaveRequest.document_mime_type
     );
-  }, [leaveRequest]);
+  }, [activeLeaveRequest]);
+
+  const approvalDates = activeLeaveRequest?.approval_dates ?? [];
+  const approvalSummary = activeLeaveRequest?.approval_summary;
+  const currentUserPendingDates = activeLeaveRequest?.current_user_pending_approval_dates ?? [];
+  const canTakeAction = activeLeaveRequest?.status === 'pending' && activeLeaveRequest.current_user_can_approve === true;
 
   const handleApprove = () => {
     setActionType('approve');
@@ -44,9 +96,8 @@ const LeaveRequestApprovalModal: React.FC<LeaveRequestApprovalModalProps> = ({
   };
 
   const handleSubmit = async () => {
-    if (!leaveRequest || !actionType) return;
+    if (!activeLeaveRequest || !actionType) return;
 
-    // Validate notes for rejection
     if (actionType === 'reject' && !approvalNotes.trim()) {
       toast.error('Catatan penolakan wajib diisi');
       return;
@@ -54,17 +105,16 @@ const LeaveRequestApprovalModal: React.FC<LeaveRequestApprovalModalProps> = ({
 
     setIsLoading(true);
     try {
-      await leaveRequestService.updateLeaveRequestStatus(leaveRequest.id, {
+      const response = await leaveRequestService.updateLeaveRequestStatus(activeLeaveRequest.id, {
         status: actionType === 'approve' ? 'approved' : 'rejected',
         approval_notes: approvalNotes.trim() || undefined,
       });
 
-      toast.success(
-        actionType === 'approve' 
-          ? 'Permohonan cuti berhasil disetujui!' 
-          : 'Permohonan cuti berhasil ditolak!'
-      );
-      
+      setDetailLeaveRequest(response.data);
+      toast.success(response.message || (actionType === 'approve'
+        ? 'Permohonan cuti berhasil diproses.'
+        : 'Permohonan cuti berhasil ditolak.'));
+
       setApprovalNotes('');
       setActionType(null);
       onSuccess();
@@ -86,7 +136,6 @@ const LeaveRequestApprovalModal: React.FC<LeaveRequestApprovalModalProps> = ({
     const blobUrl = URL.createObjectURL(blob);
     const previewWindow = window.open(blobUrl, '_blank', 'noopener,noreferrer');
 
-    // Release memory after preview tab had enough time to load the blob.
     setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
 
     return Boolean(previewWindow);
@@ -104,11 +153,11 @@ const LeaveRequestApprovalModal: React.FC<LeaveRequestApprovalModalProps> = ({
   };
 
   const handleViewDocument = async () => {
-    if (!leaveRequest) return;
+    if (!activeLeaveRequest) return;
 
     setIsOpeningDocument(true);
     try {
-      const { blob, filename } = await leaveRequestService.getLeaveRequestDocumentBlob(leaveRequest.id);
+      const { blob, filename } = await leaveRequestService.getLeaveRequestDocumentBlob(activeLeaveRequest.id);
       const opened = openBlobInNewTab(blob);
 
       if (!opened) {
@@ -123,11 +172,11 @@ const LeaveRequestApprovalModal: React.FC<LeaveRequestApprovalModalProps> = ({
   };
 
   const handleDownloadDocument = async () => {
-    if (!leaveRequest) return;
+    if (!activeLeaveRequest) return;
 
     setIsDownloadingDocument(true);
     try {
-      const { blob, filename } = await leaveRequestService.getLeaveRequestDocumentBlob(leaveRequest.id);
+      const { blob, filename } = await leaveRequestService.getLeaveRequestDocumentBlob(activeLeaveRequest.id);
       triggerBlobDownload(blob, filename);
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Gagal mendownload dokumen pendukung');
@@ -136,14 +185,25 @@ const LeaveRequestApprovalModal: React.FC<LeaveRequestApprovalModalProps> = ({
     }
   };
 
-  const formatDate = (value: string) =>
-    new Date(value).toLocaleDateString('id-ID', {
+  const formatDate = (value?: string | null) => {
+    if (!value) return '-';
+
+    return new Date(value).toLocaleDateString('id-ID', {
       day: 'numeric',
       month: 'short',
       year: 'numeric',
     });
+  };
 
-  if (!leaveRequest) return null;
+  const getApprovalBadgeClass = (approval: LeaveRequestDateApproval) => {
+    if (approval.needs_assignment) {
+      return 'bg-amber-100 text-amber-800';
+    }
+
+    return statusBadgeClassMap[approval.status] || 'bg-gray-100 text-gray-800';
+  };
+
+  if (!activeLeaveRequest) return null;
 
   return (
     <Modal
@@ -154,87 +214,114 @@ const LeaveRequestApprovalModal: React.FC<LeaveRequestApprovalModalProps> = ({
       headerClassName="bg-gradient-to-r from-blue-600 to-blue-700 text-white"
     >
       <div className="space-y-4 sm:space-y-6">
-        {/* Employee Info */}
+        {isFetchingDetail && (
+          <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+            Memuat detail approval per tanggal...
+          </div>
+        )}
+
         <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
           <h3 className="text-sm font-semibold text-gray-700 mb-3">Informasi Karyawan</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div>
               <p className="text-xs text-gray-500">Nama</p>
-              <p className="text-sm font-medium text-gray-900 break-words">{leaveRequest.employee?.user?.name}</p>
+              <p className="text-sm font-medium text-gray-900 break-words">{activeLeaveRequest.employee?.user?.name}</p>
             </div>
             <div>
               <p className="text-xs text-gray-500">Email</p>
-              <p className="text-sm font-medium text-gray-900 break-all">{leaveRequest.employee?.user?.email}</p>
+              <p className="text-sm font-medium text-gray-900 break-all">{activeLeaveRequest.employee?.user?.email}</p>
             </div>
           </div>
         </div>
 
-        {/* Leave Request Details */}
         <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-4">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
             <div>
               <p className="text-xs text-gray-500">Jenis Cuti</p>
-              <p className="text-sm font-semibold text-gray-900">{leaveRequest.request_type_name}</p>
+              <p className="text-sm font-semibold text-gray-900">{activeLeaveRequest.request_type_name}</p>
             </div>
-            <span className={`self-start px-3 py-1 rounded-full text-xs font-medium ${
-              leaveRequest.status === 'pending'
-                ? 'bg-yellow-100 text-yellow-800'
-                : leaveRequest.status === 'approved'
-                ? 'bg-green-100 text-green-800'
-                : 'bg-red-100 text-red-800'
-            }`}>
-              {leaveRequest.status_name}
+            <span className={`self-start px-3 py-1 rounded-full text-xs font-medium ${statusBadgeClassMap[activeLeaveRequest.status]}`}>
+              {activeLeaveRequest.status_name}
             </span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="bg-gray-50 rounded-lg p-3">
               <p className="text-xs text-gray-500">Tanggal Mulai</p>
-              <p className="text-sm font-medium text-gray-900">{formatDate(leaveRequest.start_date)}</p>
+              <p className="text-sm font-medium text-gray-900">{formatDate(activeLeaveRequest.start_date)}</p>
             </div>
             <div className="bg-gray-50 rounded-lg p-3">
               <p className="text-xs text-gray-500">Tanggal Selesai</p>
-              <p className="text-sm font-medium text-gray-900">{formatDate(leaveRequest.end_date)}</p>
+              <p className="text-sm font-medium text-gray-900">{formatDate(activeLeaveRequest.end_date)}</p>
             </div>
             <div className="bg-gray-50 rounded-lg p-3">
               <p className="text-xs text-gray-500">Total Hari</p>
-              <p className="text-sm font-medium text-gray-900">{leaveRequest.total_days} hari</p>
+              <p className="text-sm font-medium text-gray-900">{activeLeaveRequest.total_days} hari</p>
             </div>
           </div>
 
-          {leaveRequest.reason && (
+          {approvalSummary && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <p className="text-xs text-gray-500">Tanggal Approval</p>
+                <p className="text-sm font-semibold text-gray-900">{approvalSummary.total_dates}</p>
+              </div>
+              <div className="rounded-lg border border-green-200 bg-green-50 p-3">
+                <p className="text-xs text-green-700">Sudah Disetujui</p>
+                <p className="text-sm font-semibold text-green-800">{approvalSummary.approved_dates}</p>
+              </div>
+              <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3">
+                <p className="text-xs text-yellow-700">Masih Menunggu</p>
+                <p className="text-sm font-semibold text-yellow-800">{approvalSummary.pending_dates}</p>
+              </div>
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3">
+                <p className="text-xs text-red-700">Ditolak</p>
+                <p className="text-sm font-semibold text-red-800">{approvalSummary.rejected_dates}</p>
+              </div>
+            </div>
+          )}
+
+          {activeLeaveRequest.reason && (
             <div>
               <p className="text-xs text-gray-500 mb-1">Alasan</p>
-              <p className="text-sm text-gray-900 bg-gray-50 p-3 rounded-lg break-words">{leaveRequest.reason}</p>
+              <p className="text-sm text-gray-900 bg-gray-50 p-3 rounded-lg break-words">{activeLeaveRequest.reason}</p>
             </div>
           )}
 
-          {leaveRequest.institution && (
+          {activeLeaveRequest.institution && (
             <div>
               <p className="text-xs text-gray-500 mb-1">Institusi</p>
-              <p className="text-sm text-gray-900 break-words">{leaveRequest.institution}</p>
+              <p className="text-sm text-gray-900 break-words">{activeLeaveRequest.institution}</p>
             </div>
           )}
 
-          {leaveRequest.education_type && (
+          {activeLeaveRequest.education_type && (
             <div>
               <p className="text-xs text-gray-500 mb-1">Jenis Pendidikan</p>
-              <p className="text-sm text-gray-900 break-words">{leaveRequest.education_type}</p>
+              <p className="text-sm text-gray-900 break-words">{activeLeaveRequest.education_type}</p>
             </div>
           )}
 
-          {leaveRequest.program_course && (
+          {activeLeaveRequest.program_course && (
             <div>
               <p className="text-xs text-gray-500 mb-1">Program/Kursus</p>
-              <p className="text-sm text-gray-900 break-words">{leaveRequest.program_course}</p>
+              <p className="text-sm text-gray-900 break-words">{activeLeaveRequest.program_course}</p>
             </div>
           )}
 
-          {hasDocument && (
+          {activeLeaveRequest.approval_notes && activeLeaveRequest.status !== 'pending' && (
+            <div>
+              <p className="text-xs text-gray-500 mb-1">Catatan Keputusan Akhir</p>
+              <p className="text-sm text-gray-900 bg-gray-50 p-3 rounded-lg break-words">{activeLeaveRequest.approval_notes}</p>
+            </div>
+          )}
+
+          {hasDocument ? (
             <div>
               <p className="text-xs text-gray-500 mb-1">Dokumen Pendukung</p>
-              {leaveRequest.document_original_name && (
-                <p className="mb-2 text-xs text-gray-600 break-all">{leaveRequest.document_original_name}</p>
+              {activeLeaveRequest.document_original_name && (
+                <p className="mb-2 text-xs text-gray-600 break-all">{activeLeaveRequest.document_original_name}</p>
               )}
               <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                 <button
@@ -262,28 +349,116 @@ const LeaveRequestApprovalModal: React.FC<LeaveRequestApprovalModalProps> = ({
                 </button>
               </div>
             </div>
-          )}
-
-          {!hasDocument && (
+          ) : (
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
               <p className="text-sm text-amber-800">Dokumen pendukung belum tersedia atau tidak dapat diakses.</p>
             </div>
           )}
         </div>
 
-        {/* Action Type Selection or Notes */}
+        <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900">Manager Penanggung Jawab per Tanggal</h3>
+              <p className="text-xs text-gray-500">Approval mengikuti manager yang bertugas pada tanggal roster terkait.</p>
+            </div>
+            {currentUserPendingDates.length > 0 && (
+              <span className="inline-flex items-center self-start rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700">
+                Perlu approval Anda: {currentUserPendingDates.length} tanggal
+              </span>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            {approvalDates.length > 0 ? approvalDates.map((approval, index) => (
+              <div key={`${approval.work_date ?? approval.label ?? 'approval'}-${index}`} className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0 space-y-2">
+                    <div>
+                      <p className="text-xs text-gray-500">Tanggal</p>
+                      <p className="text-sm font-semibold text-gray-900 break-words">
+                        {approval.work_date ? formatDate(approval.work_date) : approval.label || approval.approval_notes || '-'}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      {approval.employee_shift_notes && (
+                        <span className="inline-flex items-center rounded-full bg-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-700">
+                          Shift {approval.employee_shift_notes}
+                        </span>
+                      )}
+                      {approval.current_user_can_approve && (
+                        <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-1 text-[11px] font-medium text-blue-700">
+                          Tanggung jawab Anda
+                        </span>
+                      )}
+                      {approval.current_user_already_approved && (
+                        <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-1 text-[11px] font-medium text-green-700">
+                          Sudah Anda setujui
+                        </span>
+                      )}
+                    </div>
+
+                    <div>
+                      <p className="text-xs text-gray-500">Manager</p>
+                      {approval.manager ? (
+                        <div className="space-y-0.5">
+                          <p className="text-sm font-medium text-gray-900 break-words">{approval.manager.name}</p>
+                          <p className="text-xs text-gray-500 break-all">{approval.manager.email}</p>
+                          <p className="text-xs text-gray-500">{approval.manager.role}</p>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-amber-700 break-words">{approval.approval_notes || 'Manager untuk tanggal ini belum tersedia.'}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col items-start gap-2 sm:items-end">
+                    <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${getApprovalBadgeClass(approval)}`}>
+                      {approval.status_name}
+                    </span>
+                    {approval.approved_at && (
+                      <p className="text-xs text-gray-500 text-left sm:text-right">Diproses {formatDate(approval.approved_at)}</p>
+                    )}
+                    {approval.approval_notes && !approval.needs_assignment && (
+                      <p className="max-w-xs text-xs text-gray-600 break-words text-left sm:text-right">{approval.approval_notes}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )) : (
+              <div className="rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500">
+                Detail approval per tanggal belum tersedia.
+              </div>
+            )}
+          </div>
+        </div>
+
+        {!actionType && activeLeaveRequest.status === 'pending' && !canTakeAction && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+            {activeLeaveRequest.current_user_already_approved
+              ? 'Anda sudah menyetujui seluruh tanggal yang menjadi tanggung jawab Anda. Permohonan ini masih menunggu manager pada tanggal lainnya.'
+              : 'Tombol approve dan reject hanya tersedia untuk manager yang memang bertugas pada tanggal cuti tersebut.'}
+          </div>
+        )}
+
         {actionType ? (
           <div className={`p-4 rounded-xl ${actionType === 'approve' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
             <h4 className={`text-sm font-semibold mb-3 ${actionType === 'approve' ? 'text-green-800' : 'text-red-800'}`}>
-              {actionType === 'approve' ? '✓ Menyetujui Permohonan' : '✗ Menolak Permohonan'}
+              {actionType === 'approve' ? 'Menyetujui Tanggal Tanggung Jawab Anda' : 'Menolak Permohonan Cuti'}
             </h4>
+            {actionType === 'approve' && currentUserPendingDates.length > 0 && (
+              <p className="mb-3 text-xs text-green-700 break-words">
+                Persetujuan ini akan diterapkan untuk tanggal: {currentUserPendingDates.map((date) => formatDate(date)).join(', ')}.
+              </p>
+            )}
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-2">
                 Catatan {actionType === 'reject' && <span className="text-red-500">*</span>}
               </label>
               <textarea
                 value={approvalNotes}
-                onChange={(e) => setApprovalNotes(e.target.value)}
+                onChange={(event) => setApprovalNotes(event.target.value)}
                 rows={4}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 placeholder={actionType === 'approve' ? 'Tambahkan catatan (opsional)...' : 'Jelaskan alasan penolakan (wajib)...'}
@@ -293,7 +468,6 @@ const LeaveRequestApprovalModal: React.FC<LeaveRequestApprovalModalProps> = ({
           </div>
         ) : null}
 
-        {/* Action Buttons */}
         <div className="grid grid-cols-1 gap-3 pt-5 border-t sm:flex sm:justify-end sm:gap-3 sm:pt-4">
           {!actionType ? (
             <>
@@ -301,7 +475,7 @@ const LeaveRequestApprovalModal: React.FC<LeaveRequestApprovalModalProps> = ({
                 Tutup
               </Button>
 
-              {leaveRequest.status === 'pending' && (
+              {canTakeAction && (
                 <>
                   <Button
                     variant="outline"
