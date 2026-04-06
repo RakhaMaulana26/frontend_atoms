@@ -24,6 +24,7 @@ const waitForNextPaint = () => new Promise<void>((resolve) => window.requestAnim
 
 const ShiftSwapRequestsTable: React.FC<ShiftSwapRequestsTableProps> = ({
   onRequestNew,
+  rosterId,
   onRequestLeave,
 }) => {
   const { user } = useAuth();
@@ -42,8 +43,30 @@ const ShiftSwapRequestsTable: React.FC<ShiftSwapRequestsTableProps> = ({
   const [rejectingId, setRejectingId] = useState<number | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [pendingActionById, setPendingActionById] = useState<Record<number, string>>({});
+  const [managerStatus, setManagerStatus] = useState<{ is_role_manager: boolean; has_manager_duties: boolean; is_manager: boolean } | null>(null);
+  const [checkingManagerStatus, setCheckingManagerStatus] = useState(true);
 
-  const isManager = user?.role === 'Manager Teknik' || user?.role === 'General Manager';
+  // Check manager status including temporary duties
+  useEffect(() => {
+    const checkStatus = async () => {
+      try {
+        const result = await shiftRequestService.checkManagerStatus(
+          rosterId ? { roster_period_id: rosterId } : undefined
+        );
+        setManagerStatus(result.data);
+      } catch (error) {
+        console.error('Failed to check manager status:', error);
+        // Fallback to role-based check
+        const roleBasedCheck = user?.role === 'Manager Teknik' || user?.role === 'General Manager';
+        setManagerStatus({ is_role_manager: roleBasedCheck, has_manager_duties: false, is_manager: roleBasedCheck });
+      } finally {
+        setCheckingManagerStatus(false);
+      }
+    };
+    checkStatus();
+  }, [rosterId, user?.role]);
+
+  const isManager = managerStatus?.is_manager || false;
   const isAdmin = user?.role === 'Admin';
 
   const loadRequests = useCallback(async (silent = false) => {
@@ -57,6 +80,9 @@ const ShiftSwapRequestsTable: React.FC<ShiftSwapRequestsTableProps> = ({
       };
       if (statusFilter) {
         params.status = statusFilter;
+      }
+      if (rosterId) {
+        params.roster_period_id = rosterId;
       }
       
       const response = await shiftRequestService.getShiftRequests(params);
@@ -73,14 +99,20 @@ const ShiftSwapRequestsTable: React.FC<ShiftSwapRequestsTableProps> = ({
         setLoading(false);
       }
     }
-  }, [itemsPerPage, currentPage, statusFilter]);
+  }, [itemsPerPage, currentPage, statusFilter, rosterId]);
 
   useEffect(() => {
-    loadRequests();
-  }, [loadRequests]);
+    // Wait for manager status check to complete before loading requests
+    if (!checkingManagerStatus) {
+      loadRequests();
+    }
+  }, [loadRequests, checkingManagerStatus]);
 
   // Keep UI in sync with latest server state without forcing manual refresh.
   useEffect(() => {
+    // Only start polling after manager status check is complete
+    if (checkingManagerStatus) return;
+
     const intervalId = window.setInterval(() => {
       loadRequests(true);
     }, 10000);

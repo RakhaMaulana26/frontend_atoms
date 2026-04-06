@@ -12,6 +12,7 @@ interface ManagerInfo {
   user_id: number;
   name: string;
   notes: string;
+  is_temporary?: boolean;
 }
 
 interface SwapShiftModalProps {
@@ -172,27 +173,66 @@ const SwapShiftModal: React.FC<SwapShiftModalProps> = ({ isOpen, onClose, onSucc
     return partner?.available_shifts.find(s => s.shift_id === newShiftId && s.work_date === newDate);
   }, [availablePartners, selectedPartnerId, newShiftId, newDate]);
 
-  // Fetch manager for current shift when selected
+  // Fetch manager for current shift when selected (with retry logic)
   useEffect(() => {
-    const fetchCurrentManager = async () => {
+    const fetchCurrentManager = async (retryCount = 0) => {
       if (!selectedShift) {
         setCurrentShiftManager(null);
+        setLoadingCurrentManager(false);
         return;
       }
+
       setLoadingCurrentManager(true);
+      const maxRetries = 3;
+      const retryDelay = 500 * Math.pow(2, retryCount); // exponential backoff
+      let retryScheduled = false;
+
       try {
+        console.log('[SwapShiftModal] Fetching current manager', {
+          roster_day_id: selectedShift.roster_day_id,
+          notes: selectedShift.notes,
+          date: selectedShift.work_date,
+        });
+
         const result = await shiftRequestService.getManagerForShift({
           roster_day_id: selectedShift.roster_day_id,
           notes: selectedShift.notes
         });
-        setCurrentShiftManager(result.data);
-      } catch (error) {
-        console.error('Failed to load current shift manager:', error);
+
+        console.log('[SwapShiftModal] Manager fetch result:', {
+          data: result.data,
+          notes: selectedShift.notes,
+        });
+
+        if (result.data) {
+          setCurrentShiftManager(result.data);
+        } else {
+          // No manager found, but that's OK - could be regular employee
+          setCurrentShiftManager(null);
+          console.warn('[SwapShiftModal] No manager assigned for current shift', {
+            notes: selectedShift.notes,
+          });
+        }
+      } catch (error: any) {
+        console.error('[SwapShiftModal] Failed to load current shift manager:', error);
+
+        // Retry logic
+        if (retryCount < maxRetries) {
+          console.log(`[SwapShiftModal] Retrying manager fetch (attempt ${retryCount + 1}/${maxRetries})...`);
+          retryScheduled = true;
+          setTimeout(() => fetchCurrentManager(retryCount + 1), retryDelay);
+          return;
+        }
+
+        // After max retries, set to null
         setCurrentShiftManager(null);
       } finally {
-        setLoadingCurrentManager(false);
+        if (!retryScheduled) {
+          setLoadingCurrentManager(false);
+        }
       }
     };
+
     fetchCurrentManager();
   }, [selectedShift?.roster_day_id, selectedShift?.notes]);
 
@@ -208,27 +248,66 @@ const SwapShiftModal: React.FC<SwapShiftModalProps> = ({ isOpen, onClose, onSucc
     }
   }, [selectedShift?.roster_day_id, selectedShift?.notes]);
 
-  // Fetch manager for requested shift when selected
+  // Fetch manager for requested shift when selected (with retry logic)
   useEffect(() => {
-    const fetchRequestedManager = async () => {
+    const fetchRequestedManager = async (retryCount = 0) => {
       if (!selectedPartnerShift) {
         setRequestedShiftManager(null);
+        setLoadingRequestedManager(false);
         return;
       }
+
       setLoadingRequestedManager(true);
+      const maxRetries = 3;
+      const retryDelay = 500 * Math.pow(2, retryCount); // exponential backoff
+      let retryScheduled = false;
+
       try {
+        console.log('[SwapShiftModal] Fetching requested manager', {
+          roster_day_id: selectedPartnerShift.roster_day_id,
+          notes: selectedPartnerShift.notes,
+          date: selectedPartnerShift.work_date,
+        });
+
         const result = await shiftRequestService.getManagerForShift({
           roster_day_id: selectedPartnerShift.roster_day_id,
           notes: selectedPartnerShift.notes
         });
-        setRequestedShiftManager(result.data);
-      } catch (error) {
-        console.error('Failed to load requested shift manager:', error);
+
+        console.log('[SwapShiftModal] Requested manager fetch result:', {
+          data: result.data,
+          notes: selectedPartnerShift.notes,
+        });
+
+        if (result.data) {
+          setRequestedShiftManager(result.data);
+        } else {
+          // No manager found, but that's OK
+          setRequestedShiftManager(null);
+          console.warn('[SwapShiftModal] No manager assigned for requested shift', {
+            notes: selectedPartnerShift.notes,
+          });
+        }
+      } catch (error: any) {
+        console.error('[SwapShiftModal] Failed to load requested shift manager:', error);
+
+        // Retry logic
+        if (retryCount < maxRetries) {
+          console.log(`[SwapShiftModal] Retrying requested manager fetch (attempt ${retryCount + 1}/${maxRetries})...`);
+          retryScheduled = true;
+          setTimeout(() => fetchRequestedManager(retryCount + 1), retryDelay);
+          return;
+        }
+
+        // After max retries, set to null
         setRequestedShiftManager(null);
       } finally {
-        setLoadingRequestedManager(false);
+        if (!retryScheduled) {
+          setLoadingRequestedManager(false);
+        }
       }
     };
+
     fetchRequestedManager();
   }, [selectedPartnerShift?.roster_day_id, selectedPartnerShift?.notes]);
 
@@ -450,6 +529,19 @@ const SwapShiftModal: React.FC<SwapShiftModalProps> = ({ isOpen, onClose, onSucc
                     <span className="absolute right-3 text-xs text-gray-400">(auto-filled)</span>
                   </div>
                 </div>
+
+                <div className="mb-4">
+                  <label className="block text-xs font-medium text-[#222E6A] mb-1.5">Kelas Jabatan</label>
+                  <input
+                    type="text"
+                    value={user?.grade != null ? `Level ${user.grade}` : '-'}
+                    disabled
+                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700"
+                  />
+                  <p className="text-[11px] text-gray-500 mt-1">
+                    Aturan swap kelas: sama kelas, atau pasangan 14-13, 12-11, serta grup level 8-9-10. Level 15 hanya dengan kelas yang sama.
+                  </p>
+                </div>
               </div>
 
               {/* Current Shift Section */}
@@ -522,11 +614,21 @@ const SwapShiftModal: React.FC<SwapShiftModalProps> = ({ isOpen, onClose, onSucc
                       {loadingCurrentManager ? (
                         <Loader2 className="w-3 h-3 animate-spin text-blue-600" />
                       ) : currentShiftManager ? (
-                        <span className="text-xs text-blue-800 font-semibold">{currentShiftManager.name}</span>
+                        <>
+                          <span className="text-xs text-blue-800 font-semibold">{currentShiftManager.name}</span>
+                          {currentShiftManager.is_temporary && (
+                            <span className="text-[10px] bg-blue-200 text-blue-700 px-1.5 py-0.5 rounded">Temp</span>
+                          )}
+                        </>
                       ) : (
                         <span className="text-xs text-blue-500 italic">No manager assigned</span>
                       )}
                     </div>
+                    {selectedShift && (
+                      <div className="text-[9px] text-gray-500 mt-1">
+                        Date: {formatDate(selectedShift.work_date)}, Shift: {selectedShift.notes}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -604,11 +706,21 @@ const SwapShiftModal: React.FC<SwapShiftModalProps> = ({ isOpen, onClose, onSucc
                       {loadingRequestedManager ? (
                         <Loader2 className="w-3 h-3 animate-spin text-green-600" />
                       ) : requestedShiftManager ? (
-                        <span className="text-xs text-green-800 font-semibold">{requestedShiftManager.name}</span>
+                        <>
+                          <span className="text-xs text-green-800 font-semibold">{requestedShiftManager.name}</span>
+                          {requestedShiftManager.is_temporary && (
+                            <span className="text-[10px] bg-green-200 text-green-700 px-1.5 py-0.5 rounded">Temp</span>
+                          )}
+                        </>
                       ) : (
                         <span className="text-xs text-green-500 italic">No manager assigned</span>
                       )}
                     </div>
+                    {selectedPartnerShift && (
+                      <div className="text-[9px] text-gray-500 mt-1">
+                        Date: {formatDate(selectedPartnerShift.work_date)}, Shift: {selectedPartnerShift.notes}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -633,7 +745,7 @@ const SwapShiftModal: React.FC<SwapShiftModalProps> = ({ isOpen, onClose, onSucc
                       <option value="">Select Partner</option>
                       {eligiblePartners.map(partner => (
                         <option key={partner.employee_id} value={partner.employee_id}>
-                          {partner.employee_name}
+                          {`${partner.employee_name} (${partner.grade != null ? `Level ${partner.grade}` : 'Level -'})`}
                         </option>
                       ))}
                     </select>
@@ -645,7 +757,7 @@ const SwapShiftModal: React.FC<SwapShiftModalProps> = ({ isOpen, onClose, onSucc
                   </div>
                   <p className="text-xs text-gray-400 mt-1.5 flex items-center gap-1">
                     <span className="inline-block w-3 h-3 rounded-full bg-gray-300 text-[8px] flex items-center justify-center text-white">i</span>
-                    Only staff with selected shift on that date will appear
+                    Hanya partner yang sesuai kelas jabatan dan punya shift pada tanggal/shift terpilih yang ditampilkan
                   </p>
                 </div>
               </div>

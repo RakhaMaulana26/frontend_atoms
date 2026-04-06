@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect, use
 import type { ReactNode } from 'react';
 import type { User, Notification } from '../types';
 import type { RosterPeriod } from '../modules/roster/types/roster';
+import type { LeaveRequest } from '../modules/roster/types/leaveRequest';
 import type { ActivityLog, ActivityLogStatistics } from '../services/activityLogService';
 import { adminService } from '../services/adminService';
 import { notificationService } from '../modules/notifications/repository/notificationService';
@@ -79,6 +80,7 @@ interface DataCacheContextType {
   addRoster: (roster: RosterPeriod) => void;
   updateRosterInList: (rosterId: number, updates: Partial<RosterPeriod>) => void;
   updateRosterDetail: (rosterId: number, updatedRoster: RosterPeriod) => void;
+  applyApprovedLeaveToRosterCache: (leaveRequest: LeaveRequest) => void;
   refreshActivities: () => Promise<void>;
 }
 
@@ -112,11 +114,12 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
     rosterDetails: false,
     activities: false
   });
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   
   // Track if initial load has been triggered to prevent multiple calls
   const hasInitialLoadStartedRef = useRef(false);
   const isLoadingAllDataRef = useRef(false);
+  const lastUserIdRef = useRef<number | null>(null);
 
   // Calculate unread notifications count from inbox category
   const unreadNotificationCount = useMemo(() => {
@@ -295,6 +298,116 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
       ...prev,
       [rosterId]: updatedRoster
     }));
+  }, []);
+
+  // Apply final approved leave directly into in-memory roster cache (no hard refresh needed).
+  const applyApprovedLeaveToRosterCache = useCallback((leaveRequest: LeaveRequest) => {
+    if (leaveRequest.status !== 'approved') {
+      return;
+    }
+
+    if (!leaveRequest.start_date || !leaveRequest.end_date || !leaveRequest.employee_id) {
+      return;
+    }
+
+    const leaveMapping = (() => {
+      switch (leaveRequest.request_type) {
+        case 'doctor_leave':
+          return { shiftName: 'cuti_sakit', notes: 'CS - Cuti Sakit' };
+        case 'external_duty':
+          return { shiftName: 'dinas_luar', notes: 'DL - Dinas Luar' };
+        case 'educational_assignment':
+          return { shiftName: 'dinas_luar', notes: 'TP - Tugas Pendidikan' };
+        case 'annual_leave':
+        default:
+          return { shiftName: 'cuti_tahunan', notes: 'CT - Cuti Tahunan' };
+      }
+    })();
+
+    setRosterDetails((prev) => {
+      let hasAnyRosterChanged = false;
+      const next: Record<number, RosterPeriod> = { ...prev };
+
+      Object.entries(prev).forEach(([rosterIdKey, rosterDetail]) => {
+        if (!rosterDetail?.roster_days?.length) {
+          return;
+        }
+
+        const leaveShift = rosterDetail.all_shifts?.find((shift) =>
+          shift.name.toLowerCase() === leaveMapping.shiftName
+        );
+
+        let rosterChanged = false;
+        const nextRosterDays = rosterDetail.roster_days.map((rosterDay) => {
+          if (
+            !rosterDay.work_date ||
+            rosterDay.work_date < leaveRequest.start_date ||
+            rosterDay.work_date > leaveRequest.end_date
+          ) {
+            return rosterDay;
+          }
+
+          const currentAssignments = rosterDay.shift_assignments || [];
+          const assignmentIndex = currentAssignments.findIndex(
+            (assignment) => assignment.employee_id === leaveRequest.employee_id
+          );
+
+          if (assignmentIndex >= 0) {
+            const targetAssignment = currentAssignments[assignmentIndex];
+            const updatedAssignment = {
+              ...targetAssignment,
+              shift_id: leaveShift?.id ?? targetAssignment.shift_id,
+              notes: leaveMapping.notes,
+              span_days: 1,
+              shift: leaveShift ?? targetAssignment.shift,
+            };
+
+            const updatedAssignments = [...currentAssignments];
+            updatedAssignments[assignmentIndex] = updatedAssignment;
+            rosterChanged = true;
+
+            return {
+              ...rosterDay,
+              shift_assignments: updatedAssignments,
+            };
+          }
+
+          const employee = rosterDetail.all_employees?.find((item) => item.id === leaveRequest.employee_id);
+          if (!employee) {
+            return rosterDay;
+          }
+
+          const newAssignment = {
+            id: -(Number(rosterDay.id) * 100000 + leaveRequest.employee_id),
+            roster_day_id: rosterDay.id,
+            employee_id: leaveRequest.employee_id,
+            shift_id: leaveShift?.id ?? null,
+            notes: leaveMapping.notes,
+            span_days: 1,
+            created_at: new Date().toISOString(),
+            employee,
+            shift: leaveShift ?? null,
+          };
+
+          rosterChanged = true;
+
+          return {
+            ...rosterDay,
+            shift_assignments: [...currentAssignments, newAssignment],
+          };
+        });
+
+        if (rosterChanged) {
+          hasAnyRosterChanged = true;
+          next[Number(rosterIdKey)] = {
+            ...rosterDetail,
+            roster_days: nextRosterDays,
+          };
+        }
+      });
+
+      return hasAnyRosterChanged ? next : prev;
+    });
   }, []);
 
   // Load notifications data
@@ -476,6 +589,71 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
       hasInitialLoadStartedRef.current = false;
     }
   }, [isAuthenticated, isInitialized, loadAllData]);
+
+  // Handle account switch in same browser session (without full page reload)
+  useEffect(() => {
+    const currentUserId = user?.id ? Number(user.id) : null;
+
+    if (!isAuthenticated || currentUserId === null) {
+      lastUserIdRef.current = null;
+      return;
+    }
+
+    if (lastUserIdRef.current !== null && lastUserIdRef.current !== currentUserId) {
+      // Clear user-scoped caches so previous account data does not leak/stale.
+      setNotifications([]);
+      setNotificationsByCategory({
+        inbox: [],
+        starred: [],
+        sent: [],
+        trash: [],
+      });
+      setNotificationStats({
+        inbox: 0,
+        starred: 0,
+        sent: 0,
+        trash: 0,
+      });
+
+      // Force re-initialization for the new account.
+      setIsInitialized(false);
+      hasInitialLoadStartedRef.current = false;
+    }
+
+    lastUserIdRef.current = currentUserId;
+  }, [isAuthenticated, user?.id]);
+
+  // Keep notifications fresh: poll periodically and refresh on window focus/tab visibility.
+  useEffect(() => {
+    if (!isAuthenticated || !isInitialized) return;
+
+    const refreshNotificationsRealtime = () => {
+      loadNotificationsByCategory();
+      loadNotifications();
+    };
+
+    const intervalId = window.setInterval(() => {
+      if (!document.hidden) {
+        refreshNotificationsRealtime();
+      }
+    }, 7000);
+
+    const onFocus = () => refreshNotificationsRealtime();
+    const onVisibilityChange = () => {
+      if (!document.hidden) {
+        refreshNotificationsRealtime();
+      }
+    };
+
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [isAuthenticated, isInitialized, loadNotificationsByCategory, loadNotifications]);
 
   // Add new user to cache
   const addUser = useCallback((user: User) => {
@@ -807,6 +985,7 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
         addRoster,
         updateRosterInList,
         updateRosterDetail,
+        applyApprovedLeaveToRosterCache,
         refreshActivities,
       }}
     >

@@ -54,6 +54,22 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ statusFilter = 
     fetchLeaveRequests(); // Refresh the list
   };
 
+  const getLeaveTypeLabel = (request: LeaveRequest) => {
+    if (request.request_type === 'doctor_leave') {
+      return 'Cuti Sakit';
+    }
+
+    if (request.request_type === 'annual_leave') {
+      return 'Cuti Kepentingan';
+    }
+
+    if (request.request_type === 'external_duty') {
+      return request.institution ? `TPO - ${request.institution}` : 'TPO';
+    }
+
+    return request.request_type_name;
+  };
+
   const getStatusBadge = (status: string) => {
     const badges = {
       pending: 'bg-yellow-100 text-yellow-800',
@@ -126,7 +142,7 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ statusFilter = 
             <div className="grid grid-cols-2 gap-3 text-xs mb-3">
               <div>
                 <p className="text-gray-500">Jenis Cuti</p>
-                <p className="font-medium text-gray-900 mt-0.5">{request.request_type_name}</p>
+                <p className="font-medium text-gray-900 mt-0.5">{getLeaveTypeLabel(request)}</p>
               </div>
               <div>
                 <p className="text-gray-500">Total Hari</p>
@@ -209,7 +225,7 @@ const LeaveRequestsTable: React.FC<LeaveRequestsTableProps> = ({ statusFilter = 
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">{request.request_type_name}</div>
+                  <div className="text-sm text-gray-900">{getLeaveTypeLabel(request)}</div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm text-gray-900">

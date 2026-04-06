@@ -4,7 +4,7 @@ import { toast } from 'react-toastify';
 import { Input, PageHeader, Button, Modal, Select } from '../../../components';
 import SwapShiftModal from '../../../components/modals/roster/SwapShiftModal';
 // import ConfigureSwapShiftModal from '../../../components/modals/roster/ConfigureSwapShiftModal';
-import { Calendar, Plus, X, Upload, FileSpreadsheet, CheckCircle, AlertCircle, Sparkles, Link, Edit2, Trash2, RefreshCw, ArrowUpToLine, ArrowLeftRight, Eye, XCircle } from 'lucide-react';
+import { Calendar, Plus, X, Upload, FileSpreadsheet, CheckCircle, AlertCircle, Sparkles, Link, Edit2, Trash2, RefreshCw, ArrowUpToLine, Eye, XCircle } from 'lucide-react';
 import { useDataCache } from '../../../contexts/DataCacheContext';
 import { useAuth } from '../../auth/core/AuthContext';
 import { rosterService } from '../repository/rosterService';
@@ -703,7 +703,6 @@ const RostersPage: React.FC = () => {
   const [unpublishingRosterId, setUnpublishingRosterId] = useState<number | null>(null);
   const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
   const [rosterToPublish, setRosterToPublish] = useState<RosterPeriod | null>(null);
-  const [skipValidation, setSkipValidation] = useState(false);
   const navigate = useNavigate();
 
   const handleCreateSuccess = (roster: RosterPeriod) => {
@@ -780,7 +779,6 @@ const RostersPage: React.FC = () => {
   const closePublishModal = () => {
     setIsPublishModalOpen(false);
     setRosterToPublish(null);
-    setSkipValidation(false);
   };
 
   const handlePublishRoster = async () => {
@@ -793,7 +791,7 @@ const RostersPage: React.FC = () => {
     closePublishModal();
     
     try {
-      await rosterService.publishRoster(rosterToPublish.id, skipValidation);
+      await rosterService.publishRoster(rosterToPublish.id, true);
       toast.success('Roster berhasil dipublish!');
     } catch (error: any) {
       console.error('Failed to publish roster:', error);
@@ -1098,7 +1096,7 @@ const RostersPage: React.FC = () => {
                   )}
                   
                   {/* View Details button - separate row on desktop for all users */}
-                  <div className="hidden sm:block mb-2">
+                  <div className="hidden sm:block mb-1">
                     <button
                       onClick={() => navigate(`/rosters/${roster.id}`)}
                       className="w-full text-xs sm:text-sm border border-gray-300 rounded px-2 py-1.5 sm:py-2 text-gray-800 hover:bg-gray-50 font-medium transition-colors"
@@ -1170,14 +1168,14 @@ const RostersPage: React.FC = () => {
                   
                   {/* Unpublish button (+ View on mobile) - for published rosters only */}
                   {canManageRoster && roster.status === 'published' && (
-                    <div className="flex gap-2">
+                    <div className="space-y-1 px-2">
                       {/* View Details on mobile only */}
                       <Button
                         onClick={() => navigate(`/rosters/${roster.id}`)}
                         variant="outline"
                         size="sm"
                         leftIcon={<Eye className="h-3 w-3 sm:h-4 sm:w-4" />}
-                        className="sm:hidden flex-1 text-xs !border-gray-300 !text-gray-800 hover:!bg-gray-50"
+                        className="sm:hidden w-full text-xs !border-gray-300 !text-gray-800 hover:!bg-gray-50"
                         effect3d={false}
                       >
                         View
@@ -1189,8 +1187,9 @@ const RostersPage: React.FC = () => {
                         }}
                         variant="outline"
                         size="sm"
+                        fullWidth
                         leftIcon={<XCircle className={`h-3 w-3 sm:h-4 sm:w-4 ${unpublishingRosterId === roster.id ? 'animate-pulse' : ''}`} />}
-                        className="flex-1 text-xs sm:text-sm !border-orange-300 !text-orange-600 hover:!bg-orange-50"
+                        className="w-full text-xs sm:text-sm !border-red-400 !text-red-600 hover:!bg-red-50"
                         effect3d={false}
                         disabled={unpublishingRosterId === roster.id}
                       >
@@ -1289,24 +1288,6 @@ const RostersPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Skip Validation Option */}
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={skipValidation}
-                onChange={(e) => setSkipValidation(e.target.checked)}
-                className="mt-1 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-              />
-              <div>
-                <span className="font-semibold text-gray-800">Lewati Validasi (Force Publish)</span>
-                <p className="text-sm text-gray-600 mt-1">
-                  Centang opsi ini jika ingin publish roster tanpa memeriksa kelengkapan shift (4 CNS, 2 Support, 1 Manager per shift).
-                </p>
-              </div>
-            </label>
-          </div>
-
           <div className="flex gap-3 pt-4 border-t">
             <Button
               variant="outline"
@@ -1320,10 +1301,10 @@ const RostersPage: React.FC = () => {
               variant="primary"
               onClick={handlePublishRoster}
               isLoading={publishingRosterId !== null}
-              className="flex-1 bg-green-600 hover:bg-green-700"
+              className="flex-1 bg-[#222E6A] hover:bg-[#1a2452]"
             >
               <CheckCircle className="h-4 w-4 mr-2" />
-              {skipValidation ? 'Force Publish' : 'Publish Roster'}
+              Publish Roster
             </Button>
           </div>
         </div>

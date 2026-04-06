@@ -393,6 +393,86 @@ export const rosterService = {
     return response.data;
   },
 
+  /**
+   * Add manager to roster (grade 13-14 only)
+   * POST /rosters/:id/managers/add
+   */
+  async addManagerToRoster(rosterId: number, employeeId: number): Promise<{
+    message: string;
+    data: {
+      employee_id: number;
+      employee_name: string;
+      days_added: number;
+      total_days: number;
+    };
+  }> {
+    const response = await apiClient.post(`/rosters/${rosterId}/managers/add`, {
+      employee_id: employeeId,
+    });
+    return response.data;
+  },
+
+  /**
+   * Remove manager from roster
+   * DELETE /rosters/:id/managers/:employeeId
+   */
+  async removeManagerFromRoster(rosterId: number, employeeId: number): Promise<{
+    message: string;
+    data: {
+      employee_id: number;
+      employee_name: string;
+      days_removed: number;
+    };
+  }> {
+    const response = await apiClient.delete(`/rosters/${rosterId}/managers/${employeeId}`);
+    return response.data;
+  },
+
+  /**
+   * Assign CNS/Support employee into specific group number
+   * POST /rosters/:id/groups/assign
+   */
+  async assignEmployeeToGroup(
+    rosterId: number,
+    employeeId: number,
+    employeeType: 'CNS' | 'Support',
+    groupNumber: number
+  ): Promise<{
+    message: string;
+    data: {
+      employee_id: number;
+      employee_name: string;
+      employee_type: 'CNS' | 'Support';
+      old_group: number | null;
+      new_group: number;
+    };
+  }> {
+    const response = await apiClient.post(`/rosters/${rosterId}/groups/assign`, {
+      employee_id: employeeId,
+      employee_type: employeeType,
+      group_number: groupNumber,
+    });
+    return response.data;
+  },
+
+  /**
+   * Remove CNS/Support employee from group formation (group_number -> 0)
+   * DELETE /rosters/:id/groups/:employeeId
+   */
+  async removeEmployeeFromGroup(rosterId: number, employeeId: number): Promise<{
+    message: string;
+    data: {
+      employee_id: number;
+      employee_name: string;
+      employee_type: 'CNS' | 'Support';
+      old_group: number | null;
+      new_group: number;
+    };
+  }> {
+    const response = await apiClient.delete(`/rosters/${rosterId}/groups/${employeeId}`);
+    return response.data;
+  },
+
   // Helper functions
   helpers: {
     /**

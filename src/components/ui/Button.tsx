@@ -9,6 +9,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   rightIcon?: React.ReactNode;
   children: React.ReactNode;
   effect3d?: boolean;
+  fullWidth?: boolean;
 }
 
 const Button: React.FC<ButtonProps> = ({
@@ -21,6 +22,7 @@ const Button: React.FC<ButtonProps> = ({
   className = '',
   disabled,
   effect3d = true,
+  fullWidth = false,
   ...props
 }) => {
   // Base classes with 3D effect - removed focus ring for cleaner look
@@ -66,9 +68,9 @@ const Button: React.FC<ButtonProps> = ({
   const isDisabled = disabled || isLoading;
 
   return (
-    <div className={`inline-flex group ${effect3d ? wrapperHeightClasses[size] : ''} items-end`}>
+    <div className={`${fullWidth ? 'w-full' : 'inline-flex'} group ${effect3d ? wrapperHeightClasses[size] : ''} items-end`}>
       <button
-        className={`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
+        className={`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${fullWidth ? 'w-full' : ''} ${className}`}
         disabled={isDisabled}
         {...props}
       >

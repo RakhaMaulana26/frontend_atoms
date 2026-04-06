@@ -8,7 +8,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { toast } from 'react-toastify';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import type { RosterPeriod, Shift, Employee, ShiftAssignment } from '../types/roster';
+import type { RosterPeriod, Shift, Employee, ShiftAssignment, ManagerDuty } from '../types/roster';
 import { useAuth } from '../../auth/core/AuthContext';
 import { rosterService } from '../repository/rosterService';
 import { useDataCache } from '../../../contexts/DataCacheContext';
@@ -21,6 +21,20 @@ interface RosteredStaffPersonViewProps {
 type EmployeeRosterRow = {
   employee: Employee;
   assignmentsByDay: Map<number, ShiftAssignment>; // day number -> assignment
+};
+
+type ReassignDestination =
+  | { kind: 'manager' }
+  | { kind: 'group'; groupNumber: number };
+
+type PendingRemovalReassign = {
+  employeeId: number;
+  employeeName: string;
+  employeeType: 'CNS' | 'Support';
+  sourceType: 'Manager Teknik' | 'CNS' | 'Support';
+  employeeGrade: number;
+  currentGroup: number;
+  availableDestinations: ReassignDestination[];
 };
 
 const waitForNextPaint = () => new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
@@ -39,7 +53,11 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
   const [toolbarPosition, setToolbarPosition] = useState<{ top: number; left: number } | null>(null);
   const [autoFillPattern, setAutoFillPattern] = useState(false);
   const [applyToGroup, setApplyToGroup] = useState(false);
+  const [showFullMonth, setShowFullMonth] = useState(false);
   const [optimisticAssignments, setOptimisticAssignments] = useState<Record<string, ShiftAssignment>>({});
+  const [addingManagerToGroup, setAddingManagerToGroup] = useState<{ type: string; groupNum: number } | null>(null);
+  const [addGroupSearch, setAddGroupSearch] = useState('');
+  const [pendingRemovalReassign, setPendingRemovalReassign] = useState<PendingRemovalReassign | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const tableContainerRef = useRef<HTMLDivElement>(null);
@@ -183,6 +201,13 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
   };
 
   const shiftOptions = getShiftOptions();
+  const specialStatusOptions = [
+    { label: 'Cuti Kepentingan', note: 'Cuti Kepentingan' },
+    { label: 'Cuti Sakit', note: 'Cuti Sakit' },
+    { label: 'TPO Malang', note: 'TPO Malang' },
+    { label: 'TPO Dhoho', note: 'TPO Dhoho' },
+    { label: 'TPO Sumenep', note: 'TPO Sumenep' },
+  ];
 
   const getCellKey = (employeeId: number, day: number) => `${employeeId}-${day}`;
 
@@ -355,6 +380,8 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
     const employeeData = allEmployees.get(startCell.employeeId);
     if (!employeeData) return;
 
+    const baseRoster = getRosterDetail(roster.id) || roster;
+
     // Update optimistically - group by date
     const cellsByDate: Record<string, Array<{ day: number; patternValue: string }>> = {};
     patternCells.forEach(pc => {
@@ -365,7 +392,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
       cellsByDate[dateStr].push({ day: pc.day, patternValue: pc.patternValue });
     });
 
-    let updatedRoster = { ...roster };
+    let updatedRoster = { ...baseRoster };
 
     // Update each date with corresponding pattern shift
     for (const [dateStr, cells] of Object.entries(cellsByDate)) {
@@ -412,6 +439,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
 
     const affectedCells = patternCells.map((pc) => ({ employeeId: startCell.employeeId, day: pc.day }));
     setOptimisticAssignmentsFromRoster(updatedRoster, affectedCells);
+    updateRosterDetail(roster.id, updatedRoster as RosterPeriod);
 
     // Clear selection
     setSelectedCells([]);
@@ -534,7 +562,8 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
     const allEmployees = getAllUniqueEmployees();
     const dateStr = `${roster.year}-${String(roster.month).padStart(2, '0')}-${String(startCell.day).padStart(2, '0')}`;
     
-    let updatedRoster = { ...roster };
+    const baseRoster = getRosterDetail(roster.id) || roster;
+    let updatedRoster = { ...baseRoster };
     const rosterDay = updatedRoster.roster_days?.find(d => d.work_date === dateStr);
     
     if (rosterDay) {
@@ -574,6 +603,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
     }
 
     setOptimisticAssignmentsFromRoster(updatedRoster, cellsToUpdate);
+    updateRosterDetail(roster.id, updatedRoster as RosterPeriod);
 
     // Clear selection
     setSelectedCells([]);
@@ -671,7 +701,8 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
       cellsByDate[dateStr].push({ employeeId: pc.employeeId, patternValue: pc.patternValue });
     });
 
-    let updatedRoster = { ...roster };
+    const baseRoster = getRosterDetail(roster.id) || roster;
+    let updatedRoster = { ...baseRoster };
 
     for (const [dateStr, cells] of Object.entries(cellsByDate)) {
       const rosterDay = updatedRoster.roster_days?.find(d => d.work_date === dateStr);
@@ -720,6 +751,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
 
     const affectedCells = allPatternCells.map((cell) => ({ employeeId: cell.employeeId, day: cell.day }));
     setOptimisticAssignmentsFromRoster(updatedRoster, affectedCells);
+    updateRosterDetail(roster.id, updatedRoster as RosterPeriod);
 
     // Clear selection
     setSelectedCells([]);
@@ -856,7 +888,8 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
       return acc;
     }, {} as Record<string, Array<{ employeeId: number; day: number }>>);
     
-    let updatedRoster = { ...roster };
+    const baseRoster = getRosterDetail(roster.id) || roster;
+    let updatedRoster = { ...baseRoster };
     
     // Process all updates per date to avoid stale references
     for (const [dateStr, cells] of Object.entries(cellsByDate)) {
@@ -905,6 +938,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
 
     const affectedCells = [...selectedCells];
     setOptimisticAssignmentsFromRoster(updatedRoster, affectedCells);
+    updateRosterDetail(roster.id, updatedRoster as RosterPeriod);
 
     // Clear selection and close editor
     setSelectedCells([]);
@@ -979,7 +1013,14 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
     };
   }, []);
 
+  useEffect(() => {
+    if (!addingManagerToGroup) {
+      setAddGroupSearch('');
+    }
+  }, [addingManagerToGroup]);
+
   const handleShiftChange = async (employeeId: number, day: number, optionValue: string, customNote?: string) => {
+    const baseRoster = getRosterDetail(roster.id) || roster;
     const option = shiftOptions.find(o => o.value === optionValue);
     if (!option || !option.shiftId) {
       console.error('Option not found or missing shiftId:', optionValue, option);
@@ -988,7 +1029,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
 
     // Find the roster day
     const dateStr = `${roster.year}-${String(roster.month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    const rosterDay = roster.roster_days?.find(d => d.work_date === dateStr);
+    const rosterDay = baseRoster.roster_days?.find(d => d.work_date === dateStr);
     
     if (!rosterDay) {
       console.error('Roster day not found');
@@ -997,6 +1038,13 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
 
     // Find existing assignment to get employee data
     const existingAssignment = rosterDay.shift_assignments?.find(a => a.employee_id === employeeId);
+
+    const allEmployees = getAllUniqueEmployees();
+    const employeeData = existingAssignment?.employee || allEmployees.get(employeeId);
+    if (!employeeData) {
+      console.error('Employee data not found for optimistic update');
+      return;
+    }
     
     // Get the actual shift from the database using shift_id
     const selectedShift = shifts.find(s => s.id === option.shiftId);
@@ -1018,7 +1066,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
       notes: finalNotes,
       span_days: 1,
       created_at: new Date().toISOString(),
-      employee: existingAssignment?.employee || {} as any,
+      employee: employeeData,
       shift: selectedShift,
     };
 
@@ -1027,6 +1075,21 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
       ...prev,
       [getCellKey(employeeId, day)]: optimisticAssignment as ShiftAssignment,
     }));
+
+    // Also update cached roster immediately so UI changes without waiting API
+    const optimisticAssignments = [
+      ...(rosterDay.shift_assignments?.filter(a => a.employee_id !== employeeId) || []),
+      optimisticAssignment as ShiftAssignment,
+    ];
+
+    const optimisticRosterDays = baseRoster.roster_days?.map(d =>
+      d.id === rosterDay.id ? { ...d, shift_assignments: optimisticAssignments } : d
+    );
+
+    updateRosterDetail(roster.id, {
+      ...baseRoster,
+      roster_days: optimisticRosterDays,
+    } as RosterPeriod);
 
     // Close dropdown immediately
     setEditingCell(null);
@@ -1058,12 +1121,13 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
           shift_assignments: finalUpdatedAssignments
         };
 
-        const finalRosterDays = roster.roster_days?.map(d => 
+        const currentRoster = getRosterDetail(roster.id) || baseRoster;
+        const finalRosterDays = currentRoster.roster_days?.map(d => 
           d.id === rosterDay.id ? finalRosterDay : d
         );
 
         updateRosterDetail(roster.id, {
-          ...roster,
+          ...currentRoster,
           roster_days: finalRosterDays,
         });
       }
@@ -1106,11 +1170,11 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
     if (note === 'malam' || note === 'm') return 'bg-emerald-600 text-white font-semibold';
     
     // Status karyawan dengan warna yang lebih kontras dan mudah dibedakan
-    if (note === 'l' || note === 'libur' || note === 'off') return 'bg-slate-400 text-white font-semibold';
-    if (note === 'ct' || note === 'cuti tahunan') return 'bg-amber-400 text-gray-900 font-semibold';
+    if (note === 'l' || note === 'libur' || note === 'off') return 'bg-red-500 text-white font-semibold';
+    if (note === 'ck' || note === 'cuti kepentingan' || note === 'ct' || note === 'cuti tahunan') return 'bg-amber-400 text-gray-900 font-semibold';
     if (note === 'cs' || note === 'cuti sakit' || note === 'cuti dokter') return 'bg-rose-500 text-white font-semibold';
     if (note === 'oh' || note === 'office hour') return 'bg-cyan-500 text-white font-semibold';
-    if (note === 'dl' || note === 'dinas luar') return 'bg-teal-500 text-white font-semibold';
+    if (note === 'tpo' || note.startsWith('tpo ') || note === 'dl' || note === 'dinas luar') return 'bg-teal-500 text-white font-semibold';
     if (note === 'tb' || note === 'tugas belajar') return 'bg-indigo-500 text-white font-semibold';
     if (note === '-' || note === 'lepas malam' || note === 'lepas dinas malam') return 'bg-gray-600 text-white font-semibold';
     if (note === 'sc' || note === 'standby on call' || note === 'stby') return 'bg-purple-500 text-white font-semibold';
@@ -1122,11 +1186,11 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
     if (note.includes('pagi')) return 'bg-blue-500 text-white font-semibold';
     if (note.includes('siang')) return 'bg-orange-500 text-white font-semibold';
     if (note.includes('malam')) return 'bg-emerald-600 text-white font-semibold';
-    if (note.includes('cuti tahunan')) return 'bg-amber-400 text-gray-900 font-semibold';
+    if (note.includes('cuti kepentingan') || note.includes('cuti tahunan')) return 'bg-amber-400 text-gray-900 font-semibold';
     if (note.includes('cuti sakit') || note.includes('cuti dokter')) return 'bg-rose-500 text-white font-semibold';
     if (note.includes('office hour')) return 'bg-cyan-500 text-white font-semibold';
     if (note.includes('standby')) return 'bg-purple-500 text-white font-semibold';
-    if (note.includes('dinas luar')) return 'bg-teal-500 text-white font-semibold';
+    if (note.includes('tpo') || note.includes('dinas luar')) return 'bg-teal-500 text-white font-semibold';
     if (note.includes('lepas')) return 'bg-gray-600 text-white font-semibold';
     if (note.includes('tugas belajar')) return 'bg-indigo-500 text-white font-semibold';
     if (note.includes('cuti') || note.includes('leave')) return 'bg-yellow-500 text-gray-900 font-semibold';
@@ -1155,6 +1219,13 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
     }
     // Remove "Dinas" prefix from notes
     return notes.replace(/^(Dinas\s+)/i, '').trim();
+  };
+
+  const isLiburValue = (notes?: string | null, shiftName?: string | null): boolean => {
+    const note = (notes || '').toLowerCase().trim();
+    const shift = (shiftName || '').toLowerCase().trim();
+
+    return note === 'l' || note === 'libur' || note === 'off' || shift.includes('libur') || shift.includes('off');
   };
 
   const daysInMonth = getDaysInMonth(roster.year, roster.month);
@@ -1193,7 +1264,14 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
   };
 
   const [currentWeek, setCurrentWeek] = useState(getInitialWeek());
-  const displayedDays = weeks[currentWeek] || [];
+  const displayedDays = showFullMonth
+    ? Array.from({ length: daysInMonth }, (_, index) => index + 1)
+    : (weeks[currentWeek] || []);
+  const stickyNameWidth = showFullMonth ? 150 : 260;
+  const stickyGradeWidth = showFullMonth ? 64 : 110;
+  const stickyRoleWidth = showFullMonth ? 110 : 170;
+  const stickyGradeLeft = stickyNameWidth;
+  const stickyRoleLeft = stickyNameWidth + stickyGradeWidth;
 
   // Get all unique employees from the entire roster period
   const getAllUniqueEmployees = (): Map<number, Employee> => {
@@ -1261,13 +1339,49 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
 
   const employeeRows = getEmployeeRows();
 
-  // Group employees by employee_type and group_number from backend
+  // Get all unique managers from manager_duties in this roster period
+  const getManagerEmployeeIds = (): Set<number> => {
+    const managerIds = new Set<number>();
+    roster.roster_days?.forEach(day => {
+      day.manager_duties?.forEach(duty => {
+        if (duty.duty_type === 'Manager Teknik') {
+          managerIds.add(duty.employee_id);
+        }
+      });
+    });
+    return managerIds;
+  };
+
+  const managerEmployeeIds = getManagerEmployeeIds();
+
+  // Determine effective display type for an employee
+  const getEffectiveType = (employee: Employee): string => {
+    const grade = employee.user.grade;
+    const isManager = managerEmployeeIds.has(employee.id);
+    
+    // Level 15: Always display as their employee_type (CNS/Support), never as Manager
+    if (grade === 15) {
+      return employee.employee_type;
+    }
+    
+    // Level 13-14: Display as Manager if they're in manager_duties, else their employee_type
+    if (grade === 13 || grade === 14) {
+      return isManager ? 'Manager Teknik' : employee.employee_type;
+    }
+    
+    // Other levels: Display as their employee_type
+    return employee.employee_type;
+  };
+
+  const managerTeknikCount = employeeRows.filter((row) => getEffectiveType(row.employee) === 'Manager Teknik').length;
+
+  // Group employees by effective type and group_number from backend
   const allGroupedData = (() => {
-    // Separate by employee type
+    // Separate by effective employee type (considering manager status)
     const typeGroups = new Map<string, Map<number, EmployeeRosterRow[]>>();
     
     employeeRows.forEach(row => {
-      const type = row.employee.employee_type;
+      const type = getEffectiveType(row.employee);
       const groupNum = row.employee.group_number || 0; // Use 0 for employees without group
       
       if (!typeGroups.has(type)) {
@@ -1285,16 +1399,22 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
     // Convert to array format for rendering
     const result: Array<{ type: string; groups: EmployeeRosterRow[][]; groupNumbers: number[] }> = [];
     
-    // Define order: Manager Teknik, CNS, Support
+    // Define order: Manager Teknik, CNS, Support  
     const typeOrder = ['Manager Teknik', 'CNS', 'Support'];
     
     typeOrder.forEach(orderedType => {
       const groupMap = typeGroups.get(orderedType);
       if (!groupMap) return;
-      
+
+      // For Manager Teknik, show all including those without group (groupNum = 0)
+      // For other types, only show those with actual group numbers (groupNum > 0)
+      const filterPredicate = orderedType === 'Manager Teknik'
+        ? ([_]: [number, EmployeeRosterRow[]]) => true // Show all
+        : ([groupNum]: [number, EmployeeRosterRow[]]) => groupNum > 0; // Filter out group 0
+
       const sortedGroups = Array.from(groupMap.entries())
         .sort((a, b) => a[0] - b[0]) // Sort by group number
-        .filter(([groupNum]) => groupNum > 0); // Only show groups with actual group numbers
+        .filter(filterPredicate);
       
       if (sortedGroups.length > 0) {
         result.push({
@@ -1328,98 +1448,567 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
   };
 
   const getWeekDateRange = () => {
+    if (showFullMonth) {
+      return `1 - ${daysInMonth} ${getMonthName(roster.month)}`;
+    }
+
     const firstDay = displayedDays[0];
     const lastDay = displayedDays[displayedDays.length - 1];
     return `${firstDay} - ${lastDay} ${getMonthName(roster.month)}`;
   };
 
-  // Get unique Manager Teknik from roster
-  const getManagerTeknik = () => {
-    const managers = new Set<string>();
-    roster.roster_days?.forEach(day => {
-      day.manager_duties?.forEach(duty => {
-        if (duty.duty_type === 'Manager Teknik') {
-          managers.add(duty.employee.user.name);
+  // Get all employees with grade 13-14 (potential managers)
+  const getAllGrade1314Employees = (): EmployeeRosterRow[] => {
+    return employeeRows.filter(row => {
+      const grade = row.employee.user.grade;
+      return grade === 13 || grade === 14;
+    });
+  };
+
+  // Get employees eligible to add as manager (level 13-14, not already manager)
+  const getEligibleManagerCandidates = (): EmployeeRosterRow[] => {
+    return getAllGrade1314Employees().filter(row => {
+      const isManager = managerEmployeeIds.has(row.employee.id);
+      return !isManager;
+    });
+  };
+
+  // Get employees eligible to add into CNS/Support group formation
+  const getEligibleGroupCandidates = (targetType: 'CNS' | 'Support', targetGroupNumber: number): EmployeeRosterRow[] => {
+    return employeeRows.filter((row) => {
+      const employeeType = row.employee.employee_type;
+      const currentGroup = row.employee.group_number ?? 0;
+      return employeeType === targetType && currentGroup !== targetGroupNumber;
+    });
+  };
+
+  const getDialogCandidates = (): EmployeeRosterRow[] => {
+    if (!addingManagerToGroup) return [];
+
+    const baseCandidates = addingManagerToGroup.type === 'Manager Teknik'
+      ? getEligibleManagerCandidates()
+      : getEligibleGroupCandidates(addingManagerToGroup.type as 'CNS' | 'Support', addingManagerToGroup.groupNum);
+
+    // Priority: employees without group first, then grouped employees, then by name
+    return [...baseCandidates].sort((a, b) => {
+      const aNoGroup = (a.employee.group_number ?? 0) <= 0;
+      const bNoGroup = (b.employee.group_number ?? 0) <= 0;
+
+      if (aNoGroup !== bNoGroup) {
+        return aNoGroup ? -1 : 1;
+      }
+
+      return a.employee.user.name.localeCompare(b.employee.user.name);
+    });
+  };
+
+  const normalizedAddGroupSearch = addGroupSearch.trim().toLowerCase();
+  const filteredDialogCandidates = getDialogCandidates().filter((row) => {
+    if (!normalizedAddGroupSearch) return true;
+
+    const employeeName = row.employee.user.name.toLowerCase();
+    const employeeType = row.employee.employee_type.toLowerCase();
+    const employeeGrade = String(row.employee.user.grade ?? '');
+
+    return (
+      employeeName.includes(normalizedAddGroupSearch) ||
+      employeeType.includes(normalizedAddGroupSearch) ||
+      employeeGrade.includes(normalizedAddGroupSearch)
+    );
+  });
+
+  const getAvailableGroupNumbersByType = (targetType: 'CNS' | 'Support'): number[] => {
+    const existingTypeGroup = allGroupedData.find((grouped) => grouped.type === targetType);
+    if (!existingTypeGroup) return [];
+
+    return [...existingTypeGroup.groupNumbers]
+      .filter((groupNum) => groupNum > 0)
+      .sort((a, b) => a - b);
+  };
+
+  const handleOpenRemovalReassignDialog = (
+    employee: Employee,
+    sourceType: 'Manager Teknik' | 'CNS' | 'Support'
+  ) => {
+    const employeeType = employee.employee_type;
+
+    if (employeeType !== 'CNS' && employeeType !== 'Support') {
+      toast.error('Tipe karyawan tidak valid untuk pemindahan grup');
+      return;
+    }
+
+    const currentGroup = employee.group_number ?? 0;
+    const employeeGrade = employee.user.grade ?? 0;
+    const isGrade1314 = employeeGrade === 13 || employeeGrade === 14;
+
+    const availableDestinations: ReassignDestination[] = sourceType === 'Manager Teknik'
+      ? [1, 2, 3, 4, 5].map((groupNumber) => ({ kind: 'group' as const, groupNumber }))
+      : isGrade1314
+        ? [
+            { kind: 'manager' as const },
+            ...[1, 2, 3, 4, 5]
+              .filter((groupNum) => groupNum !== currentGroup)
+              .map((groupNumber) => ({ kind: 'group' as const, groupNumber })),
+          ]
+        : getAvailableGroupNumbersByType(employeeType)
+            .filter((groupNum) => groupNum !== currentGroup)
+            .map((groupNumber) => ({ kind: 'group' as const, groupNumber }));
+
+    if (availableDestinations.length === 0) {
+      toast.error(`Belum ada grup ${employeeType} lain yang tersedia untuk tujuan pemindahan`);
+      return;
+    }
+
+    setPendingRemovalReassign({
+      employeeId: employee.id,
+      employeeName: employee.user.name,
+      employeeType,
+      sourceType,
+      employeeGrade,
+      currentGroup,
+      availableDestinations,
+    });
+  };
+
+  const updateEmployeeGroupInRoster = (sourceRoster: RosterPeriod, employeeId: number, groupNumber: number): RosterPeriod => {
+    return {
+      ...sourceRoster,
+      all_employees: sourceRoster.all_employees?.map((employee) =>
+        employee.id === employeeId ? { ...employee, group_number: groupNumber } : employee
+      ),
+      roster_days: sourceRoster.roster_days?.map((day) => ({
+        ...day,
+        shift_assignments: day.shift_assignments?.map((assignment) =>
+          assignment.employee_id === employeeId
+            ? {
+                ...assignment,
+                employee: {
+                  ...assignment.employee,
+                  group_number: groupNumber,
+                },
+              }
+            : assignment
+        ),
+        manager_duties: day.manager_duties?.map((duty) =>
+          duty.employee_id === employeeId && duty.employee
+            ? {
+                ...duty,
+                employee: {
+                  ...duty.employee,
+                  group_number: groupNumber,
+                },
+              }
+            : duty
+        ),
+      })),
+    };
+  };
+
+  const syncRosterFromServer = async () => {
+    try {
+      const latestRoster = await rosterService.getRoster(roster.id);
+      updateRosterDetail(roster.id, {
+        ...latestRoster.roster_period,
+        all_employees: latestRoster.all_employees,
+        all_shifts: latestRoster.all_shifts,
+      });
+      return true;
+    } catch (syncError) {
+      console.error('Failed to sync latest roster from server:', syncError);
+      return false;
+    }
+  };
+
+  const handleAddManager = async (
+    employeeId: number,
+    options?: { showSuccessToast?: boolean }
+  ): Promise<boolean> => {
+    const showSuccessToast = options?.showSuccessToast ?? true;
+
+    // Close popup immediately for better UX
+    setAddingManagerToGroup(null);
+
+    // Use freshest roster from cache, fallback to prop
+    const currentRoster = getRosterDetail(roster.id) || roster;
+
+    // Build optimistic update first (no need to wait API)
+    const employeeMap = new Map<number, Employee>();
+    if (currentRoster.all_employees && currentRoster.all_employees.length > 0) {
+      currentRoster.all_employees.forEach((employee) => {
+        employeeMap.set(employee.id, employee);
+      });
+    }
+    currentRoster.roster_days?.forEach((day) => {
+      day.shift_assignments?.forEach((assignment) => {
+        if (!employeeMap.has(assignment.employee_id)) {
+          employeeMap.set(assignment.employee_id, assignment.employee);
+        }
+      });
+      day.manager_duties?.forEach((duty) => {
+        if (duty.employee && !employeeMap.has(duty.employee_id)) {
+          employeeMap.set(duty.employee_id, duty.employee);
         }
       });
     });
-    return Array.from(managers);
+
+    const newManager = employeeMap.get(employeeId);
+    if (!newManager) {
+      console.error('Manager employee data not found');
+      toast.error('Data karyawan tidak ditemukan');
+      return false;
+    }
+
+    const defaultShift = shifts.find((s) => s.name.toLowerCase().includes('pagi'));
+    const optimisticRosterDays = currentRoster.roster_days?.map((day) => {
+      const hasExisting = day.manager_duties?.some(
+        (d) => d.employee_id === employeeId && d.duty_type === 'Manager Teknik'
+      );
+
+      if (hasExisting) return day;
+
+      const newDuty: ManagerDuty = {
+        id: Date.now() + Math.random(),
+        roster_day_id: day.id,
+        employee_id: employeeId,
+        duty_type: 'Manager Teknik',
+        shift_id: defaultShift?.id ?? 1,
+        created_at: new Date().toISOString(),
+        employee: newManager,
+        shift: defaultShift,
+      };
+
+      return {
+        ...day,
+        manager_duties: [...(day.manager_duties || []), newDuty],
+      };
+    }) || [];
+
+    const optimisticRoster: RosterPeriod = {
+      ...currentRoster,
+      roster_days: optimisticRosterDays,
+    };
+
+    updateRosterDetail(roster.id, optimisticRoster);
+
+    try {
+      await rosterService.addManagerToRoster(roster.id, employeeId);
+      if (showSuccessToast) {
+        toast.success('Manager berhasil ditambahkan');
+      }
+      return true;
+    } catch (error) {
+      console.error('Failed to add manager:', error);
+      toast.error('Gagal menambahkan manager');
+
+      // Rollback optimistic update on failure
+      updateRosterDetail(roster.id, currentRoster);
+      return false;
+    }
   };
 
-  const managerTeknikList = getManagerTeknik();
+  const handleMoveEmployeeToManager = async (
+    employeeId: number,
+    employeeType: 'CNS' | 'Support'
+  ) => {
+    const currentRoster = getRosterDetail(roster.id) || roster;
+    const optimisticUngroupRoster = updateEmployeeGroupInRoster(currentRoster, employeeId, 0);
+    updateRosterDetail(roster.id, optimisticUngroupRoster);
+
+    try {
+      await rosterService.removeEmployeeFromGroup(roster.id, employeeId);
+      const managerAdded = await handleAddManager(employeeId, { showSuccessToast: false });
+
+      if (!managerAdded) {
+        updateRosterDetail(roster.id, currentRoster);
+        return;
+      }
+
+      toast.success(`${employeeType} level 13/14 berhasil dipindahkan ke Manager Teknik`);
+    } catch (error) {
+      console.error('Failed to move employee to manager group:', error);
+      updateRosterDetail(roster.id, currentRoster);
+      toast.error('Gagal memindahkan karyawan ke Manager Teknik');
+    }
+  };
+
+  const handleRemoveManager = async (
+    employeeId: number,
+    employeeType?: 'CNS' | 'Support',
+    targetGroupNumber?: number
+  ) => {
+    const currentRoster = getRosterDetail(roster.id) || roster;
+
+    const removeManagerFromRosterDays = (sourceRosterDays: RosterPeriod['roster_days']) =>
+      sourceRosterDays?.map(day => ({
+        ...day,
+        manager_duties: day.manager_duties?.filter(
+          duty => !(duty.employee_id === employeeId && duty.duty_type === 'Manager Teknik')
+        ) || []
+      })) || [];
+
+    const isReassignToGroupFlow = Boolean(employeeType && targetGroupNumber);
+
+    if (isReassignToGroupFlow && employeeType && targetGroupNumber) {
+      const rosterWithoutManagerDuty: RosterPeriod = {
+        ...currentRoster,
+        roster_days: removeManagerFromRosterDays(currentRoster.roster_days),
+      };
+
+      // Single optimistic update to avoid UI flip-flop during multi-request flow
+      const optimisticRoster = updateEmployeeGroupInRoster(
+        rosterWithoutManagerDuty,
+        employeeId,
+        targetGroupNumber
+      );
+      updateRosterDetail(roster.id, optimisticRoster);
+
+      try {
+        await rosterService.removeManagerFromRoster(roster.id, employeeId);
+        await rosterService.assignEmployeeToGroup(roster.id, employeeId, employeeType, targetGroupNumber);
+
+        const synced = await syncRosterFromServer();
+        if (!synced) {
+          toast.info('Perubahan tersimpan, data terbaru akan tampil penuh setelah refresh berikutnya');
+        }
+
+        toast.success(`Manager berhasil dihapus dan dipindahkan ke Grup ${targetGroupNumber}`);
+      } catch (error: any) {
+        console.error('Failed to move manager back to group:', error);
+        updateRosterDetail(roster.id, currentRoster);
+
+        if (error?.response?.status === 403) {
+          const errorMsg = error?.response?.data?.message || 'Manager tetap tidak bisa dihapus';
+          toast.error(errorMsg);
+        } else {
+          toast.error('Gagal memindahkan manager ke grup tujuan');
+        }
+      }
+
+      return;
+    }
+
+    // Optimistic remove first
+    const optimisticRosterDays = removeManagerFromRosterDays(currentRoster.roster_days);
+
+    updateRosterDetail(roster.id, {
+      ...currentRoster,
+      roster_days: optimisticRosterDays
+    });
+
+    try {
+      await rosterService.removeManagerFromRoster(roster.id, employeeId);
+
+      const synced = await syncRosterFromServer();
+      if (!synced) {
+        toast.info('Perubahan tersimpan, data terbaru akan tampil penuh setelah refresh berikutnya');
+      }
+
+      toast.success('Manager berhasil dihapus');
+    } catch (error: any) {
+      console.error('Failed to remove manager:', error);
+
+      // Rollback optimistic update on failure
+      updateRosterDetail(roster.id, currentRoster);
+      
+      // Check if it's a fixed manager error
+      if (error?.response?.status === 403) {
+        const errorMsg = error?.response?.data?.message || 'Manager tetap tidak bisa dihapus';
+        toast.error(errorMsg);
+      } else {
+        toast.error('Gagal menghapus manager');
+      }
+    }
+  };
+
+  const handleAssignEmployeeToGroup = async (
+    employeeId: number,
+    employeeType: 'CNS' | 'Support',
+    groupNumber: number
+  ) => {
+    setAddingManagerToGroup(null);
+
+    const currentRoster = getRosterDetail(roster.id) || roster;
+    const optimisticRoster = updateEmployeeGroupInRoster(currentRoster, employeeId, groupNumber);
+    updateRosterDetail(roster.id, optimisticRoster);
+
+    try {
+      await rosterService.assignEmployeeToGroup(roster.id, employeeId, employeeType, groupNumber);
+      toast.success(`${employeeType} berhasil dipindahkan ke Grup ${groupNumber}`);
+    } catch (error) {
+      console.error('Failed to assign employee to group:', error);
+      updateRosterDetail(roster.id, currentRoster);
+      toast.error('Gagal memindahkan karyawan ke grup');
+    }
+  };
+
+  const handleRemoveEmployeeFromGroup = async (
+    employeeId: number,
+    employeeType: 'CNS' | 'Support',
+    targetGroupNumber?: number
+  ) => {
+    const currentRoster = getRosterDetail(roster.id) || roster;
+    const nextGroupNumber = targetGroupNumber ?? 0;
+    const optimisticRoster = updateEmployeeGroupInRoster(currentRoster, employeeId, nextGroupNumber);
+    updateRosterDetail(roster.id, optimisticRoster);
+
+    try {
+      if (targetGroupNumber) {
+        await rosterService.assignEmployeeToGroup(roster.id, employeeId, employeeType, targetGroupNumber);
+        toast.success(`${employeeType} berhasil dipindahkan ke Grup ${targetGroupNumber}`);
+      } else {
+        await rosterService.removeEmployeeFromGroup(roster.id, employeeId);
+        toast.success(`${employeeType} berhasil dikeluarkan dari formasi grup`);
+      }
+    } catch (error) {
+      console.error('Failed to remove employee from group:', error);
+      updateRosterDetail(roster.id, currentRoster);
+      toast.error(targetGroupNumber ? 'Gagal memindahkan karyawan ke grup tujuan' : 'Gagal mengeluarkan karyawan dari grup');
+    }
+  };
+
+  const handleConfirmRemovalReassign = async (destination: ReassignDestination) => {
+    if (!pendingRemovalReassign) return;
+
+    const pendingAction = pendingRemovalReassign;
+    setPendingRemovalReassign(null);
+
+    if (destination.kind === 'manager') {
+      await handleMoveEmployeeToManager(
+        pendingAction.employeeId,
+        pendingAction.employeeType
+      );
+      return;
+    }
+
+    if (pendingAction.sourceType === 'Manager Teknik') {
+      await handleRemoveManager(
+        pendingAction.employeeId,
+        pendingAction.employeeType,
+        destination.groupNumber
+      );
+      return;
+    }
+
+    await handleRemoveEmployeeFromGroup(
+      pendingAction.employeeId,
+      pendingAction.employeeType,
+      destination.groupNumber
+    );
+  };
+
+  // Console debug for troubleshooting
+  React.useEffect(() => {
+    console.log('🔍 RosteredStaffPersonView Debug:');
+    console.log('  canEdit:', canEdit);
+    console.log('  user?.role:', user?.role);
+    console.log('  employeeRows count:', employeeRows.length);
+    console.log('  managerEmployeeIds:', Array.from(managerEmployeeIds));
+    console.log('  allGrade1314Employees:', getAllGrade1314Employees().map(r => ({
+      id: r.employee.id,
+      name: r.employee.user.name,
+      grade: r.employee.user.grade,
+      isManager: managerEmployeeIds.has(r.employee.id)
+    })));
+    console.log('  allGroupedData types:', allGroupedData.map(g => ({ type: g.type, groupCount: g.groups.length })));
+  }, []);
 
   return (
-    <div className="bg-white rounded-3xl shadow-lg border border-gray-100 -mx-4 sm:mx-0 p-4 sm:p-6 lg:p-8">
-      {/* Manager Info Box - Top Right */}
-      {managerTeknikList.length > 0 && (
-        <div className="float-right ml-4 mb-4 p-3 sm:p-4 bg-white border-2 border-black rounded text-center min-w-[150px] sm:min-w-[180px]">
-          <div className="text-[10px] sm:text-xs font-bold text-black mb-2">Dibuat,</div>
-          <div className="text-[10px] sm:text-xs font-bold text-black uppercase leading-tight mb-3">
-            MANAGER TEKNIK {managerTeknikList.length}
-          </div>
-          <div className="pt-3 border-t-2 border-black">
-            {managerTeknikList.map((manager, idx) => (
-              <div key={idx} className="text-[10px] sm:text-xs font-bold text-black uppercase mb-1 last:mb-0">
-                {manager}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
+    <div className="bg-white rounded-3xl shadow-lg border border-gray-100 mx-0 p-3 sm:p-5 lg:p-7 xl:p-8 overflow-hidden isolate">
       {/* Header with Navigation */}
       <div className="flex items-center justify-between mb-6 gap-2">
-        <button
-          onClick={handlePrevWeek}
-          disabled={currentWeek === 0}
-          className={`p-2 rounded-lg transition-colors flex-shrink-0 ${
-            currentWeek === 0
-              ? 'text-gray-300 cursor-not-allowed'
-              : 'text-gray-700 hover:bg-gray-100'
-          }`}
-        >
-          <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
-        </button>
+        {showFullMonth ? (
+          <div className="w-9 sm:w-10" />
+        ) : (
+          <button
+            onClick={handlePrevWeek}
+            disabled={currentWeek === 0}
+            className={`p-2 rounded-lg transition-colors flex-shrink-0 ${
+              currentWeek === 0
+                ? 'text-gray-300 cursor-not-allowed'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
+          </button>
+        )}
 
         <div className="text-center flex-1 min-w-0">
           <h2 className="text-lg sm:text-3xl font-bold text-gray-900">Rostered Staff</h2>
           <p className="text-xs sm:text-lg text-gray-500 truncate">
             {getWeekDateRange()} {roster.year}
           </p>
-          <p className="text-[10px] sm:text-lg text-gray-400 mt-1">
-            Week {currentWeek + 1} of {totalWeeks}
-          </p>
+          {showFullMonth ? (
+            <p className="text-[10px] sm:text-lg text-gray-400 mt-1">Mode: Sebulan Penuh</p>
+          ) : (
+            <p className="text-[10px] sm:text-lg text-gray-400 mt-1">
+              Week {currentWeek + 1} of {totalWeeks}
+            </p>
+          )}
         </div>
 
-        <button
-          onClick={handleNextWeek}
-          disabled={currentWeek === totalWeeks - 1}
-          className={`p-2 rounded-lg transition-colors flex-shrink-0 ${
-            currentWeek === totalWeeks - 1
-              ? 'text-gray-300 cursor-not-allowed'
-              : 'text-gray-700 hover:bg-gray-100'
-          }`}
-        >
-          <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
-        </button>
+        {showFullMonth ? (
+          <div className="w-9 sm:w-10" />
+        ) : (
+          <button
+            onClick={handleNextWeek}
+            disabled={currentWeek === totalWeeks - 1}
+            className={`p-2 rounded-lg transition-colors flex-shrink-0 ${
+              currentWeek === totalWeeks - 1
+                ? 'text-gray-300 cursor-not-allowed'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
+          </button>
+        )}
+      </div>
+
+      <div className="flex items-center justify-center mb-4 sm:mb-6">
+        <div className="w-full max-w-none rounded-2xl border border-[#222E6A]/20 bg-gradient-to-r from-[#f8f9ff] via-white to-[#f8f9ff] px-4 py-3 sm:px-5 sm:py-4 shadow-sm">
+          <label className="flex items-center justify-between gap-4 cursor-pointer">
+            <div className="min-w-0">
+              <p className="text-sm sm:text-base font-semibold text-[#222E6A]">Mode Tampilan Bulanan</p>
+              <p className="text-[11px] sm:text-xs text-gray-500 mt-0.5">
+                Aktifkan untuk menampilkan tanggal 1 sampai akhir bulan tanpa pagination.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+              <span className={`text-[10px] sm:text-xs font-semibold ${showFullMonth ? 'text-[#222E6A]' : 'text-gray-500'}`}>
+                {showFullMonth ? 'Sebulan Penuh' : 'Mingguan'}
+              </span>
+              <span className="relative inline-flex h-7 w-12 sm:h-8 sm:w-14 items-center">
+                <input
+                  type="checkbox"
+                  checked={showFullMonth}
+                  onChange={(e) => setShowFullMonth(e.target.checked)}
+                  className="peer sr-only"
+                />
+                <span className="absolute inset-0 rounded-full bg-gray-300 peer-checked:bg-[#222E6A] transition-colors"></span>
+                <span className="absolute left-1 h-5 w-5 sm:h-6 sm:w-6 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5 sm:peer-checked:translate-x-6"></span>
+              </span>
+            </div>
+          </label>
+        </div>
       </div>
 
       {/* Week Navigation Pills */}
-      <div className="flex items-center justify-center gap-1 sm:gap-2 mb-6 flex-wrap">
-        {weeks.map((_, index) => (
-          <button
-            key={index}
-            onClick={() => setCurrentWeek(index)}
-            className={`w-7 h-7 sm:w-10 sm:h-10 rounded-full text-xs sm:text-sm font-medium transition-all ${
-              index === currentWeek
-                ? 'bg-[#222E6A] text-white scale-110'
-                : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-            }`}
-          >
-            {index + 1}
-          </button>
-        ))}
-      </div>
+      {!showFullMonth && (
+        <div className="flex items-center justify-center gap-1 sm:gap-2 mb-6 flex-wrap">
+          {weeks.map((_, index) => (
+            <button
+              key={index}
+              onClick={() => setCurrentWeek(index)}
+              className={`w-7 h-7 sm:w-10 sm:h-10 rounded-full text-xs sm:text-sm font-medium transition-all ${
+                index === currentWeek
+                  ? 'bg-[#222E6A] text-white scale-110'
+                  : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+              }`}
+            >
+              {index + 1}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Clear float from manager info box */}
       <div className="clear-both"></div>
@@ -1427,34 +2016,76 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
       {/* Roster Table - Person View */}
       <div 
         ref={tableContainerRef}
-        className="overflow-x-auto -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 relative"
+        className="overflow-x-auto overflow-y-hidden w-full rounded-2xl relative"
+        style={{ scrollbarGutter: 'stable' }}
       >
-        <table className="w-full border-collapse">
-          <thead>
+        <table className={`${showFullMonth ? 'w-max min-w-[1280px]' : 'w-full min-w-[980px]'} border-collapse table-layout-fixed`} style={{ tableLayout: 'auto' }}>
+          <thead className="sticky top-0 z-30">
             <tr>
-              <th className="text-left text-[11px] sm:text-xs lg:text-sm font-semibold text-white px-3 sm:px-4 py-2 sm:py-3 rounded-tl-xl whitespace-nowrap sticky left-0 z-10" style={{ backgroundColor: '#222E6A' }}>
+              <th
+                className="text-left text-[11px] sm:text-xs lg:text-sm font-semibold text-white px-3 sm:px-4 py-2 sm:py-3 rounded-tl-xl whitespace-nowrap sticky left-0 top-0 z-40"
+                style={{
+                  backgroundColor: '#222E6A',
+                  width: `${stickyNameWidth}px`,
+                  minWidth: `${stickyNameWidth}px`,
+                  maxWidth: `${stickyNameWidth}px`,
+                  boxSizing: 'border-box',
+                }}
+              >
                 Name
               </th>
-              <th className="text-center text-[11px] sm:text-xs lg:text-sm font-semibold text-white px-2 sm:px-3 py-2 sm:py-3 whitespace-nowrap" style={{ backgroundColor: '#222E6A' }}>
+              <th
+                className="text-center text-[11px] sm:text-xs lg:text-sm font-semibold text-white px-2 sm:px-3 py-2 sm:py-3 whitespace-nowrap sticky top-0 z-40"
+                style={{
+                  backgroundColor: '#222E6A',
+                  left: `${stickyGradeLeft}px`,
+                  width: `${stickyGradeWidth}px`,
+                  minWidth: `${stickyGradeWidth}px`,
+                  maxWidth: `${stickyGradeWidth}px`,
+                  boxSizing: 'border-box',
+                }}
+              >
                 Kelas
               </th>
-              <th className="text-center text-[11px] sm:text-xs lg:text-sm font-semibold text-white px-2 sm:px-3 py-2 sm:py-3 whitespace-nowrap" style={{ backgroundColor: '#222E6A' }}>
+              <th
+                className="text-center text-[11px] sm:text-xs lg:text-sm font-semibold text-white px-2 sm:px-3 py-2 sm:py-3 whitespace-nowrap sticky top-0 z-40"
+                style={{
+                  backgroundColor: '#222E6A',
+                  left: `${stickyRoleLeft}px`,
+                  width: `${stickyRoleWidth}px`,
+                  minWidth: `${stickyRoleWidth}px`,
+                  maxWidth: `${stickyRoleWidth}px`,
+                  boxSizing: 'border-box',
+                }}
+              >
                 Jabatan
               </th>
               {displayedDays.map((day) => (
-                <th key={day} className="text-center text-[10px] sm:text-xs lg:text-sm font-semibold text-white px-2 sm:px-3 py-2 sm:py-3" style={{ backgroundColor: '#222E6A' }}>
-                  <div className="text-[9px] sm:text-[10px] text-white/70">{getDayName(roster.year, roster.month, day)}</div>
+                <th
+                  key={day}
+                  className={`text-center font-semibold text-white sticky top-0 z-30 ${showFullMonth ? 'px-1 py-2 text-[10px]' : 'text-[10px] sm:text-xs lg:text-sm px-2 sm:px-3 py-2 sm:py-3'}`}
+                  style={{ 
+                    backgroundColor: '#222E6A',
+                    ...(showFullMonth ? {
+                      width: '40px',
+                      minWidth: '40px',
+                      maxWidth: '40px',
+                    } : {}),
+                    boxSizing: 'border-box',
+                  }}
+                >
+                  <div className={`${showFullMonth ? 'text-[8px]' : 'text-[9px] sm:text-[10px]'} text-white/70`}>{getDayName(roster.year, roster.month, day)}</div>
                   <div className="font-bold">{day}</div>
                 </th>
               ))}
-              <th className="w-6 sm:w-12 rounded-tr-xl" style={{ backgroundColor: '#222E6A' }}></th>
+              <th className="w-6 sm:w-12 rounded-tr-xl sticky top-0 z-30" style={{ backgroundColor: '#222E6A' }}></th>
             </tr>
           </thead>
           <tbody>
             {allGroupedData.length === 0 ? (
               <tr>
                 <td colSpan={displayedDays.length + 4} className="text-center py-12 text-gray-500">
-                  No staff assigned for this week
+                  {showFullMonth ? 'No staff assigned for this month' : 'No staff assigned for this week'}
                 </td>
               </tr>
             ) : (
@@ -1463,11 +2094,17 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
                   {/* Employee Type Header */}
                   <tr>
                     <td 
-                      colSpan={displayedDays.length + 4}
-                      className="px-3 sm:px-4 py-3 text-sm sm:text-base font-bold text-white bg-gradient-to-r from-[#222E6A] to-[#2a3a7f] border-y-2 border-[#1a235c]"
+                      colSpan={3}
+                      className="px-3 sm:px-4 py-3 text-sm sm:text-base font-bold text-white border-y-2 border-[#1a235c] sticky left-0 z-10"
+                      style={{ backgroundColor: '#222E6A' }}
                     >
                       {typeGroup.type}
                     </td>
+                    <td
+                      colSpan={displayedDays.length + 1}
+                      className="px-0 py-3 border-y-2 border-[#1a235c]"
+                      style={{ backgroundColor: '#222E6A' }}
+                    ></td>
                   </tr>
                   
                   {/* Groups within this type */}
@@ -1476,15 +2113,23 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
                     
                     return (
                       <React.Fragment key={`${typeGroup.type}-${groupIndex}`}>
-                        {/* Group Header Row */}
-                        <tr>
-                          <td 
-                            colSpan={displayedDays.length + 4}
-                            className="px-3 sm:px-4 py-2 text-[11px] sm:text-sm font-bold text-gray-800 bg-gradient-to-r from-orange-200 to-orange-100 border-y border-orange-300"
-                          >
-                            Grup {actualGroupNumber}
-                          </td>
-                        </tr>
+                        {/* Group Header Row (hidden for Manager Teknik) */}
+                        {typeGroup.type !== 'Manager Teknik' && (
+                          <tr>
+                            <td 
+                              colSpan={3}
+                              className="px-3 sm:px-4 py-2 text-[11px] sm:text-sm font-bold text-gray-800 border-y border-orange-300 sticky left-0 z-10"
+                              style={{ backgroundColor: '#fed7aa' }}
+                            >
+                              Grup {actualGroupNumber}
+                            </td>
+                            <td
+                              colSpan={displayedDays.length + 1}
+                              className="px-0 py-2 border-y border-orange-300"
+                              style={{ backgroundColor: '#fed7aa' }}
+                            ></td>
+                          </tr>
+                        )}
                       
                       {/* Employee Rows in Group */}
                       {group.map((row, rowIndexInGroup) => {
@@ -1493,16 +2138,78 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
                         
                         return (
                           <tr key={row.employee.id} className="hover:bg-gray-50 transition-colors">
-                            <td className={`px-3 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-xs lg:text-sm font-medium text-gray-900 sticky left-0 bg-white ${!isLastRowInGroup || !isLastGroup ? 'border-b border-gray-200' : ''}`}>
+                            <td
+                              className={`px-3 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-xs lg:text-sm font-medium text-gray-900 sticky left-0 bg-white z-10 ${!isLastRowInGroup || !isLastGroup ? 'border-b border-gray-200' : ''}`}
+                              style={{
+                                width: `${stickyNameWidth}px`,
+                                minWidth: `${stickyNameWidth}px`,
+                                maxWidth: `${stickyNameWidth}px`,
+                                boxSizing: 'border-box',
+                              }}
+                            >
                               <div className="flex items-center gap-2">
                                 <span className="text-gray-500 font-normal">{rowIndexInGroup + 1}</span>
-                                <span className="whitespace-nowrap">{row.employee.user.name}</span>
+                                <span className="whitespace-nowrap overflow-hidden text-ellipsis block">{row.employee.user.name}</span>
+                                {/* Only show badge or remove button for Manager Teknik group */}
+                                {typeGroup.type === 'Manager Teknik' && (
+                                  <>
+                                    {/* Show fixed badge for fixed managers */}
+                                    {row.employee.is_fixed_manager === true && (
+                                      <span className="ml-auto flex-shrink-0 px-2 py-1 text-xs font-bold text-white bg-green-600 rounded" title="Manager tetap, tidak bisa dihapus">
+                                        ✓ FIXED
+                                      </span>
+                                    )}
+                                    {/* Remove button for removable managers: not fixed and grade not 15 */}
+                                    {row.employee.is_fixed_manager !== true && row.employee.user.grade !== 15 && canEdit && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleOpenRemovalReassignDialog(row.employee, 'Manager Teknik');
+                                        }}
+                                        className="ml-auto flex-shrink-0 px-2 py-1 text-xs font-medium text-red-600 hover:text-white bg-red-100 hover:bg-red-500 rounded transition-colors"
+                                        title="Hapus dari Manager"
+                                      >
+                                        −
+                                      </button>
+                                    )}
+                                  </>
+                                )}
+                                {(typeGroup.type === 'CNS' || typeGroup.type === 'Support') && canEdit && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOpenRemovalReassignDialog(row.employee, typeGroup.type as 'CNS' | 'Support');
+                                    }}
+                                    className="ml-auto flex-shrink-0 px-2 py-1 text-xs font-medium text-red-600 hover:text-white bg-red-100 hover:bg-red-500 rounded transition-colors"
+                                    title={`Hapus dari Grup ${typeGroup.type}`}
+                                  >
+                                    −
+                                  </button>
+                                )}
                               </div>
                             </td>
-                            <td className={`px-2 sm:px-3 py-2 sm:py-3 text-center text-[10px] sm:text-xs lg:text-sm text-gray-700 ${!isLastRowInGroup || !isLastGroup ? 'border-b border-gray-200' : ''}`}>
+                            <td
+                              className={`px-2 sm:px-3 py-2 sm:py-3 text-center text-[10px] sm:text-xs lg:text-sm text-gray-700 sticky bg-white z-10 ${!isLastRowInGroup || !isLastGroup ? 'border-b border-gray-200' : ''}`}
+                              style={{
+                                left: `${stickyGradeLeft}px`,
+                                width: `${stickyGradeWidth}px`,
+                                minWidth: `${stickyGradeWidth}px`,
+                                maxWidth: `${stickyGradeWidth}px`,
+                                boxSizing: 'border-box',
+                              }}
+                            >
                               {row.employee.user.grade || '-'}
                             </td>
-                            <td className={`px-2 sm:px-3 py-2 sm:py-3 text-center text-[10px] sm:text-xs lg:text-sm text-gray-700 ${!isLastRowInGroup || !isLastGroup ? 'border-b border-gray-200' : ''}`}>
+                            <td
+                              className={`px-2 sm:px-3 py-2 sm:py-3 text-center text-[10px] sm:text-xs lg:text-sm text-gray-700 sticky bg-white z-10 ${!isLastRowInGroup || !isLastGroup ? 'border-b border-gray-200' : ''}`}
+                              style={{
+                                left: `${stickyRoleLeft}px`,
+                                width: `${stickyRoleWidth}px`,
+                                minWidth: `${stickyRoleWidth}px`,
+                                maxWidth: `${stickyRoleWidth}px`,
+                                boxSizing: 'border-box',
+                              }}
+                            >
                               {row.employee.employee_type}
                             </td>
                             {(() => {
@@ -1526,6 +2233,12 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
                                 rendereddDays.add(day);
                                 
                                 if (assignment) {
+                                  const assignmentIsLibur = isLiburValue(assignment.notes, shift?.name);
+
+                                  // Libur cells should always be per-day (never merged)
+                                  if (assignmentIsLibur) {
+                                    colSpan = 1;
+                                  } else {
                                   // Look ahead to merge consecutive cells with the same notes
                                   const currentNotes = assignment.notes?.trim().toLowerCase() || '';
                                   const currentShiftId = assignment.shift_id;
@@ -1546,6 +2259,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
                                     } else {
                                       break;
                                     }
+                                  }
                                   }
                                 }
                                 
@@ -1577,7 +2291,15 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
                                   <td 
                                     key={`${row.employee.id}-${day}`} 
                                     colSpan={colSpan}
-                                    className={`px-1 sm:px-2 py-2 sm:py-3 ${!isLastRowInGroup || !isLastGroup ? 'border-b border-gray-200' : ''} relative`}
+                                    className={`${showFullMonth ? 'px-0.5 py-1.5' : 'px-1 sm:px-2 py-2 sm:py-3'} ${!isLastRowInGroup || !isLastGroup ? 'border-b border-gray-200' : ''} relative`}
+                                    style={{
+                                      ...(showFullMonth ? {
+                                        width: `${colSpan * 40}px`,
+                                        minWidth: `${colSpan * 40}px`,
+                                        maxWidth: `${colSpan * 40}px`,
+                                      } : {}),
+                                      boxSizing: 'border-box',
+                                    }}
                                   >
                                     {isEditing ? (
                                       <div 
@@ -1601,6 +2323,20 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
                                               ))}
                                             </div>
                                             <div className="border-t pt-2 mt-2">
+                                              <div className="grid grid-cols-2 gap-1 mb-2">
+                                                {specialStatusOptions.map((statusOption) => (
+                                                  <button
+                                                    key={statusOption.note}
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      handleShiftChange(row.employee.id, day, shiftOptions[0].value, statusOption.note);
+                                                    }}
+                                                    className="px-2 py-1.5 text-[10px] font-medium bg-slate-100 hover:bg-slate-700 hover:text-white rounded transition-colors text-center"
+                                                  >
+                                                    {statusOption.label}
+                                                  </button>
+                                                ))}
+                                              </div>
                                               <input
                                                 ref={inputRef}
                                                 type="text"
@@ -1652,7 +2388,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
                                       }}
                                       onMouseEnter={() => handleCellMouseEnter(row.employee.id, day, colSpan)}
                                       onDoubleClick={(e) => handleCellDoubleClick(row.employee.id, day, e)}
-                                      className={`h-8 sm:h-10 w-full rounded-lg flex items-center justify-center text-[9px] sm:text-xs font-semibold transition-all ${cellClasses} ${canEdit && !isEditing ? 'cursor-pointer hover:ring-2 hover:ring-[#222E6A] hover:ring-offset-1' : ''} relative group select-none`}
+                                      className={`${showFullMonth ? 'h-7 text-[9px]' : 'h-8 sm:h-10 text-[9px] sm:text-xs'} w-full rounded-lg flex items-center justify-center font-semibold transition-all ${cellClasses} ${canEdit && !isEditing ? 'cursor-pointer hover:ring-2 hover:ring-[#222E6A] hover:ring-offset-1' : ''} relative group select-none`}
                                       title={tooltipText}
                                     >
                                       {displayText}
@@ -1677,6 +2413,42 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
                           </tr>
                         );
                       })}
+                      
+                      {/* Add button rows for Manager/CNS/Support group formation */}
+                      {typeGroup.type === 'Manager Teknik' && canEdit && managerTeknikCount < 5 && getEligibleManagerCandidates().length > 0 && (
+                        <tr>
+                          <td 
+                            colSpan={3}
+                            className="px-3 sm:px-4 py-2 bg-blue-50 border-b border-blue-200 sticky left-0 z-10"
+                          >
+                            <button
+                              onClick={() => setAddingManagerToGroup({ type: typeGroup.type, groupNum: actualGroupNumber })}
+                              className="inline-flex items-center gap-2 px-3 py-2 text-xs sm:text-sm font-semibold text-blue-600 hover:text-white bg-blue-100 hover:bg-blue-500 rounded-lg transition-colors"
+                            >
+                              <span className="text-lg leading-none">+</span>
+                              <span>Tambah Manager</span>
+                            </button>
+                          </td>
+                          <td colSpan={displayedDays.length + 1} className="py-2 bg-blue-50 border-b border-blue-200"></td>
+                        </tr>
+                      )}
+                      {(typeGroup.type === 'CNS' || typeGroup.type === 'Support') && canEdit && getEligibleGroupCandidates(typeGroup.type as 'CNS' | 'Support', actualGroupNumber).length > 0 && (
+                        <tr>
+                          <td
+                            colSpan={3}
+                            className="px-3 sm:px-4 py-2 bg-blue-50 border-b border-blue-200 sticky left-0 z-10"
+                          >
+                            <button
+                              onClick={() => setAddingManagerToGroup({ type: typeGroup.type, groupNum: actualGroupNumber })}
+                              className="inline-flex items-center gap-2 px-3 py-2 text-xs sm:text-sm font-semibold text-blue-600 hover:text-white bg-blue-100 hover:bg-blue-500 rounded-lg transition-colors"
+                            >
+                              <span className="text-lg leading-none">+</span>
+                              <span>{`Tambah ${typeGroup.type}`}</span>
+                            </button>
+                          </td>
+                          <td colSpan={displayedDays.length + 1} className="py-2 bg-blue-50 border-b border-blue-200"></td>
+                        </tr>
+                      )}
                     </React.Fragment>
                   );
                 })}
@@ -1769,6 +2541,21 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
                 ))}
               </div>
 
+              <div className="border-t pt-3 mb-3">
+                <div className="text-[10px] text-gray-500 mb-2">Status Cepat</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {specialStatusOptions.map((statusOption) => (
+                    <button
+                      key={`multi-${statusOption.note}`}
+                      onClick={() => handleMultiShiftChange(shiftOptions[0].value, statusOption.note)}
+                      className="px-3 py-2 text-xs font-medium bg-slate-100 hover:bg-slate-700 hover:text-white rounded transition-colors text-center"
+                    >
+                      {statusOption.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="border-t pt-3">
                 <input
                   type="text"
@@ -1802,6 +2589,155 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
             </div>
           </div>
         )}
+
+      {/* Add Manager Dialog */}
+      {addingManagerToGroup && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-2xl max-w-md w-full p-6 max-h-96 flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-900">Tambah {addingManagerToGroup.type} untuk Grup {addingManagerToGroup.groupNum}</h3>
+              <button
+                onClick={() => setAddingManagerToGroup(null)}
+                className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="mb-3">
+              <input
+                type="text"
+                value={addGroupSearch}
+                onChange={(e) => setAddGroupSearch(e.target.value)}
+                placeholder="Cari nama / level / tipe karyawan..."
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-[#222E6A]"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                Menampilkan {filteredDialogCandidates.length} kandidat
+              </p>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto space-y-2">
+              {filteredDialogCandidates.map(row => {
+                const currentGroup = row.employee.group_number ?? 0;
+                const isUngrouped = currentGroup <= 0;
+
+                return (
+                <button
+                  key={row.employee.id}
+                  onClick={() => {
+                    if (addingManagerToGroup.type === 'Manager Teknik') {
+                      handleAddManager(row.employee.id);
+                    } else {
+                      handleAssignEmployeeToGroup(
+                        row.employee.id,
+                        addingManagerToGroup.type as 'CNS' | 'Support',
+                        addingManagerToGroup.groupNum
+                      );
+                    }
+                  }}
+                  className="w-full px-4 py-3 text-left text-sm font-medium text-gray-900 bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded-lg transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-semibold">{row.employee.user.name}</div>
+                      <div className="text-xs text-gray-500">Level {row.employee.user.grade} - {row.employee.employee_type}</div>
+                      <div className="mt-1 flex items-center gap-2">
+                        {isUngrouped ? (
+                          <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-semibold rounded-full bg-amber-100 text-amber-700 border border-amber-300">
+                            Belum Punya Grup
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-semibold rounded-full bg-slate-100 text-slate-700 border border-slate-300">
+                            Grup Saat Ini: {currentGroup}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <span className="text-lg text-green-500">+</span>
+                  </div>
+                </button>
+                );
+              })}
+            </div>
+            
+            {filteredDialogCandidates.length === 0 && (
+              <div className="text-center py-8 text-gray-500 text-sm">
+                {normalizedAddGroupSearch
+                  ? `Tidak ada hasil untuk "${addGroupSearch.trim()}"`
+                  : addingManagerToGroup.type === 'Manager Teknik'
+                    ? 'Tidak ada karyawan level 13-14 yang tersedia untuk ditambahkan sebagai manager'
+                    : `Tidak ada karyawan ${addingManagerToGroup.type} yang tersedia untuk dipindahkan ke grup ini`}
+              </div>
+            )}
+            
+            <button
+              onClick={() => setAddingManagerToGroup(null)}
+              className="mt-4 w-full px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+            >
+              Batal
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Remove + Reassign Dialog */}
+      {pendingRemovalReassign && (
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-2xl max-w-md w-full p-6">
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Pilih Grup Tujuan</h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  {pendingRemovalReassign.sourceType === 'Manager Teknik'
+                    ? `Manager ${pendingRemovalReassign.employeeName} akan dihapus dari Manager Teknik lalu dipindah ke grup ${pendingRemovalReassign.employeeType}.`
+                    : `${pendingRemovalReassign.employeeName} akan dipindah dari Grup ${pendingRemovalReassign.currentGroup} ke grup ${pendingRemovalReassign.employeeType} yang dipilih.`}
+                </p>
+                {pendingRemovalReassign.sourceType !== 'Manager Teknik' && (pendingRemovalReassign.employeeGrade === 13 || pendingRemovalReassign.employeeGrade === 14) && (
+                  <p className="text-xs text-blue-700 mt-2">
+                    Untuk level 13-14, tujuan tersedia: Manager Teknik atau Grup 1-5.
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={() => setPendingRemovalReassign(null)}
+                className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              {pendingRemovalReassign.availableDestinations.map((destination, index) => (
+                <button
+                  key={destination.kind === 'manager' ? 'destination-manager' : `destination-group-${destination.groupNumber}-${index}`}
+                  onClick={() => handleConfirmRemovalReassign(destination)}
+                  className="w-full px-4 py-3 text-left rounded-lg border border-gray-200 bg-gray-50 hover:bg-blue-50 hover:border-blue-300 transition-colors"
+                >
+                  {destination.kind === 'manager' ? (
+                    <>
+                      <div className="text-sm font-semibold text-gray-900">Manager Teknik</div>
+                      <div className="text-xs text-gray-500 mt-0.5">Pindahkan karyawan ini menjadi Manager Teknik</div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-sm font-semibold text-gray-900">Grup {destination.groupNumber}</div>
+                      <div className="text-xs text-gray-500 mt-0.5">Pindahkan {pendingRemovalReassign.employeeType} ke grup ini</div>
+                    </>
+                  )}
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={() => setPendingRemovalReassign(null)}
+              className="mt-4 w-full px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+            >
+              Batal
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Legend - Shift Types */}
       <div className="mt-8 border-t border-gray-200 pt-6">
@@ -1857,16 +2793,16 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
                 <span className="text-gray-700">Libur</span>
               </div>
               <div className="flex items-center gap-3 text-xs sm:text-sm">
-                <div className="w-16 h-7 rounded-lg bg-amber-400 text-gray-900 shadow-sm flex items-center justify-center font-semibold text-[10px] sm:text-xs">CT</div>
-                <span className="text-gray-700">Cuti Tahunan</span>
+                <div className="w-16 h-7 rounded-lg bg-amber-400 text-gray-900 shadow-sm flex items-center justify-center font-semibold text-[10px] sm:text-xs">CK</div>
+                <span className="text-gray-700">Cuti Kepentingan</span>
               </div>
               <div className="flex items-center gap-3 text-xs sm:text-sm">
                 <div className="w-16 h-7 rounded-lg bg-rose-500 text-white shadow-sm flex items-center justify-center font-semibold text-[10px] sm:text-xs">CS</div>
-                <span className="text-gray-700">Cuti Sakit / Cuti Dokter</span>
+                <span className="text-gray-700">Cuti Sakit</span>
               </div>
               <div className="flex items-center gap-3 text-xs sm:text-sm">
-                <div className="w-16 h-7 rounded-lg bg-teal-500 text-white shadow-sm flex items-center justify-center font-semibold text-[10px] sm:text-xs">DL</div>
-                <span className="text-gray-700">Dinas Luar</span>
+                <div className="w-16 h-7 rounded-lg bg-teal-500 text-white shadow-sm flex items-center justify-center font-semibold text-[10px] sm:text-xs">TPO</div>
+                <span className="text-gray-700">TPO (Malang / Dhoho / Sumenep)</span>
               </div>
               <div className="flex items-center gap-3 text-xs sm:text-sm">
                 <div className="w-16 h-7 rounded-lg bg-cyan-500 text-white shadow-sm flex items-center justify-center font-semibold text-[10px] sm:text-xs">OH</div>

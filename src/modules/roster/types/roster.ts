@@ -18,6 +18,7 @@ export interface Employee {
   user_id: number;
   employee_type: 'CNS' | 'Support' | 'Manager Teknik' | 'General Manager';
   group_number?: number | null;
+  is_fixed_manager?: boolean; // Cannot be removed as manager if true
   user: User;
 }
 

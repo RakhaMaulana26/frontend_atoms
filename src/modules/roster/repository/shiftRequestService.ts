@@ -16,6 +16,7 @@ export interface MyShift {
 export interface AvailablePartner {
   employee_id: number;
   employee_name: string;
+  grade?: number | null;
   employee_type: string;
   group_number?: number | null;
   available_shifts: {
@@ -191,6 +192,14 @@ export const shiftRequestService = {
       data: { employee_id: number; user_id: number; name: string; notes: string } | null;
       message?: string;
     }>('/shift-requests/manager-for-shift', { params });
+    return response.data;
+  },
+
+  // Check if current user is a manager (including temporary duty assignments)
+  checkManagerStatus: async (params?: { roster_period_id?: number }) => {
+    const response = await apiClient.get<{ 
+      data: { is_role_manager: boolean; has_manager_duties: boolean; is_manager: boolean };
+    }>('/shift-requests/check-manager-status', { params });
     return response.data;
   },
 };

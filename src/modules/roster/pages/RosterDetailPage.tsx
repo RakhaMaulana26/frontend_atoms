@@ -370,9 +370,10 @@ const RosterDetailPage: React.FC = () => {
         { label: 'Rosters', href: '/rosters' },
         { label: `${getMonthName(roster.month)} ${roster.year}` }
       ]}
+      contentContainerClassName="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6"
     >
       <div className="min-h-screen bg-gray-50 py-4 sm:py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className={`${activeTab === 'staff' ? 'max-w-none px-2 sm:px-2 lg:px-2' : 'max-w-7xl px-4 sm:px-6 lg:px-8'} mx-auto`}>
           {/* Tab Navigation */}
           <div className="flex items-center justify-center mb-6 sm:mb-8 -mx-4 sm:mx-0">
             <div className="relative flex items-center gap-1.5 sm:gap-3 p-1.5 sm:p-2 bg-white rounded-2xl shadow-lg border border-gray-200 w-full sm:max-w-2xl">

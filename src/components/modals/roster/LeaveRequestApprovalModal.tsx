@@ -4,6 +4,7 @@ import Modal from '../../common/Modal';
 import Button from '../../ui/Button';
 import type { LeaveRequest, LeaveRequestDateApproval } from '../../../modules/roster/types/leaveRequest';
 import { leaveRequestService } from '../../../modules/roster/repository/leaveRequestService';
+import { useDataCache } from '../../../contexts/DataCacheContext';
 
 interface LeaveRequestApprovalModalProps {
   isOpen: boolean;
@@ -24,6 +25,7 @@ const LeaveRequestApprovalModal: React.FC<LeaveRequestApprovalModalProps> = ({
   leaveRequest,
   onSuccess,
 }) => {
+  const { applyApprovedLeaveToRosterCache } = useDataCache();
   const [approvalNotes, setApprovalNotes] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [actionType, setActionType] = useState<'approve' | 'reject' | null>(null);
@@ -111,6 +113,7 @@ const LeaveRequestApprovalModal: React.FC<LeaveRequestApprovalModalProps> = ({
       });
 
       setDetailLeaveRequest(response.data);
+      applyApprovedLeaveToRosterCache(response.data);
       toast.success(response.message || (actionType === 'approve'
         ? 'Permohonan cuti berhasil diproses.'
         : 'Permohonan cuti berhasil ditolak.'));
@@ -195,6 +198,24 @@ const LeaveRequestApprovalModal: React.FC<LeaveRequestApprovalModalProps> = ({
     });
   };
 
+  const getLeaveTypeLabel = () => {
+    if (!activeLeaveRequest) return '-';
+
+    if (activeLeaveRequest.request_type === 'doctor_leave') {
+      return 'Cuti Sakit';
+    }
+
+    if (activeLeaveRequest.request_type === 'annual_leave') {
+      return 'Cuti Kepentingan';
+    }
+
+    if (activeLeaveRequest.request_type === 'external_duty') {
+      return activeLeaveRequest.institution ? `TPO - ${activeLeaveRequest.institution}` : 'TPO';
+    }
+
+    return activeLeaveRequest.request_type_name;
+  };
+
   const getApprovalBadgeClass = (approval: LeaveRequestDateApproval) => {
     if (approval.needs_assignment) {
       return 'bg-amber-100 text-amber-800';
@@ -239,7 +260,7 @@ const LeaveRequestApprovalModal: React.FC<LeaveRequestApprovalModalProps> = ({
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
             <div>
               <p className="text-xs text-gray-500">Jenis Cuti</p>
-              <p className="text-sm font-semibold text-gray-900">{activeLeaveRequest.request_type_name}</p>
+              <p className="text-sm font-semibold text-gray-900">{getLeaveTypeLabel()}</p>
             </div>
             <span className={`self-start px-3 py-1 rounded-full text-xs font-medium ${statusBadgeClassMap[activeLeaveRequest.status]}`}>
               {activeLeaveRequest.status_name}

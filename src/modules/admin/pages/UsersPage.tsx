@@ -663,12 +663,12 @@ const UsersPage: React.FC = () => {
               Cancel
             </Button>
             <Button
-              variant="primary"
+              variant="danger"
               onClick={() => {
                 setIsLogoutConfirmOpen(false);
                 logout();
               }}
-              className="w-full bg-red-600 hover:bg-red-700"
+              className="w-full"
             >
               Logout
             </Button>

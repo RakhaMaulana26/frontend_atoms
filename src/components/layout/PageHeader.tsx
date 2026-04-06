@@ -14,9 +14,10 @@ interface PageHeaderProps {
   subtitle?: string;
   breadcrumbs?: BreadcrumbItem[];
   children?: React.ReactNode;
+  contentContainerClassName?: string;
 }
 
-const PageHeader: React.FC<PageHeaderProps> = ({ title, subtitle, breadcrumbs, children }) => {
+const PageHeader: React.FC<PageHeaderProps> = ({ title, subtitle, breadcrumbs, children, contentContainerClassName }) => {
   const { logout } = useAuth();
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
 
@@ -32,7 +33,7 @@ const PageHeader: React.FC<PageHeaderProps> = ({ title, subtitle, breadcrumbs, c
       />
 
       {/* Page Content Container */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className={contentContainerClassName ?? 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6'}>
         {/* Breadcrumbs */}
         {breadcrumbs && breadcrumbs.length > 0 && (
           <div className="mb-6">
@@ -85,12 +86,12 @@ const PageHeader: React.FC<PageHeaderProps> = ({ title, subtitle, breadcrumbs, c
               Cancel
             </Button>
             <Button
-              variant="primary"
+              variant="danger"
               onClick={() => {
                 setIsLogoutConfirmOpen(false);
                 logout();
               }}
-              className="w-full bg-red-600 hover:bg-red-700"
+              className="w-full"
             >
               Logout
             </Button>

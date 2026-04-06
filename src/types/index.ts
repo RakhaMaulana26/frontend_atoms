@@ -21,6 +21,7 @@ export interface Employee {
   employee_type_name?: string;
   group_number?: number | null;
   is_active: boolean;
+  is_fixed_manager?: boolean; // Cannot be removed as manager if true
   user?: User;
   created_at: string;
   updated_at: string;

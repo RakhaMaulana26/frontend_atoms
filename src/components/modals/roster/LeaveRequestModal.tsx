@@ -13,15 +13,28 @@ interface LeaveRequestModalProps {
 }
 
 const LEAVE_TYPES = [
-  { value: 'doctor_leave', label: 'Cuti Dokter' },
-  { value: 'annual_leave', label: 'Cuti Tahunan' },
-  { value: 'external_duty', label: 'Dinas Luar' },
+  { value: 'doctor_leave', label: 'Cuti Sakit' },
+  { value: 'annual_leave', label: 'Cuti Kepentingan' },
+  { value: 'external_duty', label: 'TPO' },
   { value: 'educational_assignment', label: 'Tugas Pendidikan' },
+];
+
+const ANNUAL_LEAVE_SUBTYPES = [
+  { value: 'cuti_kepentingan', label: 'Cuti Kepentingan' },
+  { value: 'cuti_bersalin', label: 'Cuti Bersalin' },
+  { value: 'cuti_tahunan', label: 'Cuti Tahunan' },
+];
+
+const TPO_CITIES = [
+  { value: 'Malang', label: 'Malang' },
+  { value: 'Dhoho', label: 'Dhoho' },
+  { value: 'Sumenep', label: 'Sumenep' },
 ];
 
 const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, onSuccess }) => {
   const { user } = useAuth();
   const [requestType, setRequestType] = useState('');
+  const [annualLeaveSubtype, setAnnualLeaveSubtype] = useState('cuti_kepentingan');
   const [reason, setReason] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -57,6 +70,7 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
 
   const resetForm = () => {
     setRequestType('');
+    setAnnualLeaveSubtype('cuti_kepentingan');
     setReason('');
     setStartDate('');
     setEndDate('');
@@ -73,6 +87,12 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
       resetForm();
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (requestType !== 'annual_leave') {
+      setAnnualLeaveSubtype('cuti_kepentingan');
+    }
+  }, [requestType]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -109,15 +129,20 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
       return;
     }
     
-    // Reason required for annual leave and doctor's leave
+    // Reason required for leave types with personal justification
     if ((requestType === 'annual_leave' || requestType === 'doctor_leave') && !reason) {
       toast.error('Please provide a reason');
       return;
     }
+
+    if (requestType === 'annual_leave' && !annualLeaveSubtype) {
+      toast.error('Silakan pilih jenis cuti kepentingan');
+      return;
+    }
     
-    // Institution required for external duty
+    // TPO city is required for external duty
     if (requestType === 'external_duty' && !institution) {
-      toast.error('Please provide institution/assignment location');
+      toast.error('Silakan pilih kota tujuan TPO');
       return;
     }
     
@@ -141,6 +166,9 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
       // Prepare FormData for API call
       const formData = new FormData();
       formData.append('request_type', requestType);
+      if (requestType === 'annual_leave') {
+        formData.append('annual_leave_subtype', annualLeaveSubtype || 'cuti_kepentingan');
+      }
       formData.append('start_date', startDate);
       formData.append('end_date', endDate);
       formData.append('reason', reason || '');
@@ -176,11 +204,6 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handlePrintView = () => {
-    // TODO: Implement print view functionality
-    toast.info('Print view feature coming soon');
   };
 
   const renderUploadPrompt = (iconSize: 'compact' | 'regular' = 'regular') => (
@@ -237,23 +260,9 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
       onClose={onClose} 
       title="Request Leave" 
       size="xl" 
-      headerClassName="bg-gradient-to-r from-green-600 to-green-700 text-white flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 rounded-t-lg"
+      headerClassName="bg-gradient-to-r from-[#222E6A] to-[#1a2452] text-white flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 rounded-t-lg"
     >
       <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
-        {/* Print View Button - Top Right */}
-        <div className="flex justify-end -mt-2">
-          <button
-            type="button"
-            onClick={handlePrintView}
-            className="flex items-center gap-2 px-3 py-1.5 bg-[#222E6A] text-white rounded-lg text-xs sm:text-sm font-medium hover:bg-[#1a2452] transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-            </svg>
-            Print View
-          </button>
-        </div>
-
         {/* Field-level validation errors summary */}
         {Object.keys(fieldErrors).length > 0 && (
           <div className="rounded-lg border border-red-300 bg-red-50 px-4 py-3">
@@ -339,6 +348,19 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
                   required
                 />
               </div>
+
+              {/* Annual Leave Subtype */}
+              <div>
+                <label className="block text-xs sm:text-sm font-semibold text-[#222E6A] mb-2">
+                  Jenis Cuti Kepentingan
+                </label>
+                <Select
+                  options={ANNUAL_LEAVE_SUBTYPES}
+                  value={annualLeaveSubtype}
+                  onChange={(e) => setAnnualLeaveSubtype(e.target.value)}
+                  required
+                />
+              </div>
             </div>
 
             {/* Column 2 - Reason */}
@@ -403,7 +425,7 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
             </div>
           </div>
         ) : requestType === 'doctor_leave' ? (
-          /* 3-Column Layout for Doctor's Leave - WITH UPLOAD FILE */
+          /* 3-Column Layout for Sick Leave - WITH UPLOAD FILE */
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
             {/* Column 1 - Applicant Information */}
             <div className="space-y-4">
@@ -561,7 +583,7 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
             </div>
           </div>
         ) : isExternalDuty ? (
-          /* 2-Column Layout for External Duty */
+          /* 2-Column Layout for TPO */
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
             {/* Column 1 - Applicant Information */}
             <div className="space-y-4">
@@ -679,17 +701,18 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
                 </div>
               </div>
 
-              {/* Institution / Assignment Location */}
+              {/* TPO City */}
               <div>
                 <label className="block text-xs sm:text-sm font-semibold text-[#222E6A] mb-2">
-                  Institution / Assignment Location
+                  Kota TPO
                 </label>
-                <input
-                  type="text"
+                <Select
+                  options={[
+                    { value: '', label: 'Pilih kota tujuan TPO' },
+                    ...TPO_CITIES,
+                  ]}
                   value={institution}
                   onChange={(e) => setInstitution(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#222E6A] text-xs sm:text-sm"
-                  placeholder="AirNav Indonesia - Sumenep Branch"
                   required
                 />
               </div>
