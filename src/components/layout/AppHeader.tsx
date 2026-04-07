@@ -122,7 +122,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onProfileClick, onLogoutClick }) 
                   <hr className="my-2" />
                   <button
                     onClick={handleLogoutClick}
-                    className="w-full text-left px-4 py-2.5 mx-2 mb-1 text-sm font-medium text-white bg-gradient-to-r from-red-500 to-red-600 rounded-lg flex items-center gap-3 transition-all duration-200 shadow-md hover:shadow-lg active:scale-95"
+                    className="w-full text-left px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-red-500 to-red-600 rounded-b-xl flex items-center gap-2 transition-all duration-200 shadow-sm hover:shadow-md active:scale-95"
                     style={{
                       backgroundImage: 'linear-gradient(to right, rgb(239, 68, 68), rgb(220, 38, 38))'
                     }}
