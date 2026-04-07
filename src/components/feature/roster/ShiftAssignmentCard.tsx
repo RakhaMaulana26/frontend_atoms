@@ -4,7 +4,7 @@
  * Reusable card for displaying shift assignments with staff list
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 
 interface User {
   id: number;
@@ -64,6 +64,7 @@ const ShiftAssignmentCard: React.FC<ShiftAssignmentCardProps> = ({
   isReadOnly = false
 }) => {
   const formatTime = (time: string) => time.substring(0, 5);
+  useEffect(() => { void formatTime; }, [formatTime]);
   
   const validAssignments = assignments.filter(a => a.employee && a.shift);
   

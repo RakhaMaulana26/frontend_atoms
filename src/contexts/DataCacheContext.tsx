@@ -9,13 +9,16 @@ import { rosterService } from '../modules/roster/repository/rosterService';
 import { activityLogService } from '../services/activityLogService';
 import { useAuth } from '../modules/auth/core/AuthContext';
 
-type NotificationCategory = 'inbox' | 'starred' | 'sent' | 'trash';
+type NotificationCategory = 'inbox' | 'starred' | 'sent' | 'trash' | 'roster' | 'drafts' | 'scheduled';
 
 interface NotificationsByCategory {
   inbox: Notification[];
   starred: Notification[];
   sent: Notification[];
   trash: Notification[];
+  roster: Notification[];
+  drafts: Notification[];
+  scheduled: Notification[];
 }
 
 interface NotificationStats {
@@ -23,6 +26,9 @@ interface NotificationStats {
   starred: number;
   sent: number;
   trash: number;
+  roster: number;
+  drafts: number;
+  scheduled: number;
 }
 
 interface DataCacheContextType {
@@ -92,12 +98,18 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
     starred: [],
     sent: [],
     trash: [],
+    roster: [],
+    drafts: [],
+    scheduled: [],
   });
   const [notificationStats, setNotificationStats] = useState<NotificationStats>({
     inbox: 0,
     starred: 0,
     sent: 0,
     trash: 0,
+    roster: 0,
+    drafts: 0,
+    scheduled: 0,
   });
   const [rosters, setRosters] = useState<RosterPeriod[]>([]);
   const [rosterDetails, setRosterDetails] = useState<Record<number, RosterPeriod>>({});
@@ -329,8 +341,11 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
     setLoadingStates(prev => ({ ...prev, notifications: true }));
     try {
       if (singleCategory) {
+        // Skip API call for roster, drafts, and scheduled categories as they're generated locally
+        if (singleCategory === 'roster' || singleCategory === 'drafts' || singleCategory === 'scheduled') return;
+        
         // Load only one category (legacy, still supported)
-        const response = await notificationService.getNotifications({ category: singleCategory });
+        const response = await notificationService.getNotifications({ category: singleCategory as 'inbox' | 'sent' | 'starred' | 'trash' });
         const data = response?.data || [];
         const total = response?.total || 0;
         
@@ -351,6 +366,9 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
           starred: response.data?.starred || [],
           sent: response.data?.sent || [],
           trash: response.data?.trash || [],
+          roster: [], // Roster notifications are generated locally
+          drafts: [], // Drafts are managed locally
+          scheduled: [], // Scheduled notifications are managed locally
         });
         
         setNotificationStats({
@@ -358,6 +376,9 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
           starred: response.stats?.starred || 0,
           sent: response.stats?.sent || 0,
           trash: response.stats?.trash || 0,
+          roster: 0, // Will be updated when roster data is loaded
+          drafts: 0, // Will be managed locally
+          scheduled: 0, // Will be managed locally
         });
       }
     } catch (error) {
@@ -461,12 +482,18 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
         starred: [],
         sent: [],
         trash: [],
+        roster: [],
+        drafts: [],
+        scheduled: [],
       });
       setNotificationStats({
         inbox: 0,
         starred: 0,
         sent: 0,
         trash: 0,
+        roster: 0,
+        drafts: 0,
+        scheduled: 0,
       });
       setRosters([]);
       setRosterDetails({});
@@ -632,6 +659,9 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
         starred: prev.starred.filter(n => n.id !== id),
         sent: prev.sent.filter(n => n.id !== id),
         trash: [{ ...notification, deleted_at: new Date().toISOString() }, ...prev.trash],
+        roster: prev.roster.filter(n => n.id !== id),
+        drafts: prev.drafts,
+        scheduled: prev.scheduled,
       };
     });
     
@@ -649,6 +679,7 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
       ...prev,
       trash: prev.trash.filter(n => n.id !== notification.id),
       inbox: [{ ...notification, deleted_at: null }, ...prev.inbox],
+      roster: prev.roster,
     }));
     setNotificationStats(prev => ({
       ...prev,
@@ -662,6 +693,7 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
     setNotificationsByCategory(prev => ({
       ...prev,
       sent: [notification, ...prev.sent],
+      roster: prev.roster,
     }));
     setNotificationStats(prev => ({
       ...prev,
@@ -673,7 +705,7 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
   const updateNotificationInCache = useCallback((id: number, updates: Partial<Notification>) => {
     setNotificationsByCategory(prev => {
       const newState = { ...prev };
-      (['inbox', 'starred', 'sent', 'trash'] as NotificationCategory[]).forEach(cat => {
+      (['inbox', 'starred', 'sent', 'trash', 'roster'] as NotificationCategory[]).forEach(cat => {
         newState[cat] = prev[cat].map(n => 
           n.id === id ? { ...n, ...updates } : n
         );

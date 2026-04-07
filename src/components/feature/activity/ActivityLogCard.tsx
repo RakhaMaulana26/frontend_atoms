@@ -1,6 +1,6 @@
 import React from 'react';
 import { Calendar, Users, AlertTriangle, Package, Settings, LogIn, UserPlus, Edit, Trash2, RotateCcw, Send, Check, X } from 'lucide-react';
-import type { ActivityLog } from '../../services/activityLogService';
+import type { ActivityLog } from '../../../services/activityLogService';
 
 interface ActivityLogCardProps {
   activity: ActivityLog;

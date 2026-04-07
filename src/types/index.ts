@@ -256,10 +256,10 @@ export interface Notification {
   id: number;
   user_id: number;
   sender_id?: number;
-  type: 'inbox' | 'sent';
+  type: 'inbox' | 'sent' | 'roster' | 'roster_task';
   title: string;
   message: string;
-  category?: string; // e.g., 'leave_request', 'shift_request', etc.
+  category?: string; // e.g., 'leave_request', 'shift_request', 'morning_tasks', etc.
   data?: any;
   is_read: boolean;
   is_starred: boolean;
@@ -267,13 +267,24 @@ export interface Notification {
   created_at: string;
   updated_at: string;
   deleted_at?: string | null;
-  category?: string;
   reference_id?: number;
   sender?: {
     id: number;
     name: string;
     email: string;
   };
+}
+
+export interface MorningTask {
+  id: number;
+  title: string;
+  description?: string;
+  priority: 'low' | 'medium' | 'high';
+  status: 'pending' | 'in_progress' | 'completed';
+  assigned_to?: number[]; // user ids, if specific, else all CNS/Support
+  created_by: number;
+  created_at: string;
+  updated_at: string;
 }
 
 // Admin Types

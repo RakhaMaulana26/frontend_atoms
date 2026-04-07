@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { Input, PageHeader, Button, Modal, Select } from '../../../components';
@@ -9,7 +9,6 @@ import { useDataCache } from '../../../contexts/DataCacheContext';
 import { useAuth } from '../../auth/core/AuthContext';
 import { rosterService } from '../repository/rosterService';
 import type { RosterPeriod } from '../types/roster';
-
 // Create Roster Modal Component
 const CreateRosterModal: React.FC<{
   isOpen: boolean;
@@ -705,6 +704,10 @@ const RostersPage: React.FC = () => {
   const [rosterToPublish, setRosterToPublish] = useState<RosterPeriod | null>(null);
   const [skipValidation, setSkipValidation] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    void ArrowLeftRight;
+  }, []);
 
   const handleCreateSuccess = (roster: RosterPeriod) => {
     addRoster(roster); // Add roster to cache immediately (optimistic update)
