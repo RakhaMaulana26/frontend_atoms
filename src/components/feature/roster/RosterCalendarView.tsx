@@ -125,17 +125,8 @@ const RosterCalendarView: React.FC<RosterCalendarViewProps> = ({
       case 'pagi': return 'bg-blue-500';
       case 'siang': return 'bg-orange-500';
       case 'malam': return 'bg-emerald-600';
-      case 'libur': return 'bg-slate-400';
-      case 'cuti': return 'bg-amber-400';
-      case 'sakit': return 'bg-rose-500';
-      case 'oh': return 'bg-cyan-500';
-      case 'dl': return 'bg-teal-500';
-      case 'tb': return 'bg-indigo-500';
-      case 'lepas': return 'bg-gray-600';
-      case 'standby': return 'bg-purple-500';
-      case 'training': return 'bg-sky-500';
-      case 'unknown': return 'bg-lime-500';
-      default: return 'bg-gray-400';
+      case 'libur': return 'bg-red-500';
+      default: return 'bg-yellow-400';
     }
   };
 
@@ -288,8 +279,12 @@ const RosterCalendarView: React.FC<RosterCalendarViewProps> = ({
           <span className="text-sm font-medium text-black">Malam</span>
         </div>
         <div className="flex items-center gap-3">
-          <div className="w-6 h-6 bg-slate-400 rounded" />
+          <div className="w-6 h-6 bg-red-500 rounded" />
           <span className="text-sm font-medium text-black">Libur</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="w-6 h-6 bg-yellow-400 rounded" />
+          <span className="text-sm font-medium text-black">Cuti/Penugasan Lain</span>
         </div>
       </div>
     </>

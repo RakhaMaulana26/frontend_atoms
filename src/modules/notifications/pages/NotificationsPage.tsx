@@ -69,7 +69,7 @@ const NotificationsPage: React.FC = () => {
     sessionStorage.setItem('actionedNotificationIds', JSON.stringify([...actionedNotificationIds]));
   }, [actionedNotificationIds]);
 
-  // Sync shift request status for actionable notifications
+  // Sync shift request status for actionable notifications (with debounce to avoid excessive API calls)
   useEffect(() => {
     const currentList = activeCategory === 'all'
       ? (() => {
@@ -96,33 +96,37 @@ const NotificationsPage: React.FC = () => {
     }
 
     let mounted = true;
-    const fetchStatuses = async () => {
-      const results = await Promise.all(
-        shiftRequestIds.map(async (id) => {
-          try {
-            const response = await shiftRequestService.getShiftRequest(id);
-            return [id, response.data?.status || 'unknown'] as const;
-          } catch {
-            return [id, 'unknown'] as const;
-          }
-        })
-      );
+    // Only fetch if we have actioned notifications, otherwise use cache as-is
+    const timeoutId = setTimeout(async () => {
+      const fetchStatuses = async () => {
+        const results = await Promise.all(
+          shiftRequestIds.map(async (id) => {
+            try {
+              const response = await shiftRequestService.getShiftRequest(id);
+              return [id, response.data?.status || 'unknown'] as const;
+            } catch {
+              return [id, 'unknown'] as const;
+            }
+          })
+        );
 
-      if (!mounted) return;
+        if (!mounted) return;
 
-      const statusMap: Record<number, string> = {};
-      results.forEach(([id, status]) => {
-        statusMap[id] = status;
-      });
-      setShiftRequestStatusById(statusMap);
-    };
+        const statusMap: Record<number, string> = {};
+        results.forEach(([id, status]) => {
+          statusMap[id] = status;
+        });
+        setShiftRequestStatusById(statusMap);
+      };
 
-    fetchStatuses();
+      await fetchStatuses();
+    }, 500); // Debounce API calls by 500ms
 
     return () => {
       mounted = false;
+      clearTimeout(timeoutId);
     };
-  }, [activeCategory, notificationsByCategory]);
+  }, [activeCategory]);
   
   // Ref for user dropdown to detect click outside
   const userDropdownRef = useRef<HTMLDivElement>(null);

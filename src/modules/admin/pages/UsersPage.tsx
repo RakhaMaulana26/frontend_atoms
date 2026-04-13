@@ -20,8 +20,9 @@ import {
 import { Edit, Trash2, RotateCcw, Key, Users, Search, Plus, MoreVertical, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const UsersPage: React.FC = () => {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const { users: cachedUsers, refreshUsers, loadingStates } = useDataCache();
+  const canManageUsers = user?.role === 'Admin';
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRole, setSelectedRole] = useState('');
@@ -133,6 +134,7 @@ const UsersPage: React.FC = () => {
 
   // Generate token handler
   const handleGenerateToken = async (user: User) => {
+    if (!canManageUsers) return;
     const now = Date.now();
     if (isGeneratingToken || (now - lastGeneratedTime < 3000)) {
       toast.warning('Please wait, token generation in progress...');
@@ -159,6 +161,7 @@ const UsersPage: React.FC = () => {
 
   // Send email handler
   const handleSendTokenEmail = useCallback(async () => {
+    if (!canManageUsers) return;
     if (!selectedUser || isSendingEmail || isSendingRef.current) {
       return;
     }
@@ -184,7 +187,7 @@ const UsersPage: React.FC = () => {
       setIsSendingEmail(false);
       isSendingRef.current = false;
     }
-  }, [selectedUser, generatedToken, isSendingEmail, lastSentTime]);
+  }, [selectedUser, generatedToken, isSendingEmail, lastSentTime, canManageUsers]);
 
   // Copy token handler
   const handleCopyToken = useCallback(() => {
@@ -194,11 +197,13 @@ const UsersPage: React.FC = () => {
 
   // Delete user handler
   const handleDelete = (user: User) => {
+    if (!canManageUsers) return;
     setSelectedUser(user);
     setIsDeleteModalOpen(true);
   };
 
   const confirmDelete = async () => {
+    if (!canManageUsers) return;
     if (!selectedUser) return;
     
     try {
@@ -214,6 +219,7 @@ const UsersPage: React.FC = () => {
 
   // Restore user handler
   const handleRestore = async (user: User) => {
+    if (!canManageUsers) return;
     try {
       await adminService.restoreUser(user.id);
       toast.success('User restored successfully');
@@ -320,7 +326,7 @@ const UsersPage: React.FC = () => {
         </span>
       ),
     },
-    {
+    ...(canManageUsers ? [{
       key: 'actions',
       header: 'Actions',
       render: (user: User) => (
@@ -397,7 +403,7 @@ const UsersPage: React.FC = () => {
           )}
         </div>
       ),
-    },
+    }] : []),
   ];
 
   // Show loading on initial load
@@ -414,9 +420,9 @@ const UsersPage: React.FC = () => {
   return (
     <PageHeader
       title="User Management"
-      subtitle="Manage system users and their permissions"
+      subtitle={canManageUsers ? 'Manage system users and their permissions' : 'View system users'}
       breadcrumbs={[
-        { label: 'User Management', href: '/admin/users' }
+        { label: 'User Management', href: canManageUsers ? '/admin/users' : '/personnel' }
       ]}
     >
       {/* Header Actions */}
@@ -460,14 +466,16 @@ const UsersPage: React.FC = () => {
               className="sm:min-w-[150px] pr-10"
             />
           </div>
-          <Button
-            variant="primary"
-            onClick={() => setIsCreateModalOpen(true)}
-            className="bg-[#222E6A] hover:bg-[#1a2452] w-full lg:w-auto"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Create User
-          </Button>
+          {canManageUsers && (
+            <Button
+              variant="primary"
+              onClick={() => setIsCreateModalOpen(true)}
+              className="bg-[#222E6A] hover:bg-[#1a2452] w-full lg:w-auto"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Create User
+            </Button>
+          )}
         </div>
       </div>
 
@@ -554,13 +562,15 @@ const UsersPage: React.FC = () => {
       </div>
 
       {/* Modals */}
-      <CreateUserModal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        onSuccess={handleCreateSuccess}
-      />
+      {canManageUsers && (
+        <CreateUserModal
+          isOpen={isCreateModalOpen}
+          onClose={() => setIsCreateModalOpen(false)}
+          onSuccess={handleCreateSuccess}
+        />
+      )}
 
-      {selectedUser && (
+      {canManageUsers && selectedUser && (
         <EditUserModal
           isOpen={isEditModalOpen}
           user={selectedUser}
@@ -572,63 +582,67 @@ const UsersPage: React.FC = () => {
         />
       )}
 
-      <TokenModal
-        isOpen={isTokenModalOpen}
-        onClose={() => setIsTokenModalOpen(false)}
-        user={selectedUser}
-        token={generatedToken}
-        isGenerating={isGeneratingToken}
-        isSending={isSendingEmail}
-        onCopyToken={handleCopyToken}
-        onSendEmail={handleSendTokenEmail}
-      />
+      {canManageUsers && (
+        <TokenModal
+          isOpen={isTokenModalOpen}
+          onClose={() => setIsTokenModalOpen(false)}
+          user={selectedUser}
+          token={generatedToken}
+          isGenerating={isGeneratingToken}
+          isSending={isSendingEmail}
+          onCopyToken={handleCopyToken}
+          onSendEmail={handleSendTokenEmail}
+        />
+      )}
 
       {/* Delete Confirmation Modal */}
-      <Modal
-        isOpen={isDeleteModalOpen}
-        onClose={() => {
-          setIsDeleteModalOpen(false);
-          setSelectedUser(null);
-        }}
-        title="Confirm Delete"
-        size="sm"
-        headerVariant="danger"
-      >
-        <div className="space-y-4">
-          <div className="flex items-start gap-3">
-            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
-              <Trash2 className="h-5 w-5 text-red-600" />
+      {canManageUsers && (
+        <Modal
+          isOpen={isDeleteModalOpen}
+          onClose={() => {
+            setIsDeleteModalOpen(false);
+            setSelectedUser(null);
+          }}
+          title="Confirm Delete"
+          size="sm"
+          headerVariant="danger"
+        >
+          <div className="space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                <Trash2 className="h-5 w-5 text-red-600" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm text-gray-600">
+                  Are you sure you want to delete <strong>{selectedUser?.name}</strong>?
+                </p>
+                <p className="text-xs text-gray-500 mt-2">
+                  This action can be undone by restoring the user later.
+                </p>
+              </div>
             </div>
-            <div className="flex-1">
-              <p className="text-sm text-gray-600">
-                Are you sure you want to delete <strong>{selectedUser?.name}</strong>?
-              </p>
-              <p className="text-xs text-gray-500 mt-2">
-                This action can be undone by restoring the user later.
-              </p>
+            <div className="grid grid-cols-2 gap-3">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsDeleteModalOpen(false);
+                  setSelectedUser(null);
+                }}
+                className="w-full"
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onClick={confirmDelete}
+                className="w-full bg-red-600 hover:bg-red-700"
+              >
+                Delete
+              </Button>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsDeleteModalOpen(false);
-                setSelectedUser(null);
-              }}
-              className="w-full"
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              onClick={confirmDelete}
-              className="w-full bg-red-600 hover:bg-red-700"
-            >
-              Delete
-            </Button>
-          </div>
-        </div>
-      </Modal>
+        </Modal>
+      )}
 
       {/* Logout Confirmation Modal */}
       <Modal

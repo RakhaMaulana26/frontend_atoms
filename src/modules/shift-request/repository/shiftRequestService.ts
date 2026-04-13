@@ -50,9 +50,8 @@ export const shiftRequestService = {
 
   // Get available partners for swap
   async getAvailablePartners(params?: {
-    roster_day_id?: number;
-    shift_id?: number;
-    employee_id?: number;
+    from_roster_day_id?: number;
+    requester_notes?: string;
   }): Promise<{ data: AvailableSwapPartner[]; count: number }> {
     const response = await apiClient.get<{ data: AvailableSwapPartner[]; count: number }>('/shift-requests/available-partners', { params });
     return response.data;

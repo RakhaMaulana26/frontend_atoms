@@ -119,11 +119,10 @@ export const shiftRequestService = {
 
   // Get available partners for swap
   getAvailablePartners: async (params?: {
-    roster_day_id?: number;
-    shift_id?: number;
-    employee_id?: number;
     from_roster_day_id?: number;
     requester_notes?: string;
+    roster_month?: number;
+    roster_year?: number;
   }) => {
     const response = await apiClient.get<{ data: AvailablePartner[]; count: number }>('/shift-requests/available-partners', {
       params
@@ -143,6 +142,7 @@ export const shiftRequestService = {
     type?: 'pending_approval' | 'my_requests';
     per_page?: number;
     page?: number;
+    roster_period_id?: number;
   }) => {
     const response = await apiClient.get<{ data: ShiftRequestItem[]; meta: { current_page: number; last_page: number; per_page: number; total: number } }>('/shift-requests', {
       params

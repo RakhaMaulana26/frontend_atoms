@@ -21,7 +21,7 @@ export const adminService = {
     
     // Use simple request if no auth token is needed (for public endpoints)
     if (!hasToken && canUseSimpleRequest('GET', false)) {
-      const response = await simpleGet(`${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/admin/users`, params);
+      const response = await simpleGet(`${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/users`, params);
       if (!response.ok) {
         throw new Error('Request failed');
       }
@@ -29,7 +29,7 @@ export const adminService = {
     }
     
     // Use axios for authenticated requests
-    const response = await apiClient.get<PaginatedResponse<User>>('/admin/users', { params });
+    const response = await apiClient.get<PaginatedResponse<User>>('/users', { params });
     return response.data;
   },
 

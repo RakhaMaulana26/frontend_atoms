@@ -31,6 +31,22 @@ export interface LeaveRequestStatistics {
   total_approved_days: number;
 }
 
+export interface LeaveApprovalPreview {
+  approvals: Array<{
+    work_date: string;
+    manager_employee_id: number | null;
+    manager_name: string | null;
+    manager_role: string | null;
+    employee_shift_notes: string | null;
+  }>;
+  unique_approvers: Array<{
+    manager_employee_id: number;
+    manager_name: string | null;
+    manager_role: string | null;
+  }>;
+  missing_dates: string[];
+}
+
 class LeaveRequestService {
   private getBackendBaseUrl(): string {
     const configuredBackendUrl = import.meta.env.VITE_BACKEND_URL;
@@ -139,6 +155,21 @@ class LeaveRequestService {
       {
         params: { year },
       }
+    );
+    return response.data;
+  }
+
+  /**
+   * Preview managers who will approve selected leave period
+   */
+  async getApprovalPreview(params: {
+    request_type: string;
+    start_date: string;
+    end_date: string;
+  }): Promise<{ message: string; data: LeaveApprovalPreview }> {
+    const response = await apiClient.get<{ message: string; data: LeaveApprovalPreview }>(
+      '/leave-requests/approval-preview',
+      { params }
     );
     return response.data;
   }

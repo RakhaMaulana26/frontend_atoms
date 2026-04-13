@@ -519,6 +519,8 @@ const RosterDetailPage: React.FC = () => {
       <SwapShiftModal
         isOpen={isSwapShiftModalOpen}
         onClose={() => setIsSwapShiftModalOpen(false)}
+        rosterMonth={roster.month}
+        rosterYear={roster.year}
         onSuccess={() => {
           // Refresh shift swap requests after successful submission
           // TODO: Re-fetch shift swap requests from backend
@@ -530,6 +532,8 @@ const RosterDetailPage: React.FC = () => {
       <LeaveRequestModal
         isOpen={isLeaveRequestModalOpen}
         onClose={() => setIsLeaveRequestModalOpen(false)}
+        rosterMonth={roster.month}
+        rosterYear={roster.year}
         onSuccess={() => {
           // Refresh leave requests after successful submission
           // TODO: Re-fetch leave requests from backend

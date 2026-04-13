@@ -5,11 +5,14 @@ import Button from '../../ui/Button';
 import Select from '../../common/Select';
 import { useAuth } from '../../../modules/auth/core/AuthContext';
 import { leaveRequestService } from '../../../modules/roster/repository/leaveRequestService';
+import type { LeaveApprovalPreview } from '../../../modules/roster/repository/leaveRequestService';
 
 interface LeaveRequestModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  rosterMonth?: number;
+  rosterYear?: number;
 }
 
 const LEAVE_TYPES = [
@@ -31,7 +34,7 @@ const TPO_CITIES = [
   { value: 'Sumenep', label: 'Sumenep' },
 ];
 
-const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, onSuccess }) => {
+const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, onSuccess, rosterMonth, rosterYear }) => {
   const { user } = useAuth();
   const [requestType, setRequestType] = useState('');
   const [annualLeaveSubtype, setAnnualLeaveSubtype] = useState('cuti_kepentingan');
@@ -45,6 +48,34 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [approvalPreview, setApprovalPreview] = useState<LeaveApprovalPreview | null>(null);
+  const [isLoadingApprovalPreview, setIsLoadingApprovalPreview] = useState(false);
+  const [approvalPreviewError, setApprovalPreviewError] = useState('');
+
+  const rosterStartDate = rosterMonth && rosterYear
+    ? `${rosterYear}-${String(rosterMonth).padStart(2, '0')}-01`
+    : '';
+  const rosterEndDate = rosterMonth && rosterYear
+    ? `${rosterYear}-${String(rosterMonth).padStart(2, '0')}-${String(new Date(rosterYear, rosterMonth, 0).getDate()).padStart(2, '0')}`
+    : '';
+  const formatLocalDate = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+  const todayDateString = formatLocalDate(new Date());
+  const isRosterPeriodStarted = Boolean(rosterStartDate && todayDateString >= rosterStartDate);
+  const availableLeaveTypes = isRosterPeriodStarted
+    ? LEAVE_TYPES.filter((type) => type.value === 'doctor_leave')
+    : LEAVE_TYPES;
+  const isDoctorLeaveInStartedRoster = isRosterPeriodStarted && requestType === 'doctor_leave';
+  const effectiveStartDateMin = isDoctorLeaveInStartedRoster
+    ? todayDateString
+    : (rosterStartDate || undefined);
+  const effectiveStartDateMax = isDoctorLeaveInStartedRoster
+    ? (rosterEndDate || todayDateString)
+    : (rosterEndDate || undefined);
 
   // Auto-filled values
   const applicantName = user?.name || '';
@@ -80,6 +111,9 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
     setProgramCourse('');
     setUploadedFile(null);
     setFieldErrors({});
+    setApprovalPreview(null);
+    setApprovalPreviewError('');
+    setIsLoadingApprovalPreview(false);
   };
 
   useEffect(() => {
@@ -93,6 +127,90 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
       setAnnualLeaveSubtype('cuti_kepentingan');
     }
   }, [requestType]);
+
+  useEffect(() => {
+    if (isRosterPeriodStarted && requestType && requestType !== 'doctor_leave') {
+      setRequestType('');
+    }
+  }, [isRosterPeriodStarted, requestType]);
+
+  useEffect(() => {
+    if (!requestType || !startDate || !endDate) {
+      setApprovalPreview(null);
+      setApprovalPreviewError('');
+      setIsLoadingApprovalPreview(false);
+      return;
+    }
+
+    if (new Date(startDate) > new Date(endDate)) {
+      setApprovalPreview(null);
+      setApprovalPreviewError('Rentang tanggal tidak valid.');
+      setIsLoadingApprovalPreview(false);
+      return;
+    }
+
+    let isCancelled = false;
+    setIsLoadingApprovalPreview(true);
+    setApprovalPreviewError('');
+
+    leaveRequestService
+      .getApprovalPreview({
+        request_type: requestType,
+        start_date: startDate,
+        end_date: endDate,
+      })
+      .then((response) => {
+        if (isCancelled) return;
+        setApprovalPreview(response.data);
+      })
+      .catch((error: any) => {
+        if (isCancelled) return;
+        setApprovalPreview(null);
+        const message = error?.response?.data?.message || 'Gagal memuat approver cuti.';
+        setApprovalPreviewError(message);
+      })
+      .finally(() => {
+        if (isCancelled) return;
+        setIsLoadingApprovalPreview(false);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [requestType, startDate, endDate]);
+
+  const clampToRosterRange = (value: string) => {
+    const minDate = effectiveStartDateMin;
+    const maxDate = effectiveStartDateMax;
+    if (!value || !minDate || !maxDate) return value;
+    if (value < minDate) return minDate;
+    if (value > maxDate) return maxDate;
+    return value;
+  };
+
+  const handleStartDateChange = (value: string) => {
+    const nextStart = clampToRosterRange(value);
+    setStartDate(nextStart);
+
+    if (endDate) {
+      const clampedEnd = clampToRosterRange(endDate);
+      if (clampedEnd !== endDate) {
+        setEndDate(clampedEnd);
+      }
+      if (clampedEnd && nextStart && clampedEnd < nextStart) {
+        setEndDate(nextStart);
+      }
+    }
+  };
+
+  const handleEndDateChange = (value: string) => {
+    const clamped = clampToRosterRange(value);
+    if (startDate && clamped && clamped < startDate) {
+      setEndDate(startDate);
+      return;
+    }
+    setEndDate(clamped);
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -118,6 +236,11 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
     // Validation based on request type
     if (!requestType || !startDate || !endDate) {
       toast.error('Please fill in all required fields');
+      return;
+    }
+
+    if (isRosterPeriodStarted && requestType !== 'doctor_leave') {
+      toast.error('Karena periode roster sudah berjalan, hanya Cuti Sakit yang dapat diajukan.');
       return;
     }
 
@@ -157,6 +280,13 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
     if (new Date(startDate) > new Date(endDate)) {
       toast.error('End date must be after start date');
       return;
+    }
+
+    if (rosterStartDate && rosterEndDate) {
+      if (startDate < rosterStartDate || startDate > rosterEndDate || endDate < rosterStartDate || endDate > rosterEndDate) {
+        toast.error(`Tanggal pengajuan harus dalam periode roster ${rosterStartDate} sampai ${rosterEndDate}`);
+        return;
+      }
     }
 
     setFieldErrors({});
@@ -254,6 +384,52 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
   const isEducationalAssignment = requestType === 'educational_assignment';
   const periodLabel = (isExternalDuty || isEducationalAssignment) ? 'Duty Period' : 'Leave Period';
 
+  const renderApprovalPreview = () => {
+    if (!requestType || !startDate || !endDate) {
+      return null;
+    }
+
+    return (
+      <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+        <p className="text-sm font-semibold text-[#1a2452] mb-1">Approver Cuti</p>
+
+        {isLoadingApprovalPreview && (
+          <p className="text-xs text-blue-700">Mencari manager approver berdasarkan tanggal yang dipilih...</p>
+        )}
+
+        {!isLoadingApprovalPreview && approvalPreviewError && (
+          <p className="text-xs text-red-600">{approvalPreviewError}</p>
+        )}
+
+        {!isLoadingApprovalPreview && !approvalPreviewError && approvalPreview && approvalPreview.missing_dates.length > 0 && (
+          <div>
+            <p className="text-xs text-red-700 mb-1">Beberapa tanggal belum punya approver:</p>
+            <ul className="list-disc list-inside space-y-0.5">
+              {approvalPreview.missing_dates.map((item, index) => (
+                <li key={`${item}-${index}`} className="text-xs text-red-600">{item}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {!isLoadingApprovalPreview && !approvalPreviewError && approvalPreview && approvalPreview.missing_dates.length === 0 && (
+          <div className="space-y-1">
+            {approvalPreview.unique_approvers.length > 0 ? (
+              approvalPreview.unique_approvers.map((approver) => (
+                <p key={approver.manager_employee_id} className="text-xs text-blue-900">
+                  - {approver.manager_name || 'Manager tidak diketahui'}
+                  {approver.manager_role ? ` (${approver.manager_role})` : ''}
+                </p>
+              ))
+            ) : (
+              <p className="text-xs text-blue-800">Approver belum ditemukan untuk rentang tanggal ini.</p>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <Modal 
       isOpen={isOpen} 
@@ -341,12 +517,17 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
                 <Select
                   options={[
                     { value: '', label: 'Select request type' },
-                    ...LEAVE_TYPES
+                    ...availableLeaveTypes
                   ]}
                   value={requestType}
                   onChange={(e) => setRequestType(e.target.value)}
                   required
                 />
+                {isRosterPeriodStarted && (
+                  <p className="mt-1 text-xs text-amber-700">
+                    Bulan roster sudah berjalan. Pengajuan dibatasi hanya untuk Cuti Sakit.
+                  </p>
+                )}
               </div>
 
               {/* Annual Leave Subtype */}
@@ -390,7 +571,9 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
                 <input
                   type="date"
                   value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
+                  onChange={(e) => handleStartDateChange(e.target.value)}
+                  min={effectiveStartDateMin}
+                  max={effectiveStartDateMax}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#222E6A] text-xs sm:text-sm"
                   required
                 />
@@ -404,8 +587,9 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
                 <input
                   type="date"
                   value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  min={startDate}
+                  onChange={(e) => handleEndDateChange(e.target.value)}
+                  min={startDate || effectiveStartDateMin}
+                  max={effectiveStartDateMax}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#222E6A] text-xs sm:text-sm"
                   required
                 />
@@ -489,12 +673,17 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
                 <Select
                   options={[
                     { value: '', label: 'Select request type' },
-                    ...LEAVE_TYPES
+                    ...availableLeaveTypes
                   ]}
                   value={requestType}
                   onChange={(e) => setRequestType(e.target.value)}
                   required
                 />
+                {isRosterPeriodStarted && (
+                  <p className="mt-1 text-xs text-amber-700">
+                    Bulan roster sudah berjalan. Pengajuan dibatasi hanya untuk Cuti Sakit.
+                  </p>
+                )}
               </div>
             </div>
 
@@ -525,7 +714,9 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
                 <input
                   type="date"
                   value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
+                  onChange={(e) => handleStartDateChange(e.target.value)}
+                  min={effectiveStartDateMin}
+                  max={effectiveStartDateMax}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#222E6A] text-xs sm:text-sm"
                   required
                 />
@@ -539,8 +730,9 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
                 <input
                   type="date"
                   value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  min={startDate}
+                  onChange={(e) => handleEndDateChange(e.target.value)}
+                  min={startDate || effectiveStartDateMin}
+                  max={effectiveStartDateMax}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#222E6A] text-xs sm:text-sm"
                   required
                 />
@@ -647,12 +839,17 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
                 <Select
                   options={[
                     { value: '', label: 'Select request type' },
-                    ...LEAVE_TYPES
+                    ...availableLeaveTypes
                   ]}
                   value={requestType}
                   onChange={(e) => setRequestType(e.target.value)}
                   required
                 />
+                {isRosterPeriodStarted && (
+                  <p className="mt-1 text-xs text-amber-700">
+                    Bulan roster sudah berjalan. Pengajuan dibatasi hanya untuk Cuti Sakit.
+                  </p>
+                )}
               </div>
             </div>
 
@@ -668,7 +865,9 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
                 <input
                   type="date"
                   value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
+                  onChange={(e) => handleStartDateChange(e.target.value)}
+                  min={effectiveStartDateMin}
+                  max={effectiveStartDateMax}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#222E6A] text-xs sm:text-sm"
                   required
                 />
@@ -682,8 +881,9 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
                 <input
                   type="date"
                   value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  min={startDate}
+                  onChange={(e) => handleEndDateChange(e.target.value)}
+                  min={startDate || effectiveStartDateMin}
+                  max={effectiveStartDateMax}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#222E6A] text-xs sm:text-sm"
                   required
                 />
@@ -806,12 +1006,17 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
                 <Select
                   options={[
                     { value: '', label: 'Select request type' },
-                    ...LEAVE_TYPES
+                    ...availableLeaveTypes
                   ]}
                   value={requestType}
                   onChange={(e) => setRequestType(e.target.value)}
                   required
                 />
+                {isRosterPeriodStarted && (
+                  <p className="mt-1 text-xs text-amber-700">
+                    Bulan roster sudah berjalan. Pengajuan dibatasi hanya untuk Cuti Sakit.
+                  </p>
+                )}
               </div>
             </div>
 
@@ -879,7 +1084,9 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
                 <input
                   type="date"
                   value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
+                  onChange={(e) => handleStartDateChange(e.target.value)}
+                  min={effectiveStartDateMin}
+                  max={effectiveStartDateMax}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#222E6A] text-xs sm:text-sm"
                   required
                 />
@@ -893,8 +1100,9 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
                 <input
                   type="date"
                   value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  min={startDate}
+                  onChange={(e) => handleEndDateChange(e.target.value)}
+                  min={startDate || effectiveStartDateMin}
+                  max={effectiveStartDateMax}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#222E6A] text-xs sm:text-sm"
                   required
                 />
@@ -1001,12 +1209,17 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
                 <Select
                   options={[
                     { value: '', label: 'Select request type' },
-                    ...LEAVE_TYPES
+                    ...availableLeaveTypes
                   ]}
                   value={requestType}
                   onChange={(e) => setRequestType(e.target.value)}
                   required
                 />
+                {isRosterPeriodStarted && (
+                  <p className="mt-1 text-xs text-amber-700">
+                    Bulan roster sudah berjalan. Pengajuan dibatasi hanya untuk Cuti Sakit.
+                  </p>
+                )}
               </div>
             </div>
 
@@ -1017,6 +1230,8 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
             </div>
           </div>
         )}
+
+        {renderApprovalPreview()}
         
         {/* Action Buttons */}
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:gap-3 pt-3 sm:pt-4 border-t">

@@ -5,9 +5,10 @@
  * Shows shifts for each day with color coding
  */
 
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Printer } from 'lucide-react';
 import type { RosterPeriod, Shift } from '../types/roster';
+import { shiftRequestService, type ShiftRequestItem } from '../repository/shiftRequestService';
 
 interface RosterCalendarViewProps {
   roster: RosterPeriod;
@@ -21,6 +22,105 @@ const RosterCalendarView: React.FC<RosterCalendarViewProps> = ({
   onPrint,
   currentEmployeeId
 }) => {
+  const [completedSwaps, setCompletedSwaps] = useState<ShiftRequestItem[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadCompletedSwaps = async () => {
+      if (!currentEmployeeId) {
+        if (mounted) {
+          setCompletedSwaps([]);
+        }
+        return;
+      }
+
+      try {
+        const response = await shiftRequestService.getShiftRequests({
+          status: 'completed',
+          per_page: 300,
+          page: 1,
+          roster_period_id: roster.id,
+        });
+
+        if (!mounted) return;
+
+        const myCompleted = (response.data || []).filter((request) =>
+          request.requester_employee_id === currentEmployeeId || request.target_employee_id === currentEmployeeId
+        );
+
+        setCompletedSwaps(myCompleted);
+      } catch (error) {
+        console.error('Failed to load completed swap overlays for calendar:', error);
+        if (mounted) {
+          setCompletedSwaps([]);
+        }
+      }
+    };
+
+    loadCompletedSwaps();
+
+    const intervalId = window.setInterval(() => {
+      loadCompletedSwaps();
+    }, 8000);
+
+    const onFocus = () => loadCompletedSwaps();
+    const onVisibilityChange = () => {
+      if (!document.hidden) {
+        loadCompletedSwaps();
+      }
+    };
+
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      mounted = false;
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [currentEmployeeId, roster.id]);
+
+  const completedSwapNoteByDate = useMemo(() => {
+    if (!currentEmployeeId) return new Map<string, string>();
+
+    const toDateKey = (value: string | undefined | null) => {
+      if (!value) return '';
+      return value.split('T')[0];
+    };
+
+    const swapsByDate = new Map<string, { note: string; order: number }>();
+
+    completedSwaps.forEach((request) => {
+      const requestDate = toDateKey(request.from_roster_day?.work_date || request.to_roster_day?.work_date);
+      if (!requestDate) return;
+
+      const nextNote = request.requester_employee_id === currentEmployeeId
+        ? request.target_notes
+        : request.requester_notes;
+
+      const order = new Date(
+        request.swap_executed_at || request.updated_at || request.created_at
+      ).getTime();
+
+      const existing = swapsByDate.get(requestDate);
+      if (!existing || order >= existing.order) {
+        swapsByDate.set(requestDate, {
+          note: nextNote,
+          order,
+        });
+      }
+    });
+
+    const noteMap = new Map<string, string>();
+    swapsByDate.forEach((value, date) => {
+      noteMap.set(date, value.note);
+    });
+
+    return noteMap;
+  }, [completedSwaps, currentEmployeeId]);
+
   const getMonthName = (month: number) => {
     return new Date(0, month - 1).toLocaleString('default', { month: 'long' });
   };
@@ -96,17 +196,8 @@ const RosterCalendarView: React.FC<RosterCalendarViewProps> = ({
       case 'pagi': return 'bg-blue-500';
       case 'siang': return 'bg-orange-500';
       case 'malam': return 'bg-emerald-600';
-      case 'libur': return 'bg-slate-400';
-      case 'cuti': return 'bg-amber-400';
-      case 'sakit': return 'bg-rose-500';
-      case 'oh': return 'bg-cyan-500';
-      case 'dl': return 'bg-teal-500';
-      case 'tb': return 'bg-indigo-500';
-      case 'lepas': return 'bg-gray-600';
-      case 'standby': return 'bg-purple-500';
-      case 'training': return 'bg-sky-500';
-      case 'unknown': return 'bg-lime-500';
-      default: return 'bg-gray-400';
+      case 'libur': return 'bg-red-500';
+      default: return 'bg-yellow-400';
     }
   };
 
@@ -127,6 +218,14 @@ const RosterCalendarView: React.FC<RosterCalendarViewProps> = ({
     roster.roster_days?.forEach(day => {
       const dateObj = new Date(day.work_date);
       const dayOfMonth = dateObj.getDate();
+      const dayKey = (day.work_date || '').split('T')[0];
+
+      const overlayNote = completedSwapNoteByDate.get(dayKey);
+      if (overlayNote) {
+        const overlayShiftType = getShiftType(overlayNote, undefined);
+        dateShiftMap.set(dayOfMonth, overlayShiftType);
+        return;
+      }
       
       // Filter assignments by current employee if provided
       let assignments = day.shift_assignments || [];
@@ -274,8 +373,12 @@ const RosterCalendarView: React.FC<RosterCalendarViewProps> = ({
           <span className="text-xs sm:text-sm font-medium text-black">Malam</span>
         </div>
         <div className="flex items-center gap-2 sm:gap-3">
-          <div className="w-5 h-5 sm:w-6 sm:h-6 bg-slate-400 rounded" />
+          <div className="w-5 h-5 sm:w-6 sm:h-6 bg-red-500 rounded" />
           <span className="text-xs sm:text-sm font-medium text-black">Libur</span>
+        </div>
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="w-5 h-5 sm:w-6 sm:h-6 bg-yellow-400 rounded" />
+          <span className="text-xs sm:text-sm font-medium text-black">Cuti/Penugasan Lain</span>
         </div>
       </div>
     </>

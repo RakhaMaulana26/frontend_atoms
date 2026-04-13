@@ -623,7 +623,7 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
     lastUserIdRef.current = currentUserId;
   }, [isAuthenticated, user?.id]);
 
-  // Keep notifications fresh: poll periodically and refresh on window focus/tab visibility.
+  // Refresh notifications only on window focus or when tab becomes visible (no auto polling).
   useEffect(() => {
     if (!isAuthenticated || !isInitialized) return;
 
@@ -631,12 +631,6 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
       loadNotificationsByCategory();
       loadNotifications();
     };
-
-    const intervalId = window.setInterval(() => {
-      if (!document.hidden) {
-        refreshNotificationsRealtime();
-      }
-    }, 7000);
 
     const onFocus = () => refreshNotificationsRealtime();
     const onVisibilityChange = () => {
@@ -649,7 +643,6 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
     document.addEventListener('visibilitychange', onVisibilityChange);
 
     return () => {
-      window.clearInterval(intervalId);
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };

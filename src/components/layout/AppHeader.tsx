@@ -64,7 +64,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onProfileClick, onLogoutClick }) 
               />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-900">PT. AirNav Indonesia</h1>
+              <h1 className="text-xl font-bold text-gray-900">AirNav Indonesia</h1>
               <p className="text-sm text-gray-500">Welcome back, {user?.name || 'User'}</p>
             </div>
           </div>
@@ -120,22 +120,24 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onProfileClick, onLogoutClick }) 
                     Preferences
                   </button>
                   <hr className="my-2" />
-                  <button
-                    onClick={handleLogoutClick}
-                    className="w-full text-left px-4 py-2.5 mx-2 mb-1 text-sm font-medium text-white bg-gradient-to-r from-red-500 to-red-600 rounded-lg flex items-center gap-3 transition-all duration-200 shadow-md hover:shadow-lg active:scale-95"
-                    style={{
-                      backgroundImage: 'linear-gradient(to right, rgb(239, 68, 68), rgb(220, 38, 38))'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundImage = 'linear-gradient(to right, rgb(220, 38, 38), rgb(185, 28, 28))';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundImage = 'linear-gradient(to right, rgb(239, 68, 68), rgb(220, 38, 38))';
-                    }}
-                  >
-                    <LogOut className="h-4 w-4" />
-                    Sign Out
-                  </button>
+                  <div className="px-2 pb-1">
+                    <button
+                      onClick={handleLogoutClick}
+                      className="w-full text-left px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-red-500 to-red-600 rounded-lg flex items-center gap-3 transition-all duration-200 shadow-md hover:shadow-lg active:scale-95"
+                      style={{
+                        backgroundImage: 'linear-gradient(to right, rgb(239, 68, 68), rgb(220, 38, 38))'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundImage = 'linear-gradient(to right, rgb(220, 38, 38), rgb(185, 28, 28))';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundImage = 'linear-gradient(to right, rgb(239, 68, 68), rgb(220, 38, 38))';
+                      }}
+                    >
+                      <LogOut className="h-4 w-4" />
+                      Sign Out
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

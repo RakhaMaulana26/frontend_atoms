@@ -435,16 +435,17 @@ export const rosterService = {
   async assignEmployeeToGroup(
     rosterId: number,
     employeeId: number,
-    employeeType: 'CNS' | 'Support',
+    employeeType: 'CNS' | 'Support' | 'Manager Teknik',
     groupNumber: number
   ): Promise<{
     message: string;
     data: {
       employee_id: number;
       employee_name: string;
-      employee_type: 'CNS' | 'Support';
+      employee_type: 'CNS' | 'Support' | 'Manager Teknik';
       old_group: number | null;
       new_group: number;
+      synced_days?: number;
     };
   }> {
     const response = await apiClient.post(`/rosters/${rosterId}/groups/assign`, {

@@ -108,20 +108,6 @@ const ShiftSwapRequestsTable: React.FC<ShiftSwapRequestsTableProps> = ({
     }
   }, [loadRequests, checkingManagerStatus]);
 
-  // Keep UI in sync with latest server state without forcing manual refresh.
-  useEffect(() => {
-    // Only start polling after manager status check is complete
-    if (checkingManagerStatus) return;
-
-    const intervalId = window.setInterval(() => {
-      loadRequests(true);
-    }, 10000);
-
-    return () => {
-      window.clearInterval(intervalId);
-    };
-  }, [loadRequests]);
-
   useEffect(() => {
     const handleOptimisticCreate = (event: Event) => {
       const customEvent = event as CustomEvent<{ request: ShiftRequestItem }>;
@@ -341,7 +327,11 @@ const ShiftSwapRequestsTable: React.FC<ShiftSwapRequestsTableProps> = ({
     const isCurrentUserTarget = user?.employee?.id === request.target_employee_id;
     // Use backend value for accurate "already approved" status
     const currentUserAlreadyApproved = request.current_user_already_approved === true;
-    const isM2M = request.is_manager_to_manager === true;
+    const normalize = (value: string | undefined | null) => (value || '').trim().toLowerCase();
+    const requesterType = normalize(request.requester_employee?.employee_type);
+    const targetType = normalize(request.target_employee?.employee_type);
+    const isM2MByType = requesterType === 'manager teknik' && targetType === 'manager teknik';
+    const isM2M = request.is_manager_to_manager === true || isM2MByType;
 
     // For manager-to-manager swaps: GM approves both manager slots at once
     // Show: Target + General Manager
@@ -449,17 +439,8 @@ const ShiftSwapRequestsTable: React.FC<ShiftSwapRequestsTableProps> = ({
   };
 
   const canApproveAsManager = (request: ShiftRequestItem) => {
-    // Use backend-computed value if available
-    if (request.current_user_can_approve_as_manager !== undefined) {
-      return request.current_user_can_approve_as_manager;
-    }
-    // Fallback to old logic (less accurate)
-    if (request.status !== 'pending') return false;
-    if (!isManager && !isAdmin) return false;
-    const needsFromManagerApproval = !request.approved_by_from_manager;
-    const needsToManagerApproval = !request.approved_by_to_manager;
-    if (!needsFromManagerApproval && !needsToManagerApproval) return false;
-    return true;
+    // Backend is the single source of truth for manager approval eligibility.
+    return request.current_user_can_approve_as_manager === true;
   };
 
   const canReject = (request: ShiftRequestItem) => {
@@ -470,18 +451,9 @@ const ShiftSwapRequestsTable: React.FC<ShiftSwapRequestsTableProps> = ({
       return true;
     }
     
-    // Manager can reject if they can still approve (haven't approved yet)
+    // Manager can reject only when backend marks current user as approver for this request.
     if ((isManager || isAdmin) && request.approved_by_target) {
-      // Use backend value if available
-      if (request.current_user_can_approve_as_manager !== undefined) {
-        return request.current_user_can_approve_as_manager;
-      }
-      // Fallback
-      const needsFromManagerApproval = !request.approved_by_from_manager;
-      const needsToManagerApproval = !request.approved_by_to_manager;
-      if (needsFromManagerApproval || needsToManagerApproval) {
-        return true;
-      }
+      return request.current_user_can_approve_as_manager === true;
     }
     
     return false;
@@ -639,7 +611,7 @@ const ShiftSwapRequestsTable: React.FC<ShiftSwapRequestsTableProps> = ({
                       Shift Asal
                     </th>
                     <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-white font-semibold text-xs sm:text-sm whitespace-nowrap">
-                      Target
+                      Rekan Approver
                     </th>
                     <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-white font-semibold text-xs sm:text-sm whitespace-nowrap">
                       Shift Tujuan

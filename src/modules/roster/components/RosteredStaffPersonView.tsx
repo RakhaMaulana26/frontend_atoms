@@ -1,4 +1,4 @@
-/**
+﻿/**
  * RosteredStaffPersonView Component
  * 
  * Shows roster in a person-by-person format
@@ -7,11 +7,13 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { toast } from 'react-toastify';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { RosterPeriod, Shift, Employee, ShiftAssignment, ManagerDuty } from '../types/roster';
 import { useAuth } from '../../auth/core/AuthContext';
 import { rosterService } from '../repository/rosterService';
 import { useDataCache } from '../../../contexts/DataCacheContext';
+import RosteredStaffHeader from './rosteredStaff/RosteredStaffHeader';
+import RosteredStaffPrintStyles from './rosteredStaff/RosteredStaffPrintStyles';
+import { getManagerTeknikEffectiveGroup } from './rosteredStaff/managerGroupLogic';
 
 interface RosteredStaffPersonViewProps {
   roster: RosterPeriod;
@@ -58,6 +60,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
   const [addingManagerToGroup, setAddingManagerToGroup] = useState<{ type: string; groupNum: number } | null>(null);
   const [addGroupSearch, setAddGroupSearch] = useState('');
   const [pendingRemovalReassign, setPendingRemovalReassign] = useState<PendingRemovalReassign | null>(null);
+  const [managerGroupSelectorOpen, setManagerGroupSelectorOpen] = useState<number | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const tableContainerRef = useRef<HTMLDivElement>(null);
@@ -65,6 +68,21 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
 
   // Check if user can edit (Admin or Manager Teknik)
   const canEdit = user?.role === 'Admin' || user?.role === 'Manager Teknik';
+  const isRosterPublished = (roster.status || '').toLowerCase() === 'published';
+  const canEditRoster = canEdit && !isRosterPublished;
+
+  // Ensure all edit UI state is cleared in read-only mode (published roster)
+  useEffect(() => {
+    if (!canEditRoster) {
+      setEditingCell(null);
+      setSelectedCells([]);
+      setIsSelecting(false);
+      setSelectionStart(null);
+      setManagerGroupSelectorOpen(null);
+      setAddingManagerToGroup(null);
+      setPendingRemovalReassign(null);
+    }
+  }, [canEditRoster]);
 
   // Update toolbar position when selection changes
   useEffect(() => {
@@ -140,6 +158,31 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
       };
     }
   }, [editingCell]);
+
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setManagerGroupSelectorOpen(null);
+      }
+    };
+
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('[data-group-selector]')) {
+        setManagerGroupSelectorOpen(null);
+      }
+    };
+
+    if (managerGroupSelectorOpen !== null) {
+      document.addEventListener('keydown', handleEscape);
+      document.addEventListener('mousedown', handleClickOutside);
+
+      return () => {
+        document.removeEventListener('keydown', handleEscape);
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [managerGroupSelectorOpen]);
 
   // Shift options for dropdown
   const getShiftOptions = () => {
@@ -249,7 +292,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
 
   // Handle mousedown to start selection
   const handleCellMouseDown = (employeeId: number, day: number, colSpan: number, clickX: number, cellElement: HTMLElement, e: React.MouseEvent) => {
-    if (!canEdit) return;
+    if (!canEditRoster) return;
     e.preventDefault();
     e.stopPropagation();
     
@@ -333,7 +376,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
 
   // Handle click to open dropdown (separate from selection)
   const handleCellDoubleClick = (employeeId: number, day: number, e: React.MouseEvent) => {
-    if (!canEdit) return;
+    if (!canEditRoster) return;
     e.stopPropagation();
     setEditingCell({ employeeId, day });
   };
@@ -519,14 +562,36 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
     const allEmployees = getAllUniqueEmployees();
     const selectedEmployee = allEmployees.get(employeeId);
     
-    if (!selectedEmployee || !selectedEmployee.group_number) {
+    if (!selectedEmployee) {
       return [employeeId]; // If no group, return only this employee
+    }
+
+    const selectedGroup = selectedEmployee.employee_type === 'Manager Teknik'
+      ? getManagerTeknikEffectiveGroup(selectedEmployee)
+      : (selectedEmployee.group_number ?? 0);
+
+    if (!selectedGroup) {
+      return [employeeId];
     }
 
     const sameGroupEmployees: number[] = [];
     allEmployees.forEach((employee, id) => {
-      if (employee.employee_type === selectedEmployee.employee_type && 
-          employee.group_number === selectedEmployee.group_number) {
+      const employeeGroup = employee.employee_type === 'Manager Teknik'
+        ? getManagerTeknikEffectiveGroup(employee)
+        : (employee.group_number ?? 0);
+
+      if (selectedEmployee.employee_type === 'Manager Teknik') {
+        // Manager format mode should affect manager + CNS + Support in the led group.
+        if (
+          employeeGroup === selectedGroup &&
+          (employee.employee_type === 'Manager Teknik' || employee.employee_type === 'CNS' || employee.employee_type === 'Support')
+        ) {
+          sameGroupEmployees.push(id);
+        }
+        return;
+      }
+
+      if (employee.employee_type === selectedEmployee.employee_type && employeeGroup === selectedGroup) {
         sameGroupEmployees.push(id);
       }
     });
@@ -836,6 +901,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
 
   // Apply shift change to all selected cells
   const handleMultiShiftChange = async (optionValue: string, customNote?: string) => {
+    if (!canEditRoster) return;
     if (selectedCells.length === 0) return;
 
     // Case 1: Auto-fill pattern enabled and only one cell selected
@@ -1020,6 +1086,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
   }, [addingManagerToGroup]);
 
   const handleShiftChange = async (employeeId: number, day: number, optionValue: string, customNote?: string) => {
+    if (!canEditRoster) return;
     const baseRoster = getRosterDetail(roster.id) || roster;
     const option = shiftOptions.find(o => o.value === optionValue);
     if (!option || !option.shiftId) {
@@ -1158,7 +1225,8 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
     if (name.includes('morning') || name.includes('pagi') || name.includes('shift 1')) return 'bg-blue-500 text-white font-semibold';
     if (name.includes('afternoon') || name.includes('siang') || name.includes('shift 2')) return 'bg-orange-500 text-white font-semibold';
     if (name.includes('night') || name.includes('malam') || name.includes('shift 3')) return 'bg-emerald-600 text-white font-semibold';
-    return 'bg-gray-600 text-white font-semibold';
+    if (name.includes('libur') || name.includes('off')) return 'bg-red-500 text-white font-semibold';
+    return 'bg-yellow-400 text-gray-900 font-semibold';
   };
 
   const getNotesClasses = (notes: string) => {
@@ -1169,36 +1237,18 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
     if (note === 'siang' || note === 's') return 'bg-orange-500 text-white font-semibold';
     if (note === 'malam' || note === 'm') return 'bg-emerald-600 text-white font-semibold';
     
-    // Status karyawan dengan warna yang lebih kontras dan mudah dibedakan
+    // Libur tetap merah
     if (note === 'l' || note === 'libur' || note === 'off') return 'bg-red-500 text-white font-semibold';
-    if (note === 'ck' || note === 'cuti kepentingan' || note === 'ct' || note === 'cuti tahunan') return 'bg-amber-400 text-gray-900 font-semibold';
-    if (note === 'cs' || note === 'cuti sakit' || note === 'cuti dokter') return 'bg-rose-500 text-white font-semibold';
-    if (note === 'oh' || note === 'office hour') return 'bg-cyan-500 text-white font-semibold';
-    if (note === 'tpo' || note.startsWith('tpo ') || note === 'dl' || note === 'dinas luar') return 'bg-teal-500 text-white font-semibold';
-    if (note === 'tb' || note === 'tugas belajar') return 'bg-indigo-500 text-white font-semibold';
-    if (note === '-' || note === 'lepas malam' || note === 'lepas dinas malam') return 'bg-gray-600 text-white font-semibold';
-    if (note === 'sc' || note === 'standby on call' || note === 'stby') return 'bg-purple-500 text-white font-semibold';
-    if (note === 's/p' || note === 'standby pagi') return 'bg-violet-500 text-white font-semibold';
-    if (note === 's/s' || note === 'standby siang') return 'bg-fuchsia-500 text-white font-semibold';
-    if (note === 's/m' || note === 'standby malam') return 'bg-pink-500 text-white font-semibold';
+    if (note === 'l1' || note === 'l2' || note === 'libur1' || note === 'libur2') return 'bg-red-500 text-white font-semibold';
     
     // Partial matches - Gunakan warna yang sama dengan exact match
     if (note.includes('pagi')) return 'bg-blue-500 text-white font-semibold';
     if (note.includes('siang')) return 'bg-orange-500 text-white font-semibold';
     if (note.includes('malam')) return 'bg-emerald-600 text-white font-semibold';
-    if (note.includes('cuti kepentingan') || note.includes('cuti tahunan')) return 'bg-amber-400 text-gray-900 font-semibold';
-    if (note.includes('cuti sakit') || note.includes('cuti dokter')) return 'bg-rose-500 text-white font-semibold';
-    if (note.includes('office hour')) return 'bg-cyan-500 text-white font-semibold';
-    if (note.includes('standby')) return 'bg-purple-500 text-white font-semibold';
-    if (note.includes('tpo') || note.includes('dinas luar')) return 'bg-teal-500 text-white font-semibold';
-    if (note.includes('lepas')) return 'bg-gray-600 text-white font-semibold';
-    if (note.includes('tugas belajar')) return 'bg-indigo-500 text-white font-semibold';
-    if (note.includes('cuti') || note.includes('leave')) return 'bg-yellow-500 text-gray-900 font-semibold';
-    if (note.includes('training') || note.includes('pelatihan')) return 'bg-sky-500 text-white font-semibold';
-    if (note.includes('sakit') || note.includes('sick')) return 'bg-red-500 text-white font-semibold';
+    if (note.includes('libur') || note.includes('off')) return 'bg-red-500 text-white font-semibold';
     
-    // Default untuk custom notes lainnya - Warna yang sangat menonjol
-    return 'bg-lime-500 text-gray-900 font-semibold';
+    // Semua status selain P/S/M/L -> kuning
+    return 'bg-yellow-400 text-gray-900 font-semibold';
   };
 
   const getShiftDisplayText = (shiftName: string): string => {
@@ -1332,9 +1382,21 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
       }
     });
 
-    return Array.from(employeeRowsMap.values()).sort((a, b) =>
-      a.employee.user.name.localeCompare(b.employee.user.name)
-    );
+    return Array.from(employeeRowsMap.values()).sort((a, b) => {
+      const aType = a.employee.employee_type;
+      const bType = b.employee.employee_type;
+
+      if (aType === 'Manager Teknik' && bType === 'Manager Teknik') {
+        const aGroup = getManagerTeknikEffectiveGroup(a.employee) || 999;
+        const bGroup = getManagerTeknikEffectiveGroup(b.employee) || 999;
+
+        if (aGroup !== bGroup) {
+          return aGroup - bGroup;
+        }
+      }
+
+      return a.employee.user.name.localeCompare(b.employee.user.name);
+    });
   };
 
   const employeeRows = getEmployeeRows();
@@ -1406,21 +1468,40 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
       const groupMap = typeGroups.get(orderedType);
       if (!groupMap) return;
 
-      // For Manager Teknik, show all including those without group (groupNum = 0)
-      // For other types, only show those with actual group numbers (groupNum > 0)
-      const filterPredicate = orderedType === 'Manager Teknik'
-        ? ([_]: [number, EmployeeRosterRow[]]) => true // Show all
-        : ([groupNum]: [number, EmployeeRosterRow[]]) => groupNum > 0; // Filter out group 0
+      if (orderedType === 'Manager Teknik') {
+        const managerRows = Array.from(groupMap.values())
+          .flat()
+          .sort((a, b) => {
+            const aOrder = getManagerTeknikEffectiveGroup(a.employee) || 999;
+            const bOrder = getManagerTeknikEffectiveGroup(b.employee) || 999;
 
-      const sortedGroups = Array.from(groupMap.entries())
-        .sort((a, b) => a[0] - b[0]) // Sort by group number
-        .filter(filterPredicate);
+            if (aOrder !== bOrder) {
+              return aOrder - bOrder;
+            }
+
+            return a.employee.user.name.localeCompare(b.employee.user.name);
+          });
+
+        if (managerRows.length > 0) {
+          result.push({
+            type: orderedType,
+            groups: [managerRows],
+            groupNumbers: [1],
+          });
+        }
+
+        return;
+      }
+
+      const normalizedGroups = Array.from(groupMap.entries())
+        .filter(([groupNum]) => groupNum > 0)
+        .sort((a, b) => a[0] - b[0]);
       
-      if (sortedGroups.length > 0) {
+      if (normalizedGroups.length > 0) {
         result.push({
           type: orderedType,
-          groups: sortedGroups.map(([_, employees]) => employees),
-          groupNumbers: sortedGroups.map(([groupNum, _]) => groupNum)
+          groups: normalizedGroups.map(([_, employees]) => employees),
+          groupNumbers: normalizedGroups.map(([groupNum, _]) => groupNum)
         });
       }
     });
@@ -1604,6 +1685,36 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
     };
   };
 
+  const handleAssignManagerToGroup = async (employeeId: number, groupNumber: number) => {
+    if (!canEditRoster) return;
+    const previousRoster = getRosterDetail(roster.id) || roster;
+    const updatedRoster = updateEmployeeGroupInRoster(previousRoster, employeeId, groupNumber);
+    updateRosterDetail(roster.id, updatedRoster);
+    setManagerGroupSelectorOpen(null);
+
+    try {
+      await rosterService.assignEmployeeToGroup(
+        roster.id,
+        employeeId,
+        'Manager Teknik',
+        groupNumber
+      );
+
+      const synced = await syncRosterFromServer();
+      if (!synced) {
+        updateRosterDetail(roster.id, previousRoster);
+        toast.error('Gagal sinkronisasi data roster setelah pindah grup');
+        return;
+      }
+
+      toast.success(`Manager berhasil dipindahkan ke Grup ${groupNumber}`);
+    } catch (error) {
+      console.error('Failed to assign manager to group:', error);
+      updateRosterDetail(roster.id, previousRoster);
+      toast.error('Gagal memindahkan manager ke grup');
+    }
+  };
+
   const syncRosterFromServer = async () => {
     try {
       const latestRoster = await rosterService.getRoster(roster.id);
@@ -1623,6 +1734,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
     employeeId: number,
     options?: { showSuccessToast?: boolean }
   ): Promise<boolean> => {
+    if (!canEditRoster) return false;
     const showSuccessToast = options?.showSuccessToast ?? true;
 
     // Close popup immediately for better UX
@@ -1710,6 +1822,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
     employeeId: number,
     employeeType: 'CNS' | 'Support'
   ) => {
+    if (!canEditRoster) return;
     const currentRoster = getRosterDetail(roster.id) || roster;
     const optimisticUngroupRoster = updateEmployeeGroupInRoster(currentRoster, employeeId, 0);
     updateRosterDetail(roster.id, optimisticUngroupRoster);
@@ -1736,6 +1849,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
     employeeType?: 'CNS' | 'Support',
     targetGroupNumber?: number
   ) => {
+    if (!canEditRoster) return;
     const currentRoster = getRosterDetail(roster.id) || roster;
 
     const removeManagerFromRosterDays = (sourceRosterDays: RosterPeriod['roster_days']) =>
@@ -1825,6 +1939,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
     employeeType: 'CNS' | 'Support',
     groupNumber: number
   ) => {
+    if (!canEditRoster) return;
     setAddingManagerToGroup(null);
 
     const currentRoster = getRosterDetail(roster.id) || roster;
@@ -1833,6 +1948,12 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
 
     try {
       await rosterService.assignEmployeeToGroup(roster.id, employeeId, employeeType, groupNumber);
+      const synced = await syncRosterFromServer();
+      if (!synced) {
+        updateRosterDetail(roster.id, currentRoster);
+        toast.error('Gagal sinkronisasi data roster setelah pindah grup');
+        return;
+      }
       toast.success(`${employeeType} berhasil dipindahkan ke Grup ${groupNumber}`);
     } catch (error) {
       console.error('Failed to assign employee to group:', error);
@@ -1846,6 +1967,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
     employeeType: 'CNS' | 'Support',
     targetGroupNumber?: number
   ) => {
+    if (!canEditRoster) return;
     const currentRoster = getRosterDetail(roster.id) || roster;
     const nextGroupNumber = targetGroupNumber ?? 0;
     const optimisticRoster = updateEmployeeGroupInRoster(currentRoster, employeeId, nextGroupNumber);
@@ -1854,9 +1976,21 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
     try {
       if (targetGroupNumber) {
         await rosterService.assignEmployeeToGroup(roster.id, employeeId, employeeType, targetGroupNumber);
+        const synced = await syncRosterFromServer();
+        if (!synced) {
+          updateRosterDetail(roster.id, currentRoster);
+          toast.error('Gagal sinkronisasi data roster setelah pindah grup');
+          return;
+        }
         toast.success(`${employeeType} berhasil dipindahkan ke Grup ${targetGroupNumber}`);
       } else {
         await rosterService.removeEmployeeFromGroup(roster.id, employeeId);
+        const synced = await syncRosterFromServer();
+        if (!synced) {
+          updateRosterDetail(roster.id, currentRoster);
+          toast.error('Gagal sinkronisasi data roster setelah keluar dari grup');
+          return;
+        }
         toast.success(`${employeeType} berhasil dikeluarkan dari formasi grup`);
       }
     } catch (error) {
@@ -1867,6 +2001,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
   };
 
   const handleConfirmRemovalReassign = async (destination: ReassignDestination) => {
+    if (!canEditRoster) return;
     if (!pendingRemovalReassign) return;
 
     const pendingAction = pendingRemovalReassign;
@@ -1898,8 +2033,10 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
 
   // Console debug for troubleshooting
   React.useEffect(() => {
-    console.log('🔍 RosteredStaffPersonView Debug:');
+    console.log('≡ƒöì RosteredStaffPersonView Debug:');
     console.log('  canEdit:', canEdit);
+    console.log('  isRosterPublished:', isRosterPublished);
+    console.log('  canEditRoster:', canEditRoster);
     console.log('  user?.role:', user?.role);
     console.log('  employeeRows count:', employeeRows.length);
     console.log('  managerEmployeeIds:', Array.from(managerEmployeeIds));
@@ -1912,56 +2049,50 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
     console.log('  allGroupedData types:', allGroupedData.map(g => ({ type: g.type, groupCount: g.groups.length })));
   }, []);
 
+  const selectedToolbarEmployee = selectedCells.length === 1
+    ? getAllUniqueEmployees().get(selectedCells[0].employeeId)
+    : null;
+  const isToolbarSelectionManager = selectedToolbarEmployee?.employee_type === 'Manager Teknik';
+  const generalManagerName = Array.from(getAllUniqueEmployees().values()).find(
+    (employee) => employee.employee_type === 'General Manager'
+  )?.user.name || 'GENERAL MANAGER';
+  const creatorEmployee = user
+    ? Array.from(getAllUniqueEmployees().values()).find((employee) => employee.user.id === user.id)
+    : null;
+  const creatorRoleLabel = (() => {
+    if (creatorEmployee?.employee_type === 'Manager Teknik') {
+      const managerGroup = getManagerTeknikEffectiveGroup(creatorEmployee);
+      return managerGroup ? `MANAGER TEKNIK ${managerGroup}` : 'MANAGER TEKNIK';
+    }
+
+    if (user?.role) {
+      return user.role.toUpperCase();
+    }
+
+    return 'PEMBUAT';
+  })();
+  const creatorNameLabel = (creatorEmployee?.user.name || user?.name || 'PENGGUNA').toUpperCase();
+  const printDateLabel = showFullMonth
+    ? `TANGGAL : 1 - ${daysInMonth} ${getMonthName(roster.month)} ${roster.year}`
+    : `TANGGAL : ${getWeekDateRange()} ${roster.year}`;
+  const handlePrintRoster = () => {
+    window.print();
+  };
+
   return (
-    <div className="bg-white rounded-3xl shadow-lg border border-gray-100 mx-0 p-3 sm:p-5 lg:p-7 xl:p-8 overflow-hidden isolate">
-      {/* Header with Navigation */}
-      <div className="flex items-center justify-between mb-6 gap-2">
-        {showFullMonth ? (
-          <div className="w-9 sm:w-10" />
-        ) : (
-          <button
-            onClick={handlePrevWeek}
-            disabled={currentWeek === 0}
-            className={`p-2 rounded-lg transition-colors flex-shrink-0 ${
-              currentWeek === 0
-                ? 'text-gray-300 cursor-not-allowed'
-                : 'text-gray-700 hover:bg-gray-100'
-            }`}
-          >
-            <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
-          </button>
-        )}
+    <div className="bg-white rounded-3xl shadow-lg border border-gray-100 mx-0 p-3 sm:p-5 lg:p-7 xl:p-8 overflow-visible isolate">
+      <RosteredStaffPrintStyles />
 
-        <div className="text-center flex-1 min-w-0">
-          <h2 className="text-lg sm:text-3xl font-bold text-gray-900">Rostered Staff</h2>
-          <p className="text-xs sm:text-lg text-gray-500 truncate">
-            {getWeekDateRange()} {roster.year}
-          </p>
-          {showFullMonth ? (
-            <p className="text-[10px] sm:text-lg text-gray-400 mt-1">Mode: Sebulan Penuh</p>
-          ) : (
-            <p className="text-[10px] sm:text-lg text-gray-400 mt-1">
-              Week {currentWeek + 1} of {totalWeeks}
-            </p>
-          )}
-        </div>
-
-        {showFullMonth ? (
-          <div className="w-9 sm:w-10" />
-        ) : (
-          <button
-            onClick={handleNextWeek}
-            disabled={currentWeek === totalWeeks - 1}
-            className={`p-2 rounded-lg transition-colors flex-shrink-0 ${
-              currentWeek === totalWeeks - 1
-                ? 'text-gray-300 cursor-not-allowed'
-                : 'text-gray-700 hover:bg-gray-100'
-            }`}
-          >
-            <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
-          </button>
-        )}
-      </div>
+      <RosteredStaffHeader
+        showFullMonth={showFullMonth}
+        currentWeek={currentWeek}
+        totalWeeks={totalWeeks}
+        title={`${getWeekDateRange()} ${roster.year}`}
+        subtitle={showFullMonth ? 'Mode: Sebulan Penuh' : `Week ${currentWeek + 1} of ${totalWeeks}`}
+        onPrevWeek={handlePrevWeek}
+        onNextWeek={handleNextWeek}
+        onPrint={handlePrintRoster}
+      />
 
       <div className="flex items-center justify-center mb-4 sm:mb-6">
         <div className="w-full max-w-none rounded-2xl border border-[#222E6A]/20 bg-gradient-to-r from-[#f8f9ff] via-white to-[#f8f9ff] px-4 py-3 sm:px-5 sm:py-4 shadow-sm">
@@ -2016,9 +2147,15 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
       {/* Roster Table - Person View */}
       <div 
         ref={tableContainerRef}
-        className="overflow-x-auto overflow-y-hidden w-full rounded-2xl relative"
+        className="roster-print-area overflow-x-auto overflow-y-visible w-full rounded-2xl relative"
         style={{ scrollbarGutter: 'stable' }}
       >
+        <div className="print-only-main-title hidden">
+          <div className="print-roster-title">JADWAL DINAS TEKNIK ( MT & PT MT )</div>
+          <div className="print-roster-subtitle">BULAN : {`${getMonthName(roster.month)} ${roster.year}`}</div>
+          <div className="print-roster-date">{printDateLabel}</div>
+        </div>
+
         <table className={`${showFullMonth ? 'w-max min-w-[1280px]' : 'w-full min-w-[980px]'} border-collapse table-layout-fixed`} style={{ tableLayout: 'auto' }}>
           <thead className="sticky top-0 z-30">
             <tr>
@@ -2091,14 +2228,61 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
             ) : (
               allGroupedData.map((typeGroup, typeIndex) => (
                 <React.Fragment key={`type-${typeGroup.type}`}>
+                  {typeGroup.type === 'CNS' && (
+                    <>
+                      <tr className="print-only-cns-title hidden print-break-before">
+                        <td colSpan={displayedDays.length + 4}>
+                          <div className="print-roster-title">JADWAL DINAS TEKNIK TELEKOMUNIKASI</div>
+                          <div className="print-roster-subtitle">BULAN : {`${getMonthName(roster.month)} ${roster.year}`}</div>
+                          <div className="print-roster-date">{printDateLabel}</div>
+                        </td>
+                      </tr>
+                      <tr className="print-section-columns-header hidden">
+                        <td className="print-col-header print-col-label">Name</td>
+                        <td className="print-col-header print-col-label">Kelas</td>
+                        <td className="print-col-header print-col-label">Jabatan</td>
+                        {displayedDays.map((day) => (
+                          <td key={`print-cns-day-${day}`} className="print-col-header print-col-day">
+                            <div className="print-col-day-name">{getDayName(roster.year, roster.month, day)}</div>
+                            <div className="print-col-day-number">{day}</div>
+                          </td>
+                        ))}
+                        <td className="print-col-header print-col-tail"></td>
+                      </tr>
+                    </>
+                  )}
+                  {typeGroup.type === 'Support' && (
+                    <>
+                      <tr className="print-only-support-title hidden print-break-before">
+                        <td colSpan={displayedDays.length + 4}>
+                          <div className="print-roster-title">JADWAL DINAS TEKNIK FASILITAS PENUNJANG</div>
+                          <div className="print-roster-subtitle">BULAN : {`${getMonthName(roster.month)} ${roster.year}`}</div>
+                          <div className="print-roster-date">{printDateLabel}</div>
+                        </td>
+                      </tr>
+                      <tr className="print-section-columns-header hidden">
+                        <td className="print-col-header print-col-label">Name</td>
+                        <td className="print-col-header print-col-label">Kelas</td>
+                        <td className="print-col-header print-col-label">Jabatan</td>
+                        {displayedDays.map((day) => (
+                          <td key={`print-support-day-${day}`} className="print-col-header print-col-day">
+                            <div className="print-col-day-name">{getDayName(roster.year, roster.month, day)}</div>
+                            <div className="print-col-day-number">{day}</div>
+                          </td>
+                        ))}
+                        <td className="print-col-header print-col-tail"></td>
+                      </tr>
+                    </>
+                  )}
                   {/* Employee Type Header */}
-                  <tr>
+                  <tr className="print-type-header">
                     <td 
                       colSpan={3}
                       className="px-3 sm:px-4 py-3 text-sm sm:text-base font-bold text-white border-y-2 border-[#1a235c] sticky left-0 z-10"
                       style={{ backgroundColor: '#222E6A' }}
                     >
-                      {typeGroup.type}
+                      <div>{typeGroup.type}</div>
+                      <div className="print-section-date hidden">{printDateLabel}</div>
                     </td>
                     <td
                       colSpan={displayedDays.length + 1}
@@ -2135,11 +2319,12 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
                       {group.map((row, rowIndexInGroup) => {
                         const isLastRowInGroup = rowIndexInGroup === group.length - 1;
                         const isLastGroup = typeIndex === allGroupedData.length - 1 && groupIndex === typeGroup.groups.length - 1;
+                        const isManagerGroupPopupOpen = managerGroupSelectorOpen === row.employee.id;
                         
                         return (
-                          <tr key={row.employee.id} className="hover:bg-gray-50 transition-colors">
+                          <tr key={row.employee.id} className={`hover:bg-gray-50 transition-colors ${isManagerGroupPopupOpen ? 'relative z-[140]' : ''}`}>
                             <td
-                              className={`px-3 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-xs lg:text-sm font-medium text-gray-900 sticky left-0 bg-white z-10 ${!isLastRowInGroup || !isLastGroup ? 'border-b border-gray-200' : ''}`}
+                              className={`px-3 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-xs lg:text-sm font-medium text-gray-900 sticky left-0 bg-white relative overflow-visible ${isManagerGroupPopupOpen ? 'z-[150]' : 'z-10'} ${!isLastRowInGroup || !isLastGroup ? 'border-b border-gray-200' : ''}`}
                               style={{
                                 width: `${stickyNameWidth}px`,
                                 minWidth: `${stickyNameWidth}px`,
@@ -2147,34 +2332,80 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
                                 boxSizing: 'border-box',
                               }}
                             >
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 min-w-0">
                                 <span className="text-gray-500 font-normal">{rowIndexInGroup + 1}</span>
-                                <span className="whitespace-nowrap overflow-hidden text-ellipsis block">{row.employee.user.name}</span>
+                                <span className="whitespace-nowrap overflow-hidden text-ellipsis block min-w-0">{row.employee.user.name}</span>
+
+                                {typeGroup.type === 'Manager Teknik' && canEditRoster && (
+                                  <div className="relative ml-auto" data-group-selector>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setManagerGroupSelectorOpen((prev) => (prev === row.employee.id ? null : row.employee.id));
+                                      }}
+                                      className="px-2.5 py-0.5 text-[10px] font-semibold rounded-full bg-orange-100 text-orange-700 hover:bg-orange-200 transition-colors border border-orange-300"
+                                      title="Klik untuk pilih grup"
+                                    >
+                                      Grup {row.employee.group_number || '-'}
+                                    </button>
+                                    {managerGroupSelectorOpen === row.employee.id && (
+                                      <div
+                                        data-group-selector
+                                        className="absolute top-full right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-[220] p-2 flex flex-col gap-1 min-w-[110px]"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        {[1, 2, 3, 4, 5].map((groupNum) => (
+                                          <button
+                                            key={groupNum}
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              if (row.employee.group_number !== groupNum) {
+                                                handleAssignManagerToGroup(row.employee.id, groupNum);
+                                              } else {
+                                                setManagerGroupSelectorOpen(null);
+                                              }
+                                            }}
+                                            className={`px-3 py-1.5 text-[10px] font-semibold rounded transition-colors text-left ${
+                                              row.employee.group_number === groupNum
+                                                ? 'bg-[#222E6A] text-white'
+                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                            }`}
+                                          >
+                                            Grup {groupNum}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+
                                 {/* Only show badge or remove button for Manager Teknik group */}
                                 {typeGroup.type === 'Manager Teknik' && (
                                   <>
                                     {/* Show fixed badge for fixed managers */}
                                     {row.employee.is_fixed_manager === true && (
-                                      <span className="ml-auto flex-shrink-0 px-2 py-1 text-xs font-bold text-white bg-green-600 rounded" title="Manager tetap, tidak bisa dihapus">
-                                        ✓ FIXED
+                                      <span className="flex-shrink-0 px-2 py-1 text-xs font-bold text-white bg-green-600 rounded" title="Manager tetap, tidak bisa dihapus">
+                                        FIXED
                                       </span>
                                     )}
                                     {/* Remove button for removable managers: not fixed and grade not 15 */}
-                                    {row.employee.is_fixed_manager !== true && row.employee.user.grade !== 15 && canEdit && (
+                                    {row.employee.is_fixed_manager !== true && row.employee.user.grade !== 15 && canEditRoster && (
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           handleOpenRemovalReassignDialog(row.employee, 'Manager Teknik');
                                         }}
-                                        className="ml-auto flex-shrink-0 px-2 py-1 text-xs font-medium text-red-600 hover:text-white bg-red-100 hover:bg-red-500 rounded transition-colors"
+                                        className="flex-shrink-0 px-2 py-1 text-xs font-medium text-red-600 hover:text-white bg-red-100 hover:bg-red-500 rounded transition-colors"
                                         title="Hapus dari Manager"
                                       >
-                                        −
+                                        -
                                       </button>
                                     )}
                                   </>
                                 )}
-                                {(typeGroup.type === 'CNS' || typeGroup.type === 'Support') && canEdit && (
+                                {(typeGroup.type === 'CNS' || typeGroup.type === 'Support') && canEditRoster && (
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -2183,7 +2414,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
                                     className="ml-auto flex-shrink-0 px-2 py-1 text-xs font-medium text-red-600 hover:text-white bg-red-100 hover:bg-red-500 rounded transition-colors"
                                     title={`Hapus dari Grup ${typeGroup.type}`}
                                   >
-                                    −
+                                    -
                                   </button>
                                 )}
                               </div>
@@ -2280,8 +2511,8 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
                                   ? 'bg-blue-200 border-2 border-blue-500 shadow-lg'
                                   : (assignment 
                                       ? (hasNotes 
-                                          ? getNotesClasses(assignment.notes!) + ' shadow-sm hover:shadow-md cursor-pointer'
-                                          : (shift ? getShiftClasses(shift.name) + ' shadow-sm hover:shadow-md cursor-pointer' : 'bg-gray-100')
+                                          ? getNotesClasses(assignment.notes!) + (canEditRoster ? ' shadow-sm hover:shadow-md cursor-pointer' : ' shadow-sm')
+                                          : (shift ? getShiftClasses(shift.name) + (canEditRoster ? ' shadow-sm hover:shadow-md cursor-pointer' : ' shadow-sm') : 'bg-gray-100')
                                         )
                                       : 'bg-gray-100');
                                 
@@ -2388,7 +2619,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
                                       }}
                                       onMouseEnter={() => handleCellMouseEnter(row.employee.id, day, colSpan)}
                                       onDoubleClick={(e) => handleCellDoubleClick(row.employee.id, day, e)}
-                                      className={`${showFullMonth ? 'h-7 text-[9px]' : 'h-8 sm:h-10 text-[9px] sm:text-xs'} w-full rounded-lg flex items-center justify-center font-semibold transition-all ${cellClasses} ${canEdit && !isEditing ? 'cursor-pointer hover:ring-2 hover:ring-[#222E6A] hover:ring-offset-1' : ''} relative group select-none`}
+                                      className={`${showFullMonth ? 'h-7 text-[9px]' : 'h-8 sm:h-10 text-[9px] sm:text-xs'} w-full rounded-lg flex items-center justify-center font-semibold transition-all ${cellClasses} ${canEditRoster && !isEditing ? 'cursor-pointer hover:ring-2 hover:ring-[#222E6A] hover:ring-offset-1' : ''} relative group select-none`}
                                       title={tooltipText}
                                     >
                                       {displayText}
@@ -2415,8 +2646,8 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
                       })}
                       
                       {/* Add button rows for Manager/CNS/Support group formation */}
-                      {typeGroup.type === 'Manager Teknik' && canEdit && managerTeknikCount < 5 && getEligibleManagerCandidates().length > 0 && (
-                        <tr>
+                      {typeGroup.type === 'Manager Teknik' && canEditRoster && managerTeknikCount < 5 && getEligibleManagerCandidates().length > 0 && (
+                        <tr className="print-hidden">
                           <td 
                             colSpan={3}
                             className="px-3 sm:px-4 py-2 bg-blue-50 border-b border-blue-200 sticky left-0 z-10"
@@ -2432,8 +2663,8 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
                           <td colSpan={displayedDays.length + 1} className="py-2 bg-blue-50 border-b border-blue-200"></td>
                         </tr>
                       )}
-                      {(typeGroup.type === 'CNS' || typeGroup.type === 'Support') && canEdit && getEligibleGroupCandidates(typeGroup.type as 'CNS' | 'Support', actualGroupNumber).length > 0 && (
-                        <tr>
+                      {(typeGroup.type === 'CNS' || typeGroup.type === 'Support') && canEditRoster && getEligibleGroupCandidates(typeGroup.type as 'CNS' | 'Support', actualGroupNumber).length > 0 && (
+                        <tr className="print-hidden">
                           <td
                             colSpan={3}
                             className="px-3 sm:px-4 py-2 bg-blue-50 border-b border-blue-200 sticky left-0 z-10"
@@ -2449,6 +2680,22 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
                           <td colSpan={displayedDays.length + 1} className="py-2 bg-blue-50 border-b border-blue-200"></td>
                         </tr>
                       )}
+                      {typeGroup.type === 'Manager Teknik' && groupIndex === typeGroup.groups.length - 1 && (
+                        <tr className="print-only-general-manager hidden print-signature-row">
+                          <td colSpan={displayedDays.length + 4}>
+                            <div className="print-signature-title">Menyetujui,<br />General Manager</div>
+                            <div className="print-signature-name">{generalManagerName}</div>
+                          </td>
+                        </tr>
+                      )}
+                      {(typeGroup.type === 'CNS' || typeGroup.type === 'Support') && groupIndex === typeGroup.groups.length - 1 && (
+                        <tr className="print-only-creator hidden print-signature-row">
+                          <td colSpan={displayedDays.length + 4}>
+                            <div className="print-signature-title">Dibuat,<br />{creatorRoleLabel}</div>
+                            <div className="print-signature-name">{creatorNameLabel}</div>
+                          </td>
+                        </tr>
+                      )}
                     </React.Fragment>
                   );
                 })}
@@ -2460,7 +2707,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
       </div>
 
       {/* Multi-Selection Toolbar */}
-      {selectedCells.length > 0 && toolbarPosition && !isSelecting && (
+      {canEditRoster && selectedCells.length > 0 && toolbarPosition && !isSelecting && (
         <div 
           className="fixed z-50 transition-all duration-200 ease-out"
           style={{
@@ -2493,7 +2740,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
                         className="w-4 h-4 text-[#222E6A] border-gray-300 rounded focus:ring-[#222E6A] focus:ring-2"
                       />
                       <span className="ml-2 text-xs font-medium text-gray-700">
-                        Isi Otomatis Pattern (S→P→M→L→L)
+                        Isi Otomatis Pattern (S - P - M - L - L)
                       </span>
                     </label>
                     {autoFillPattern && (
@@ -2512,17 +2759,26 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
                         className="w-4 h-4 text-[#222E6A] border-gray-300 rounded focus:ring-[#222E6A] focus:ring-2"
                       />
                       <span className="ml-2 text-xs font-medium text-gray-700">
-                        Terapkan ke Semua Grup
+                        Terapkan ke Grup Terkait
                       </span>
                     </label>
+                    {isToolbarSelectionManager && (
+                      <p className="mt-1 text-[10px] text-blue-700 ml-6">
+                        Untuk Manager Teknik: mode ini menargetkan Manager + CNS + Support pada grup yang sama.
+                      </p>
+                    )}
                     {applyToGroup && !autoFillPattern && (
                       <p className="mt-1 text-[10px] text-gray-600 ml-6">
-                        Akan mengubah semua karyawan dalam grup untuk tanggal ini
+                        {isToolbarSelectionManager
+                          ? 'Akan mengubah Manager, CNS, dan Support dalam grup yang dipimpin manager untuk tanggal ini.'
+                          : 'Akan mengubah semua karyawan dalam grup untuk tanggal ini'}
                       </p>
                     )}
                     {applyToGroup && autoFillPattern && (
                       <p className="mt-1 text-[10px] text-gray-600 ml-6">
-                        Akan mengubah semua karyawan dalam grup dengan pattern sampai akhir bulan
+                        {isToolbarSelectionManager
+                          ? 'Pattern manager akan diterapkan ke CNS dan Support pada grup yang sama sampai akhir bulan.'
+                          : 'Akan mengubah semua karyawan dalam grup dengan pattern sampai akhir bulan'}
                       </p>
                     )}
                   </div>
@@ -2600,7 +2856,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
                 onClick={() => setAddingManagerToGroup(null)}
                 className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
               >
-                ×
+                ├ù
               </button>
             </div>
 
@@ -2703,7 +2959,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
                 onClick={() => setPendingRemovalReassign(null)}
                 className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
               >
-                ×
+                ├ù
               </button>
             </div>
 
@@ -2789,35 +3045,35 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
             </h4>
             <div className="grid grid-cols-1 gap-2">
               <div className="flex items-center gap-3 text-xs sm:text-sm">
-                <div className="w-16 h-7 rounded-lg bg-slate-400 text-white shadow-sm flex items-center justify-center font-semibold text-[10px] sm:text-xs">L</div>
+                <div className="w-16 h-7 rounded-lg bg-red-500 text-white shadow-sm flex items-center justify-center font-semibold text-[10px] sm:text-xs">L</div>
                 <span className="text-gray-700">Libur</span>
               </div>
               <div className="flex items-center gap-3 text-xs sm:text-sm">
-                <div className="w-16 h-7 rounded-lg bg-amber-400 text-gray-900 shadow-sm flex items-center justify-center font-semibold text-[10px] sm:text-xs">CK</div>
+                <div className="w-16 h-7 rounded-lg bg-yellow-400 text-gray-900 shadow-sm flex items-center justify-center font-semibold text-[10px] sm:text-xs">CK</div>
                 <span className="text-gray-700">Cuti Kepentingan</span>
               </div>
               <div className="flex items-center gap-3 text-xs sm:text-sm">
-                <div className="w-16 h-7 rounded-lg bg-rose-500 text-white shadow-sm flex items-center justify-center font-semibold text-[10px] sm:text-xs">CS</div>
+                <div className="w-16 h-7 rounded-lg bg-yellow-400 text-gray-900 shadow-sm flex items-center justify-center font-semibold text-[10px] sm:text-xs">CS</div>
                 <span className="text-gray-700">Cuti Sakit</span>
               </div>
               <div className="flex items-center gap-3 text-xs sm:text-sm">
-                <div className="w-16 h-7 rounded-lg bg-teal-500 text-white shadow-sm flex items-center justify-center font-semibold text-[10px] sm:text-xs">TPO</div>
+                <div className="w-16 h-7 rounded-lg bg-yellow-400 text-gray-900 shadow-sm flex items-center justify-center font-semibold text-[10px] sm:text-xs">TPO</div>
                 <span className="text-gray-700">TPO (Malang / Dhoho / Sumenep)</span>
               </div>
               <div className="flex items-center gap-3 text-xs sm:text-sm">
-                <div className="w-16 h-7 rounded-lg bg-cyan-500 text-white shadow-sm flex items-center justify-center font-semibold text-[10px] sm:text-xs">OH</div>
+                <div className="w-16 h-7 rounded-lg bg-yellow-400 text-gray-900 shadow-sm flex items-center justify-center font-semibold text-[10px] sm:text-xs">OH</div>
                 <span className="text-gray-700">Office Hour (08:00 - 17:00)</span>
               </div>
               <div className="flex items-center gap-3 text-xs sm:text-sm">
-                <div className="w-16 h-7 rounded-lg bg-purple-500 text-white shadow-sm flex items-center justify-center font-semibold text-[10px] sm:text-xs">SC</div>
+                <div className="w-16 h-7 rounded-lg bg-yellow-400 text-gray-900 shadow-sm flex items-center justify-center font-semibold text-[10px] sm:text-xs">SC</div>
                 <span className="text-gray-700">Standby On Call</span>
               </div>
               <div className="flex items-center gap-3 text-xs sm:text-sm">
-                <div className="w-16 h-7 rounded-lg bg-gray-600 text-white shadow-sm flex items-center justify-center font-semibold text-[10px] sm:text-xs">-</div>
+                <div className="w-16 h-7 rounded-lg bg-yellow-400 text-gray-900 shadow-sm flex items-center justify-center font-semibold text-[10px] sm:text-xs">-</div>
                 <span className="text-gray-700">Lepas Dinas Malam</span>
               </div>
               <div className="flex items-center gap-3 text-xs sm:text-sm">
-                <div className="w-16 h-7 rounded-lg bg-indigo-500 text-white shadow-sm flex items-center justify-center font-semibold text-[10px] sm:text-xs">TB</div>
+                <div className="w-16 h-7 rounded-lg bg-yellow-400 text-gray-900 shadow-sm flex items-center justify-center font-semibold text-[10px] sm:text-xs">TB</div>
                 <span className="text-gray-700">Tugas Belajar</span>
               </div>
             </div>
