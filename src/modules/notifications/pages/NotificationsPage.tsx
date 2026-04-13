@@ -99,8 +99,16 @@ const NotificationsPage: React.FC = () => {
 
   const isAdmin = user?.role === 'Admin';
   const isManager = user?.role === 'Manager Teknik' || user?.role === 'General Manager';
+  const canManageNotifications = isAdmin || isManager;
   const isRosterCategory = activeCategory === 'roster';
   const datesPerPage = 4;
+  const restrictedCategories: NotificationCategory[] = ['sent', 'drafts', 'scheduled'];
+
+  useEffect(() => {
+    if (!canManageNotifications && restrictedCategories.includes(activeCategory)) {
+      setActiveCategory('inbox');
+    }
+  }, [activeCategory, canManageNotifications]);
 
   const availableYears = useMemo(() => {
     if (!activeShift) return [];
@@ -229,6 +237,56 @@ const NotificationsPage: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('roster_task_scheduled', JSON.stringify(rosterTaskScheduled));
   }, [rosterTaskScheduled]);
+
+  // Dispatch due scheduled notifications automatically when their scheduled time arrives
+  useEffect(() => {
+    const dispatchDueScheduledNotifications = async () => {
+      const dueNotifications = scheduledNotifications.filter(notification => {
+        const scheduledAt = notification.data?.scheduled_at;
+        return scheduledAt ? new Date(scheduledAt).getTime() <= Date.now() : false;
+      });
+
+      if (dueNotifications.length === 0) return;
+
+      const successfullySentIds: number[] = [];
+
+      for (const notification of dueNotifications) {
+        const recipientIds = Array.isArray(notification.data?.recipients)
+          ? notification.data.recipients
+          : [];
+
+        if (recipientIds.length === 0) {
+          toast.error(`Skipping scheduled notification "${notification.title}" because no recipients were selected.`);
+          continue;
+        }
+
+        try {
+          await notificationService.sendNotification({
+            user_ids: recipientIds,
+            title: notification.title,
+            message: notification.message,
+            send_email: notification.data?.send_email,
+          });
+
+          successfullySentIds.push(notification.id);
+          toast.success(`Scheduled notification sent: ${notification.title}`);
+        } catch (error: any) {
+          console.error('Failed to send scheduled notification', error);
+          toast.error(`Failed to send scheduled notification "${notification.title}". It will retry later.`);
+        }
+      }
+
+      if (successfullySentIds.length > 0) {
+        setScheduledNotifications(prev => prev.filter(notification => !successfullySentIds.includes(notification.id)));
+        refreshNotificationsByCategory();
+      }
+    };
+
+    dispatchDueScheduledNotifications();
+    const intervalId = window.setInterval(dispatchDueScheduledNotifications, 60_000);
+
+    return () => window.clearInterval(intervalId);
+  }, [refreshNotificationsByCategory, scheduledNotifications]);
 
   // Sync shift request status for actionable notifications
   useEffect(() => {
@@ -779,6 +837,43 @@ const NotificationsPage: React.FC = () => {
     );
   };
 
+  const getAssignedItems = (notificationData: any): any[] => {
+    if (!notificationData) return [];
+
+    const values: any[] = Array.isArray(notificationData.assigned_to)
+      ? notificationData.assigned_to
+      : Array.isArray(notificationData.recipients)
+      ? notificationData.recipients
+      : Array.isArray(notificationData.user_ids)
+      ? notificationData.user_ids
+      : Array.isArray(notificationData.recipient_ids)
+      ? notificationData.recipient_ids
+      : [];
+
+    return values.filter((value) => value !== undefined && value !== null && value !== '');
+  };
+
+  const getAssignedLabels = (notificationData: any): string[] => {
+    const values = getAssignedItems(notificationData);
+    return values.map((value) => {
+      if (typeof value === 'object' && value !== null) {
+        const idValue = typeof value.id === 'number' ? value.id : Number(value.id);
+        const found = !Number.isNaN(idValue) ? users?.find((user: User) => user.id === idValue) : undefined;
+        if (found) return `${found.name} (${found.role})`;
+        if (value.name) return String(value.name);
+        if (value.email) return String(value.email);
+        return String(value.role || value.id || 'Unknown');
+      }
+
+      if (typeof value === 'number') {
+        const found = users?.find((user: User) => user.id === value);
+        return found ? `${found.name} (${found.role})` : String(value);
+      }
+
+      return String(value);
+    }).filter(Boolean);
+  };
+
   const parseDateLabelToISO = (value: string): string | null => {
     const cleanValue = value.trim().replace(/\s+/g, ' ');
     const match = cleanValue.match(/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/);
@@ -1041,6 +1136,9 @@ const NotificationsPage: React.FC = () => {
   };
 
   const handleCategoryChange = (category: NotificationCategory) => {
+    if (!canManageNotifications && restrictedCategories.includes(category)) {
+      return;
+    }
     setActiveCategory(category);
   };
 
@@ -1248,6 +1346,11 @@ const NotificationsPage: React.FC = () => {
   };
 
   const handleSendNotification = async () => {
+    if (!canManageNotifications) {
+      toast.error('Hanya Admin, General Manager, atau Manager Teknik yang dapat mengirim notifikasi.');
+      return;
+    }
+
     if (selectedUserIds.length === 0) {
       toast.error('Please select at least one recipient');
       return;
@@ -1289,6 +1392,11 @@ const NotificationsPage: React.FC = () => {
   };
 
   const handleSaveDraft = async () => {
+    if (!canManageNotifications) {
+      toast.error('Hanya Admin, General Manager, atau Manager Teknik yang dapat menyimpan draft notifikasi.');
+      return;
+    }
+
     if (!composeForm.title.trim()) {
       toast.error('Please enter a title');
       return;
@@ -1343,6 +1451,11 @@ const NotificationsPage: React.FC = () => {
   };
 
   const handleScheduleNotification = async () => {
+    if (!canManageNotifications) {
+      toast.error('Hanya Admin, General Manager, atau Manager Teknik yang dapat menjadwalkan notifikasi.');
+      return;
+    }
+
     if (selectedUserIds.length === 0) {
       toast.error('Please select at least one recipient');
       return;
@@ -1417,6 +1530,11 @@ const NotificationsPage: React.FC = () => {
   };
 
   const handleEditDraft = (notification: Notification) => {
+    if (!canManageNotifications) {
+      toast.error('Hanya Admin, General Manager, atau Manager Teknik yang dapat mengedit draft notifikasi.');
+      return;
+    }
+
     // Load draft data into compose form
     setComposeForm({
       title: notification.title,
@@ -1432,6 +1550,11 @@ const NotificationsPage: React.FC = () => {
   };
 
   const handleSendDraft = async (notification: Notification) => {
+    if (!canManageNotifications) {
+      toast.error('Hanya Admin, General Manager, atau Manager Teknik yang dapat mengirim draft notifikasi.');
+      return;
+    }
+
     setIsSending(true);
     try {
       await notificationService.sendNotification({
@@ -1454,6 +1577,11 @@ const NotificationsPage: React.FC = () => {
   };
 
   const handleEditScheduled = (notification: Notification) => {
+    if (!canManageNotifications) {
+      toast.error('Hanya Admin, General Manager, atau Manager Teknik yang dapat mengedit notifikasi terjadwal.');
+      return;
+    }
+
     // Load scheduled data into compose form
     setComposeForm({
       title: notification.title,
@@ -1496,6 +1624,11 @@ const NotificationsPage: React.FC = () => {
   };
 
   const handleOpenCompose = () => {
+    if (!canManageNotifications) {
+      toast.error('Hanya Admin, General Manager, atau Manager Teknik yang dapat membuat notifikasi.');
+      return;
+    }
+
     setComposeForm({ title: '', message: '', send_email: false });
     setSelectedUserIds([]);
     setUserSearchQuery('');
@@ -1505,6 +1638,11 @@ const NotificationsPage: React.FC = () => {
   };
 
   const handleOpenRosterTaskModal = () => {
+    if (!canCreateRosterTask) {
+      toast.error('Hanya Admin, General Manager, atau Manager Teknik yang dapat menambahkan tugas roster.');
+      return;
+    }
+
     setRosterTaskForm({
       title: '',
       description: '',
@@ -1525,7 +1663,7 @@ const NotificationsPage: React.FC = () => {
       key: 'all' as NotificationCategory,
       label: 'All', 
       icon: Archive, 
-      count: stats.inbox + stats.sent + stats.roster, // Inbox + Sent + Roster (non-duplicated)
+      count: stats.inbox + (canManageNotifications ? stats.sent : 0) + stats.roster, // Inbox + optional Sent + Roster
       bgGradient: 'from-gray-50 to-gray-100/50',
       borderColor: 'border-gray-300',
       iconBg: 'bg-gray-500',
@@ -1631,9 +1769,11 @@ const NotificationsPage: React.FC = () => {
       ]}
     >
       {/* Category Boxes */}
-      {/* Desktop View - Responsive Grid */}
-      <div className="hidden md:grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-4 mb-6">
-        {[...allCategories, ...categories].map((category) => {
+      {/* Desktop View - Compact Summary Cards */}
+      <div className="hidden md:grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] auto-rows-fr gap-3 mb-6">
+        {[...allCategories, ...categories]
+          .filter((category) => canManageNotifications || !restrictedCategories.includes(category.key))
+          .map((category) => {
           const Icon = category.icon;
           const isActive = activeCategory === category.key;
           
@@ -1641,18 +1781,23 @@ const NotificationsPage: React.FC = () => {
             <button
               key={category.key}
               onClick={() => handleCategoryChange(category.key as NotificationCategory)}
-              className={`bg-white rounded-2xl border-2 ${category.borderColor} p-4 transition-all duration-200 cursor-pointer h-full min-w-0 flex items-center gap-4 text-left shadow-sm ${
-                isActive 
-                  ? `shadow-xl scale-105`
-                  : `hover:shadow-md hover:scale-[1.02] opacity-95 hover:opacity-100`
+              title={category.label}
+              className={`group relative w-full h-full rounded-2xl border ${category.borderColor} bg-gradient-to-br ${category.bgGradient} p-3 transition-all duration-200 ease-in-out cursor-pointer flex items-center gap-3 text-left shadow-sm ${
+                isActive
+                  ? `shadow-md scale-[1.01] border-indigo-600 ring-2 ring-offset-2 ring-offset-white ring-indigo-500/30`
+                  : `hover:-translate-y-[2px] hover:shadow-lg hover:opacity-100 active:translate-y-[1px] active:scale-95 active:shadow-sm hover:bg-white/10 hover:brightness-110`
               }`}
+              aria-label={category.label}
             >
-              <div className={`flex-shrink-0 w-14 h-14 ${category.iconBg} rounded-2xl flex items-center justify-center border-2 ${category.iconBorder}`}>
-                <Icon className="h-6 w-6 text-white" />
+              <div className={`flex-shrink-0 w-11 h-11 ${category.iconBg} rounded-xl flex items-center justify-center border border-slate-200 ${category.iconBorder}`}>
+                <Icon className="h-5 w-5 text-white" />
               </div>
-              <div className="min-w-0 flex-1">
-                <p className={`text-sm font-semibold ${category.textColor} truncate`}>{category.label}</p>
-                <p className={`text-3xl font-bold ${category.countColor} leading-none mt-1`}>{category.count}</p>
+              <div className="min-w-0 flex-1 flex flex-col justify-center gap-0 overflow-hidden">
+                <span className={`text-sm font-medium ${category.textColor} whitespace-nowrap truncate`}>{category.label}</span>
+                <span className={`text-2xl font-bold ${category.countColor} whitespace-nowrap`}>{category.count}</span>
+              </div>
+              <div className="pointer-events-none absolute left-1/2 bottom-full mb-2 hidden -translate-x-1/2 rounded-md bg-black/90 px-2 py-1 text-xs text-white opacity-0 transition-opacity duration-200 group-hover:block group-hover:opacity-100 z-50 max-w-[calc(100vw-2rem)] text-center break-words">
+                {category.label}
               </div>
             </button>
           );
@@ -1662,25 +1807,32 @@ const NotificationsPage: React.FC = () => {
       {/* Mobile View - Horizontal Pills */}
       <div className="md:hidden mb-0 relative">
         <div className="flex gap-3 pb-2 overflow-x-auto px-1">
-          {[...allCategories, ...categories].map((category) => {
+          {[...allCategories, ...categories]
+            .filter((category) => canManageNotifications || !restrictedCategories.includes(category.key))
+            .map((category) => {
             const isActive = activeCategory === category.key;
             
             return (
               <button
                 key={category.key}
                 onClick={() => handleCategoryChange(category.key as NotificationCategory)}
-                className={`flex items-center gap-3 min-w-[10rem] rounded-2xl border-2 px-4 py-3 transition-all duration-200 ${
+                title={category.label}
+                className={`group relative flex items-center gap-3 min-w-[11rem] rounded-[1.5rem] border-2 px-4 py-3 transition-all duration-200 ${
                   isActive 
-                    ? `bg-white ${category.borderColor} shadow-md`
-                    : `bg-white ${category.borderColor} opacity-80 hover:opacity-100`
+                    ? `bg-white ${category.borderColor} shadow-md ring-2 ring-offset-2 ring-offset-white ring-indigo-500/30`
+                    : `bg-white ${category.borderColor} opacity-90 hover:opacity-100 hover:shadow-md hover:border-slate-400`
                 }`}
+                aria-label={category.label}
               >
-                <span className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl ${category.iconBg} border-2 ${category.iconBorder}`}>
+                <span className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-[1.1rem] ${category.iconBg} border-2 ${category.iconBorder}`}>
                   <category.icon className="h-5 w-5 text-white" />
                 </span>
-                <div className="min-w-0 flex-1">
-                  <p className={`text-sm font-semibold ${category.textColor} truncate`}>{category.label}</p>
+                <div className="min-w-0 flex-1 overflow-hidden">
+                  <p className={`text-xs sm:text-sm font-semibold ${category.textColor} whitespace-nowrap truncate`}>{category.label}</p>
                   <p className={`text-base font-bold ${category.countColor} mt-1`}>{category.count}</p>
+                </div>
+                <div className="pointer-events-none absolute left-1/2 bottom-full mb-2 hidden -translate-x-1/2 rounded-md bg-black/90 px-2 py-1 text-xs text-white opacity-0 transition-opacity duration-200 group-hover:block group-hover:opacity-100 z-50 max-w-[calc(100vw-2rem)] text-center break-words">
+                  {category.label}
                 </div>
               </button>
             );
@@ -1733,7 +1885,7 @@ const NotificationsPage: React.FC = () => {
                 <span className="ml-1 sm:ml-2">Add Roster Task</span>
               </Button>
             )}
-            {!isRosterCategory && activeCategory !== 'trash' && (
+            {canManageNotifications && !isRosterCategory && activeCategory !== 'trash' && (
               <Button
                 variant="primary"
                 onClick={handleOpenCompose}
@@ -2408,77 +2560,52 @@ const NotificationsPage: React.FC = () => {
           {(() => {
             const taskData = selectedNotification.data as any;
             const isRosterTaskDetail = selectedNotification.category === 'roster' || selectedNotification.type === 'roster_task';
-
-            if (isRosterTaskDetail && taskData) {
-              return (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                      <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Title</p>
-                      <p className="mt-2 text-sm font-semibold text-gray-900">{selectedNotification.title}</p>
-                    </div>
-                    <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                      <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Priority</p>
-                      <p className="mt-2 text-sm font-semibold text-gray-900">{String(taskData.priority || selectedNotification.message || '-').toUpperCase()}</p>
-                    </div>
-                    <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                      <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Date</p>
-                      <p className="mt-2 text-sm text-gray-900">{taskData.date || '-'}</p>
-                    </div>
-                    <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                      <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Shift</p>
-                      <p className="mt-2 text-sm text-gray-900">{taskData.shift_key || '-'}</p>
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl border border-gray-200 bg-white p-4">
-                    <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Description</p>
-                    <p className="mt-2 text-sm text-gray-700 whitespace-pre-wrap break-words">{taskData.description || '-'}</p>
-                  </div>
-
-                  <div className="rounded-xl border border-gray-200 bg-white p-4">
-                    <p className="text-xs uppercase tracking-[0.2em] text-gray-500 mb-2">Assigned</p>
-                    <div className="flex flex-wrap gap-2">{renderAssignedUsers(taskData)}</div>
-                  </div>
-
-                  <div className="flex items-center gap-2 text-xs text-gray-400">
-                    <Clock className="h-3 w-3" />
-                    <span>{format(new Date(selectedNotification.created_at), 'EEEE, MMMM dd, yyyy \'at\' HH:mm')}</span>
-                  </div>
-                </div>
-              );
-            }
+            const detailData = isRosterTaskDetail ? taskData : selectedNotification.data;
+            const assignedLabels = getAssignedLabels(detailData);
+            const isSender = selectedNotification.sender?.id === user?.id || selectedNotification.sender_id === user?.id;
+            const showAssigned = isSender && assignedLabels.length > 0;
+            const messageContent = isRosterTaskDetail
+              ? taskData.description || selectedNotification.message || 'No details available.'
+              : selectedNotification.message || 'No details available.';
 
             return (
-              <div className="space-y-4">
-                <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
-                  <p className="text-xs uppercase tracking-[0.2em] text-gray-500 mb-2">Title</p>
-                  <h3 className="text-lg font-semibold text-gray-900">{selectedNotification.title}</h3>
-                </div>
-
-                <div className="rounded-2xl border border-gray-200 bg-white p-5">
-                  <p className="text-xs uppercase tracking-[0.2em] text-gray-500 mb-2">Message</p>
-                  <p className="text-sm leading-7 text-gray-700 whitespace-pre-wrap break-words">
-                    {selectedNotification.message}
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-gray-200 bg-white p-5">
-                  <p className="text-xs uppercase tracking-[0.2em] text-gray-500 mb-2">Assigned</p>
-                  <div className="flex flex-wrap gap-2">{renderAssignedUsers(selectedNotification.data)}</div>
-                </div>
-
-                {selectedNotification.sender && (
-                  <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
-                    <p className="text-xs uppercase tracking-[0.2em] text-gray-500 mb-2">From</p>
-                    <p className="text-sm font-semibold text-gray-900">{selectedNotification.sender.name}</p>
-                    <p className="text-sm text-gray-500 break-all">{selectedNotification.sender.email}</p>
+              <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200/70">
+                <div className="space-y-6">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.2em] text-slate-500 mb-2">Title</p>
+                    <h3 className="text-2xl font-semibold text-slate-900 leading-tight">{selectedNotification.title}</h3>
                   </div>
-                )}
 
-                <div className="flex items-center gap-2 text-xs text-gray-400">
-                  <Clock className="h-3 w-3" />
-                  <span>{format(new Date(selectedNotification.created_at), 'EEEE, MMMM dd, yyyy \'at\' HH:mm')}</span>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.2em] text-slate-500 mb-3">Message</p>
+                    <p className="text-sm leading-7 text-slate-700 whitespace-pre-wrap break-words">{messageContent}</p>
+                  </div>
+
+                  <div className="border-t border-slate-200/70 pt-5">
+                    <div className="space-y-4">
+                      {selectedNotification.sender && (
+                        <div>
+                          <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500 mb-1">From</p>
+                          <p className="text-sm font-semibold text-slate-900">{selectedNotification.sender.name}</p>
+                          {selectedNotification.sender.email && (
+                            <p className="text-sm text-slate-500 break-all">{selectedNotification.sender.email}</p>
+                          )}
+                        </div>
+                      )}
+
+                      {showAssigned && (
+                        <div>
+                          <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500 mb-1">Sent to</p>
+                          <p className="text-sm text-slate-700">{assignedLabels.join(', ')}</p>
+                        </div>
+                      )}
+
+                      <div>
+                        <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500 mb-1">Date</p>
+                        <p className="text-sm font-semibold text-slate-900">{format(new Date(selectedNotification.created_at), 'EEEE, MMMM dd, yyyy \'at\' HH:mm')}</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             );
