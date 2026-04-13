@@ -9,7 +9,6 @@ import { useDataCache } from '../../../contexts/DataCacheContext';
 import { useAuth } from '../../auth/core/AuthContext';
 import { rosterService } from '../repository/rosterService';
 import type { RosterPeriod } from '../types/roster';
-
 // Create Roster Modal Component
 const CreateRosterModal: React.FC<{
   isOpen: boolean;

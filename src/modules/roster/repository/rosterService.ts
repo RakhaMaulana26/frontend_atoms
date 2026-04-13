@@ -29,6 +29,15 @@ export const rosterService = {
   },
 
   /**
+   * Get auto-assigned users by date/shift (AI or roster rules)
+   * GET /api/roster/auto-assignment
+   */
+  async getAutoAssignedUsers(params: { date: string; shift: '07-13' | '13-19' | '19-07' }): Promise<{ users: Array<{id:number; name:string; role:string}> }> {
+    const response = await apiClient.get('/roster/auto-assignment', { params });
+    return response.data;
+  },
+
+  /**
    * Create new roster template for a month
    * POST /rosters
    */
@@ -87,10 +96,7 @@ export const rosterService = {
             employee_type: 'CNS' as const,
             user: { id: 0, name: 'Unknown', email: '' }
           },
-          shift: shiftMap.get(assignment.shift_id) || {
-            id: assignment.shift_id,
-            name: 'Unknown'
-          },
+          shift: assignment.shift_id != null ? (shiftMap.get(assignment.shift_id) || null) : null,
         })),
         // Hydrate manager_duties with employee and shift objects
         manager_duties: day.manager_duties?.map(duty => ({
@@ -520,5 +526,108 @@ export const rosterService = {
       const formatTime = (time: string) => time.substring(0, 5); // "07:00:00" -> "07:00"
       return `${formatTime(shift.start_time)} - ${formatTime(shift.end_time)}`;
     }
+  },
+
+  /**
+   * Create roster task
+   * POST /api/roster/tasks
+   */
+  async createRosterTask(data: {
+    date: string;
+    shift_key: 'pagi' | 'siang' | 'malam';
+    role: string;
+    assigned_to: number[];
+    title: string;
+    description: string;
+    priority: 'low' | 'medium' | 'high';
+  }): Promise<{
+    message: string;
+    data: {
+      id: number;
+      date: string;
+      shift_key: string;
+      role: string;
+      assigned_to: number[];
+      title: string;
+      description: string;
+      priority: string;
+      status: string;
+      created_by: number;
+      created_at: string;
+      updated_at: string;
+    };
+  }> {
+    const response = await apiClient.post('/roster/tasks', data);
+    return response.data;
+  },
+
+  /**
+   * Get roster tasks
+   * GET /api/roster/tasks
+   */
+  async getRosterTasks(params?: {
+    date?: string;
+    shift?: 'pagi' | 'siang' | 'malam';
+    role?: string;
+    assigned_to?: number;
+  }): Promise<{
+    data: Array<{
+      id: number;
+      date: string;
+      shift_key: string;
+      role: string;
+      assigned_to: number[];
+      title: string;
+      description: string;
+      priority: string;
+      status: string;
+      created_by: number;
+      created_at: string;
+      updated_at: string;
+    }>;
+    total: number;
+  }> {
+    const response = await apiClient.get('/roster/tasks', { params });
+    return response.data;
+  },
+
+  /**
+   * Update roster task
+   * PUT /api/roster/tasks/:id
+   */
+  async updateRosterTask(id: number, data: Partial<{
+    title: string;
+    description: string;
+    priority: 'low' | 'medium' | 'high';
+    status: 'pending' | 'in_progress' | 'done';
+    assigned_to: number[];
+  }>): Promise<{
+    message: string;
+    data: {
+      id: number;
+      date: string;
+      shift_key: string;
+      role: string;
+      assigned_to: number[];
+      title: string;
+      description: string;
+      priority: string;
+      status: string;
+      created_by: number;
+      created_at: string;
+      updated_at: string;
+    };
+  }> {
+    const response = await apiClient.put(`/roster/tasks/${id}`, data);
+    return response.data;
+  },
+
+  /**
+   * Delete roster task
+   * DELETE /api/roster/tasks/:id
+   */
+  async deleteRosterTask(id: number): Promise<{ message: string }> {
+    const response = await apiClient.delete(`/roster/tasks/${id}`);
+    return response.data;
   }
 };

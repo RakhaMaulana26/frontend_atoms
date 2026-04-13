@@ -1,5 +1,5 @@
 import apiClient from '../../../lib/api';
-import type { Notification } from '../../../types';
+import type { Notification, MorningTask } from '../../../types';
 
 // Define paginated response type
 interface PaginatedResponse<T> {
@@ -28,6 +28,21 @@ interface SendNotificationData {
   title: string;
   message: string;
   send_email?: boolean;
+}
+
+interface CreateMorningTaskData {
+  title: string;
+  description?: string;
+  priority: 'low' | 'medium' | 'high';
+  assigned_to?: number[];
+}
+
+interface UpdateMorningTaskData {
+  title?: string;
+  description?: string;
+  priority?: 'low' | 'medium' | 'high';
+  status?: 'pending' | 'in_progress' | 'completed';
+  assigned_to?: number[];
 }
 
 // Response type for all notifications endpoint
@@ -94,12 +109,39 @@ export const notificationService = {
 
   // Mark as Read
   async markAsRead(id: number): Promise<{ message: string }> {
-    const response = await apiClient.post(`/notifications/${id}/read`);
+    const response = await apiClient.put(`/notifications/${id}/read`);
     return response.data;
   },
 
   // Mark all as read (optional helper)
   async markAllAsRead(ids: number[]): Promise<void> {
     await Promise.all(ids.map((id) => this.markAsRead(id)));
+  },
+
+  // Morning Tasks
+  async getMorningTasks(date?: string): Promise<MorningTask[]> {
+    const params = date ? { date } : {};
+    const response = await apiClient.get<{ data: MorningTask[] }>('/morning-tasks', { params });
+    return response.data.data;
+  },
+
+  async createMorningTask(data: CreateMorningTaskData): Promise<MorningTask> {
+    const response = await apiClient.post<{ data: MorningTask }>('/morning-tasks', data);
+    return response.data.data;
+  },
+
+  async updateMorningTask(id: number, data: UpdateMorningTaskData): Promise<MorningTask> {
+    const response = await apiClient.put<{ data: MorningTask }>(`/morning-tasks/${id}`, data);
+    return response.data.data;
+  },
+
+  async deleteMorningTask(id: number): Promise<{ message: string }> {
+    const response = await apiClient.delete(`/morning-tasks/${id}`);
+    return response.data;
+  },
+
+  async sendMorningTasksNotification(): Promise<{ message: string }> {
+    const response = await apiClient.post('/morning-tasks/send-notification');
+    return response.data;
   },
 };
