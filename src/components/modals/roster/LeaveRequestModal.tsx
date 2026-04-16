@@ -6,6 +6,7 @@ import Select from '../../common/Select';
 import { useAuth } from '../../../modules/auth/core/AuthContext';
 import { leaveRequestService } from '../../../modules/roster/repository/leaveRequestService';
 import type { LeaveApprovalPreview } from '../../../modules/roster/repository/leaveRequestService';
+import type { LeaveRequest } from '../../../modules/roster/types/leaveRequest';
 
 interface LeaveRequestModalProps {
   isOpen: boolean;
@@ -33,6 +34,17 @@ const TPO_CITIES = [
   { value: 'Dhoho', label: 'Dhoho' },
   { value: 'Sumenep', label: 'Sumenep' },
 ];
+
+const LEAVE_REQUEST_CREATED_EVENT = 'leave-request:create-optimistic';
+const LEAVE_REQUEST_CONFIRMED_EVENT = 'leave-request:create-confirmed';
+const LEAVE_REQUEST_ROLLED_BACK_EVENT = 'leave-request:create-rolled-back';
+
+const REQUEST_TYPE_NAMES: Record<string, string> = {
+  doctor_leave: 'Cuti Sakit',
+  annual_leave: 'Cuti Kepentingan',
+  external_duty: 'TPO',
+  educational_assignment: 'Tugas Pendidikan',
+};
 
 const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, onSuccess, rosterMonth, rosterYear }) => {
   const { user } = useAuth();
@@ -291,6 +303,41 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
 
     setFieldErrors({});
     setIsLoading(true);
+    const optimisticId = -Date.now();
+
+    const optimisticRequest: LeaveRequest = {
+      id: optimisticId,
+      employee_id: Number(user?.employee?.id || 0),
+      request_type: requestType as LeaveRequest['request_type'],
+      start_date: startDate,
+      end_date: endDate,
+      total_days: totalDays,
+      reason: reason || '',
+      institution: institution || '',
+      education_type: educationType || '',
+      program_course: programCourse || '',
+      status: 'pending',
+      status_name: 'Menunggu',
+      request_type_name: REQUEST_TYPE_NAMES[requestType] || requestType,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      employee: {
+        id: Number(user?.employee?.id || 0),
+        user_id: Number(user?.id || 0),
+        employee_type: String(user?.employee?.employee_type || user?.role || '-'),
+        user: {
+          id: Number(user?.id || 0),
+          name: user?.name || 'Unknown',
+          email: user?.email || '-',
+        },
+      },
+    };
+
+    window.dispatchEvent(
+      new CustomEvent(LEAVE_REQUEST_CREATED_EVENT, {
+        detail: { request: optimisticRequest },
+      })
+    );
     
     try {
       // Prepare FormData for API call
@@ -310,13 +357,26 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
       }
       
       // Submit to API
-      await leaveRequestService.createLeaveRequest(formData);
+      const response = await leaveRequestService.createLeaveRequest(formData);
+
+      if (response?.data) {
+        window.dispatchEvent(
+          new CustomEvent(LEAVE_REQUEST_CONFIRMED_EVENT, {
+            detail: { tempId: optimisticId, request: response.data },
+          })
+        );
+      }
       
       toast.success('Permohonan cuti berhasil diajukan! Email telah dikirim ke manager.');
       onSuccess();
       onClose();
       resetForm();
     } catch (error: any) {
+      window.dispatchEvent(
+        new CustomEvent(LEAVE_REQUEST_ROLLED_BACK_EVENT, {
+          detail: { tempId: optimisticId },
+        })
+      );
       console.error('Failed to submit leave request:', error);
       const responseData = error.response?.data;
       // Handle Laravel validation errors (422)

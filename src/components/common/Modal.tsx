@@ -55,7 +55,7 @@ const Modal: React.FC<ModalProps> = ({
       {/* Modal */}
       <div className="flex min-h-screen items-center justify-center p-4">
         <div
-          className={`relative bg-white rounded-lg shadow-xl ${sizeClasses[size]} w-full overflow-hidden`}
+          className={`relative bg-white rounded-lg shadow-xl ${sizeClasses[size]} w-full overflow-hidden animate-fade-scale-up`}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
@@ -68,7 +68,7 @@ const Modal: React.FC<ModalProps> = ({
               <h2 className="min-w-0 flex-1 text-lg sm:text-xl font-semibold leading-tight text-white">{title}</h2>
               <button
                 onClick={onClose}
-                className="shrink-0 rounded-md p-1 text-white transition-colors hover:bg-white/10 hover:text-gray-200"
+                className="shrink-0 rounded-md p-2 text-white transition duration-200 ease-in-out hover:bg-white/20 hover:text-white focus:outline-none focus:ring-2 focus:ring-white/60"
               >
                 <X className="h-5 w-5 sm:h-6 sm:w-6" />
               </button>

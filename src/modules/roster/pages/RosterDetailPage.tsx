@@ -5,12 +5,12 @@
  * - Real backend API integration via rosterService
  * - Separated components for better maintainability
  * - Loading and error states
- * - Three views: Calendar, Weekly Staff, Shift Swap Requests
+ * - Four views: Personal, Jadwal Bersama, Tukar Jadwal, Cuti
  */
 
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { Calendar, Users, ArrowRightLeft } from 'lucide-react';
+import { Calendar, Users, ArrowRightLeft, FileText } from 'lucide-react';
 import { PageHeader, ShiftAssignmentCard } from '../../../components';
 import { useAuth } from '../../auth/core/AuthContext';
 import { useDataCache } from '../../../contexts/DataCacheContext';
@@ -19,10 +19,11 @@ import RosterCalendarView from '../components/RosterCalendarView';
 import RosteredStaffCalendarView from '../components/RosteredStaffCalendarView';
 import RosteredStaffPersonView from '../components/RosteredStaffPersonView';
 import ShiftSwapRequestsTable from '../components/ShiftSwapRequestsTable';
+import LeaveRequestsTable from '../components/LeaveRequestsTable.tsx';
 import SwapShiftModal from '../../../components/modals/roster/SwapShiftModal';
 import LeaveRequestModal from '../../../components/modals/roster/LeaveRequestModal';
 
-type TabType = 'calendar' | 'staff' | 'swap';
+type TabType = 'calendar' | 'staff' | 'swap' | 'leave';
 type StaffViewType = 'week' | 'calendar' | 'person';
 
 // Helper function to extract unique shifts from roster data
@@ -387,13 +388,19 @@ const RosterDetailPage: React.FC = () => {
         <div className={`${activeTab === 'staff' ? 'max-w-none px-2 sm:px-2 lg:px-2' : 'max-w-7xl px-4 sm:px-6 lg:px-8'} mx-auto`}>
           {/* Tab Navigation */}
           <div className="flex items-center justify-center mb-6 sm:mb-8 -mx-4 sm:mx-0">
-            <div className="relative flex items-center gap-1.5 sm:gap-3 p-1.5 sm:p-2 bg-white rounded-2xl shadow-lg border border-gray-200 w-full sm:max-w-2xl">
+            <div className="relative flex items-center gap-1.5 sm:gap-3 p-1.5 sm:p-2 bg-white rounded-2xl shadow-lg border border-gray-200 w-full sm:max-w-5xl">
               {/* Animated Sliding Indicator - Mobile */}
               <div
                 className="absolute h-[calc(100%-12px)] bg-gradient-to-br from-[#222E6A] via-[#2a3a7f] to-[#1a235c] rounded-xl transition-all duration-300 ease-out shadow-md sm:hidden"
                 style={{
-                  width: activeTab === 'calendar' ? 'calc(33.33% - 4px)' : activeTab === 'staff' ? 'calc(33.33% - 4px)' : 'calc(33.33% - 4px)',
-                  left: activeTab === 'calendar' ? '6px' : activeTab === 'staff' ? 'calc(33.33% + 2px)' : 'calc(66.66% - 2px)',
+                  width: 'calc(25% - 4px)',
+                  left: activeTab === 'calendar'
+                    ? '6px'
+                    : activeTab === 'staff'
+                    ? 'calc(25% + 2px)'
+                    : activeTab === 'swap'
+                    ? 'calc(50% - 2px)'
+                    : 'calc(75% - 6px)',
                 }}
               />
               
@@ -401,8 +408,14 @@ const RosterDetailPage: React.FC = () => {
               <div
                 className="absolute h-[calc(100%-16px)] bg-gradient-to-br from-[#222E6A] via-[#2a3a7f] to-[#1a235c] rounded-xl transition-all duration-300 ease-out shadow-md hidden sm:block"
                 style={{
-                  width: activeTab === 'calendar' ? 'calc(33.33% - 8px)' : activeTab === 'staff' ? 'calc(33.33% - 8px)' : 'calc(33.33% - 8px)',
-                  left: activeTab === 'calendar' ? '8px' : activeTab === 'staff' ? 'calc(33.33% + 4px)' : 'calc(66.66% + 0px)',
+                  width: 'calc(25% - 8px)',
+                  left: activeTab === 'calendar'
+                    ? '8px'
+                    : activeTab === 'staff'
+                    ? 'calc(25% + 4px)'
+                    : activeTab === 'swap'
+                    ? 'calc(50% + 0px)'
+                    : 'calc(75% - 4px)',
                 }}
               />
 
@@ -414,7 +427,7 @@ const RosterDetailPage: React.FC = () => {
                 }`}
               >
                 <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />
-                <span>Calendar</span>
+                <span>Personal</span>
               </button>
 
               <button
@@ -424,8 +437,8 @@ const RosterDetailPage: React.FC = () => {
                 }`}
               >
                 <Users className="h-4 w-4 sm:h-5 sm:w-5" />
-                <span className="hidden sm:inline">Rostered Staff</span>
-                <span className="sm:hidden">Staff</span>
+                <span className="hidden sm:inline">Jadwal Bersama</span>
+                <span className="sm:hidden">Bersama</span>
               </button>
 
               <button
@@ -435,8 +448,18 @@ const RosterDetailPage: React.FC = () => {
                 }`}
               >
                 <ArrowRightLeft className="h-4 w-4 sm:h-5 sm:w-5" />
-                <span className="hidden sm:inline">Shift Swap Request</span>
-                <span className="sm:hidden">Swap</span>
+                <span className="hidden sm:inline">Tukar Jadwal</span>
+                <span className="sm:hidden">Tukar</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('leave')}
+                className={`relative z-10 flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-8 py-2.5 sm:py-3 rounded-xl text-sm sm:text-base font-semibold transition-colors duration-300 whitespace-nowrap flex-1 ${
+                  activeTab === 'leave' ? 'text-white' : 'text-gray-700 hover:text-gray-900'
+                }`}
+              >
+                <FileText className="h-4 w-4 sm:h-5 sm:w-5" />
+                <span>Cuti</span>
               </button>
             </div>
           </div>
@@ -519,7 +542,12 @@ const RosterDetailPage: React.FC = () => {
             {activeTab === 'swap' && (
               <ShiftSwapRequestsTable
                 onRequestNew={() => setIsSwapShiftModalOpen(true)}
-                onRequestLeave={() => setIsLeaveRequestModalOpen(true)}
+              />
+            )}
+
+            {activeTab === 'leave' && (
+              <LeaveRequestsTable
+                onRequestNew={() => setIsLeaveRequestModalOpen(true)}
               />
             )}
           </div>

@@ -6,6 +6,7 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import './styles/toast.css';
 import { ProtectedRoute } from './components';
+import GlobalInputCharacterLimiter from './components/common/GlobalInputCharacterLimiter';
 
 // Landing Page
 import LandingPage from './pages/LandingPage';
@@ -32,6 +33,7 @@ function App() {
       <AuthProvider>
         <DataCacheProvider>
           <LoadingProvider>
+          <GlobalInputCharacterLimiter />
           <Routes>
           {/* Landing Page */}
           <Route path="/" element={<LandingPage />} />

@@ -831,10 +831,6 @@ const RostersPage: React.FC = () => {
     setIsCreateModalOpen(false);
   };
 
-  const openImportModal = () => {
-    setIsImportModalOpen(true);
-  };
-
   const closeImportModal = () => {
     setIsImportModalOpen(false);
   };
@@ -927,7 +923,7 @@ const RostersPage: React.FC = () => {
             </Button> */}
             {canManageRoster && (
               <>
-                <Button
+                {/* <Button
                   variant="success"
                   leftIcon={<Upload className="h-4 w-4" />}
                   onClick={openImportModal}
@@ -935,7 +931,7 @@ const RostersPage: React.FC = () => {
                 >
                   <span className="hidden sm:inline">Import Roster</span>
                   <span className="sm:hidden">Import</span>
-                </Button>
+                </Button> */}
                 <Button
                   variant="primary"
                   leftIcon={<Plus className="h-4 w-4" />}
@@ -1095,7 +1091,7 @@ const RostersPage: React.FC = () => {
                   )}
                   
                   {/* View Details button - separate row on desktop for all users */}
-                  <div className="hidden sm:block mb-1">
+                  <div className="hidden sm:block mb-2">
                     <button
                       onClick={() => navigate(`/rosters/${roster.id}`)}
                       className="w-full text-xs sm:text-sm border border-gray-300 rounded px-2 py-1.5 sm:py-2 text-gray-800 hover:bg-gray-50 font-medium transition-colors"
@@ -1106,7 +1102,7 @@ const RostersPage: React.FC = () => {
                   
                   {/* Publish button - show for draft rosters */}
                   {canManageRoster && roster.status === 'draft' && (
-                    <div className="mb-2">
+                    <div className="mb-0">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -1123,51 +1119,7 @@ const RostersPage: React.FC = () => {
                   
                   {/* Edit and Delete (+ View on mobile) buttons - for draft rosters only */}
                   {canManageRoster && roster.status === 'draft' && (
-                    <div className="flex gap-2">
-                      {/* View Details on mobile only */}
-                      <Button
-                        onClick={() => navigate(`/rosters/${roster.id}`)}
-                        variant="outline"
-                        size="sm"
-                        leftIcon={<Eye className="h-3 w-3 sm:h-4 sm:w-4" />}
-                        className="sm:hidden flex-1 text-xs !border-gray-300 !text-gray-800 hover:!bg-gray-50"
-                        effect3d={false}
-                      >
-                        View
-                      </Button>
-                      <Button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openEditModal(roster);
-                        }}
-                        variant="outline"
-                        size="sm"
-                        leftIcon={<Edit2 className="h-3 w-3 sm:h-4 sm:w-4" />}
-                        className="flex-1 text-xs sm:text-sm"
-                        effect3d={false}
-                      >
-                        <span className="hidden sm:inline">Edit Period</span>
-                        <span className="sm:hidden">Edit</span>
-                      </Button>
-                      <Button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openDeleteModal(roster);
-                        }}
-                        variant="outline"
-                        size="sm"
-                        leftIcon={<Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />}
-                        className="flex-1 text-xs sm:text-sm !border-red-300 !text-red-600 hover:!bg-red-50"
-                        effect3d={false}
-                      >
-                        Delete
-                      </Button>
-                    </div>
-                  )}
-                  
-                  {/* Unpublish button (+ View on mobile) - for published rosters only */}
-                  {canManageRoster && roster.status === 'published' && (
-                    <div className="space-y-1 px-2">
+                    <div className="-mt-1 sm:-mt-2 space-y-1 sm:space-y-0">
                       {/* View Details on mobile only */}
                       <Button
                         onClick={() => navigate(`/rosters/${roster.id}`)}
@@ -1179,21 +1131,61 @@ const RostersPage: React.FC = () => {
                       >
                         View
                       </Button>
+
+                      <div className="grid grid-cols-2 gap-1">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openEditModal(roster);
+                          }}
+                          type="button"
+                          className="w-full min-w-0 h-10 sm:h-11 text-xs sm:text-sm border border-[#24367A] rounded-lg px-2 text-[#24367A] hover:bg-[#EEF2FF] inline-flex items-center justify-center gap-1.5 font-medium leading-none transition-colors"
+                        >
+                          <Edit2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                          <span className="hidden sm:inline">Edit Period</span>
+                          <span className="sm:hidden">Edit</span>
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openDeleteModal(roster);
+                          }}
+                          type="button"
+                          className="w-full min-w-0 h-10 sm:h-11 text-xs sm:text-sm border border-red-300 rounded-lg px-2 text-red-600 hover:bg-red-50 inline-flex items-center justify-center gap-1.5 font-medium leading-none transition-colors"
+                        >
+                          <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Unpublish button (+ View on mobile) - for published rosters only */}
+                  {canManageRoster && roster.status === 'published' && (
+                    <div className="space-y-1">
+                      {/* View Details on mobile only */}
                       <Button
+                        onClick={() => navigate(`/rosters/${roster.id}`)}
+                        variant="outline"
+                        size="sm"
+                        leftIcon={<Eye className="h-3 w-3 sm:h-4 sm:w-4" />}
+                        className="sm:hidden w-full text-xs !border-gray-300 !text-gray-800 hover:!bg-gray-50"
+                        effect3d={false}
+                      >
+                        View
+                      </Button>
+                      <button
                         onClick={(e) => {
                           e.stopPropagation();
                           handleUnpublishRoster(roster);
                         }}
-                        variant="outline"
-                        size="sm"
-                        fullWidth
-                        leftIcon={<XCircle className={`h-3 w-3 sm:h-4 sm:w-4 ${unpublishingRosterId === roster.id ? 'animate-pulse' : ''}`} />}
-                        className="w-full text-xs sm:text-sm !border-red-400 !text-red-600 hover:!bg-red-50"
-                        effect3d={false}
+                        type="button"
+                        className="w-full text-xs sm:text-sm border border-red-400 rounded px-2 py-1.5 sm:py-2 text-red-600 hover:bg-red-50 inline-flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
                         disabled={unpublishingRosterId === roster.id}
                       >
+                        <XCircle className={`h-3 w-3 sm:h-4 sm:w-4 ${unpublishingRosterId === roster.id ? 'animate-pulse' : ''}`} />
                         {unpublishingRosterId === roster.id ? 'Unpublishing...' : 'Unpublish'}
-                      </Button>
+                      </button>
                     </div>
                   )}
                   

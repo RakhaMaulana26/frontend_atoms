@@ -14,9 +14,9 @@ interface LeaveRequestApprovalModalProps {
 }
 
 const statusBadgeClassMap: Record<'pending' | 'approved' | 'rejected', string> = {
-  pending: 'bg-yellow-100 text-yellow-800',
-  approved: 'bg-green-100 text-green-800',
-  rejected: 'bg-red-100 text-red-800',
+  pending: 'bg-amber-100 text-amber-800',
+  approved: 'bg-emerald-100 text-emerald-800',
+  rejected: 'bg-red-100 text-red-700',
 };
 
 const LeaveRequestApprovalModal: React.FC<LeaveRequestApprovalModalProps> = ({
@@ -232,35 +232,35 @@ const LeaveRequestApprovalModal: React.FC<LeaveRequestApprovalModalProps> = ({
       onClose={onClose}
       title={actionType ? 'Konfirmasi Keputusan' : 'Detail Permohonan Cuti'}
       size="lg"
-      headerClassName="bg-gradient-to-r from-blue-600 to-blue-700 text-white"
+      headerClassName="bg-gradient-to-r from-[#454D7C] to-[#222E6A] text-white"
     >
       <div className="space-y-4 sm:space-y-6">
         {isFetchingDetail && (
-          <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          <div className="flex items-center gap-2 rounded-lg border border-[#D8DAED] bg-[#F3F4FB] px-3 py-2 text-sm text-[#222E6A]">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#C7CAE6] border-t-[#222E6A]" />
             Memuat detail approval per tanggal...
           </div>
         )}
 
-        <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">Informasi Karyawan</h3>
+        <div className="bg-[#F7F8FE] border border-[#D8DAED] rounded-xl p-4">
+          <h3 className="text-sm font-semibold text-[#222E6A] mb-3">Informasi Karyawan</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div>
               <p className="text-xs text-gray-500">Nama</p>
-              <p className="text-sm font-medium text-gray-900 break-words">{activeLeaveRequest.employee?.user?.name}</p>
+              <p className="text-sm font-medium text-[#111827] break-words">{activeLeaveRequest.employee?.user?.name}</p>
             </div>
             <div>
               <p className="text-xs text-gray-500">Email</p>
-              <p className="text-sm font-medium text-gray-900 break-all">{activeLeaveRequest.employee?.user?.email}</p>
+              <p className="text-sm font-medium text-[#111827] break-all">{activeLeaveRequest.employee?.user?.email}</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-4">
+        <div className="bg-white border border-[#D8DAED] rounded-xl p-4 space-y-4">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
             <div>
               <p className="text-xs text-gray-500">Jenis Cuti</p>
-              <p className="text-sm font-semibold text-gray-900">{getLeaveTypeLabel()}</p>
+              <p className="text-sm font-semibold text-[#222E6A]">{getLeaveTypeLabel()}</p>
             </div>
             <span className={`self-start px-3 py-1 rounded-full text-xs font-medium ${statusBadgeClassMap[activeLeaveRequest.status]}`}>
               {activeLeaveRequest.status_name}
@@ -268,17 +268,17 @@ const LeaveRequestApprovalModal: React.FC<LeaveRequestApprovalModalProps> = ({
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="bg-gray-50 rounded-lg p-3">
+            <div className="bg-[#F7F8FE] rounded-lg p-3 border border-[#E6E8F5]">
               <p className="text-xs text-gray-500">Tanggal Mulai</p>
-              <p className="text-sm font-medium text-gray-900">{formatDate(activeLeaveRequest.start_date)}</p>
+              <p className="text-sm font-medium text-[#111827]">{formatDate(activeLeaveRequest.start_date)}</p>
             </div>
-            <div className="bg-gray-50 rounded-lg p-3">
+            <div className="bg-[#F7F8FE] rounded-lg p-3 border border-[#E6E8F5]">
               <p className="text-xs text-gray-500">Tanggal Selesai</p>
-              <p className="text-sm font-medium text-gray-900">{formatDate(activeLeaveRequest.end_date)}</p>
+              <p className="text-sm font-medium text-[#111827]">{formatDate(activeLeaveRequest.end_date)}</p>
             </div>
-            <div className="bg-gray-50 rounded-lg p-3">
+            <div className="bg-[#F7F8FE] rounded-lg p-3 border border-[#E6E8F5]">
               <p className="text-xs text-gray-500">Total Hari</p>
-              <p className="text-sm font-medium text-gray-900">{activeLeaveRequest.total_days} hari</p>
+              <p className="text-sm font-medium text-[#111827]">{activeLeaveRequest.total_days} hari</p>
             </div>
           </div>
 
@@ -306,7 +306,7 @@ const LeaveRequestApprovalModal: React.FC<LeaveRequestApprovalModalProps> = ({
           {activeLeaveRequest.reason && (
             <div>
               <p className="text-xs text-gray-500 mb-1">Alasan</p>
-              <p className="text-sm text-gray-900 bg-gray-50 p-3 rounded-lg break-words">{activeLeaveRequest.reason}</p>
+              <p className="text-sm text-[#111827] bg-[#F7F8FE] border border-[#E6E8F5] p-3 rounded-lg break-words">{activeLeaveRequest.reason}</p>
             </div>
           )}
 
@@ -334,7 +334,7 @@ const LeaveRequestApprovalModal: React.FC<LeaveRequestApprovalModalProps> = ({
           {activeLeaveRequest.approval_notes && activeLeaveRequest.status !== 'pending' && (
             <div>
               <p className="text-xs text-gray-500 mb-1">Catatan Keputusan Akhir</p>
-              <p className="text-sm text-gray-900 bg-gray-50 p-3 rounded-lg break-words">{activeLeaveRequest.approval_notes}</p>
+              <p className="text-sm text-[#111827] bg-[#F7F8FE] border border-[#E6E8F5] p-3 rounded-lg break-words">{activeLeaveRequest.approval_notes}</p>
             </div>
           )}
 
@@ -349,7 +349,7 @@ const LeaveRequestApprovalModal: React.FC<LeaveRequestApprovalModalProps> = ({
                   type="button"
                   onClick={handleViewDocument}
                   disabled={isOpeningDocument || isDownloadingDocument}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-60 transition-colors"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-[#222E6A] text-white text-sm font-medium hover:bg-[#1a2452] disabled:opacity-60 transition-colors"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -377,14 +377,14 @@ const LeaveRequestApprovalModal: React.FC<LeaveRequestApprovalModalProps> = ({
           )}
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
+        <div className="bg-white border border-[#D8DAED] rounded-xl p-4 space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div>
-              <h3 className="text-sm font-semibold text-gray-900">Manager Penanggung Jawab per Tanggal</h3>
+              <h3 className="text-sm font-semibold text-[#222E6A]">Manager Penanggung Jawab per Tanggal</h3>
               <p className="text-xs text-gray-500">Approval mengikuti manager yang bertugas pada tanggal roster terkait.</p>
             </div>
             {currentUserPendingDates.length > 0 && (
-              <span className="inline-flex items-center self-start rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700">
+              <span className="inline-flex items-center self-start rounded-full bg-[#E6E9F7] px-3 py-1 text-xs font-medium text-[#222E6A]">
                 Perlu approval Anda: {currentUserPendingDates.length} tanggal
               </span>
             )}
@@ -392,29 +392,29 @@ const LeaveRequestApprovalModal: React.FC<LeaveRequestApprovalModalProps> = ({
 
           <div className="space-y-3">
             {approvalDates.length > 0 ? approvalDates.map((approval, index) => (
-              <div key={`${approval.work_date ?? approval.label ?? 'approval'}-${index}`} className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+              <div key={`${approval.work_date ?? approval.label ?? 'approval'}-${index}`} className="rounded-xl border border-[#E6E8F5] bg-[#F7F8FE] p-3">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0 space-y-2">
                     <div>
                       <p className="text-xs text-gray-500">Tanggal</p>
-                      <p className="text-sm font-semibold text-gray-900 break-words">
+                      <p className="text-sm font-semibold text-[#222E6A] break-words">
                         {approval.work_date ? formatDate(approval.work_date) : approval.label || approval.approval_notes || '-'}
                       </p>
                     </div>
 
                     <div className="flex flex-wrap gap-2">
                       {approval.employee_shift_notes && (
-                        <span className="inline-flex items-center rounded-full bg-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-700">
+                        <span className="inline-flex items-center rounded-full bg-[#E6E8F5] px-2.5 py-1 text-[11px] font-medium text-[#434C79]">
                           Shift {approval.employee_shift_notes}
                         </span>
                       )}
                       {approval.current_user_can_approve && (
-                        <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-1 text-[11px] font-medium text-blue-700">
+                        <span className="inline-flex items-center rounded-full bg-[#E6E9F7] px-2.5 py-1 text-[11px] font-medium text-[#222E6A]">
                           Tanggung jawab Anda
                         </span>
                       )}
                       {approval.current_user_already_approved && (
-                        <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-1 text-[11px] font-medium text-green-700">
+                        <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-medium text-emerald-700">
                           Sudah Anda setujui
                         </span>
                       )}
@@ -424,7 +424,7 @@ const LeaveRequestApprovalModal: React.FC<LeaveRequestApprovalModalProps> = ({
                       <p className="text-xs text-gray-500">Manager</p>
                       {approval.manager ? (
                         <div className="space-y-0.5">
-                          <p className="text-sm font-medium text-gray-900 break-words">{approval.manager.name}</p>
+                          <p className="text-sm font-medium text-[#111827] break-words">{approval.manager.name}</p>
                           <p className="text-xs text-gray-500 break-all">{approval.manager.email}</p>
                           <p className="text-xs text-gray-500">{approval.manager.role}</p>
                         </div>
@@ -448,7 +448,7 @@ const LeaveRequestApprovalModal: React.FC<LeaveRequestApprovalModalProps> = ({
                 </div>
               </div>
             )) : (
-              <div className="rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500">
+              <div className="rounded-lg border border-dashed border-[#D8DAED] p-4 text-sm text-gray-500">
                 Detail approval per tanggal belum tersedia.
               </div>
             )}
@@ -464,12 +464,12 @@ const LeaveRequestApprovalModal: React.FC<LeaveRequestApprovalModalProps> = ({
         )}
 
         {actionType ? (
-          <div className={`p-4 rounded-xl ${actionType === 'approve' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
-            <h4 className={`text-sm font-semibold mb-3 ${actionType === 'approve' ? 'text-green-800' : 'text-red-800'}`}>
+          <div className={`p-4 rounded-xl ${actionType === 'approve' ? 'bg-emerald-50 border border-emerald-200' : 'bg-red-50 border border-red-200'}`}>
+            <h4 className={`text-sm font-semibold mb-3 ${actionType === 'approve' ? 'text-emerald-800' : 'text-red-800'}`}>
               {actionType === 'approve' ? 'Menyetujui Tanggal Tanggung Jawab Anda' : 'Menolak Permohonan Cuti'}
             </h4>
             {actionType === 'approve' && currentUserPendingDates.length > 0 && (
-              <p className="mb-3 text-xs text-green-700 break-words">
+              <p className="mb-3 text-xs text-emerald-700 break-words">
                 Persetujuan ini akan diterapkan untuk tanggal: {currentUserPendingDates.map((date) => formatDate(date)).join(', ')}.
               </p>
             )}
@@ -481,7 +481,7 @@ const LeaveRequestApprovalModal: React.FC<LeaveRequestApprovalModalProps> = ({
                 value={approvalNotes}
                 onChange={(event) => setApprovalNotes(event.target.value)}
                 rows={4}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                className="w-full px-3 py-2 border border-[#D8DAED] rounded-md focus:outline-none focus:ring-2 focus:ring-[#222E6A] text-sm"
                 placeholder={actionType === 'approve' ? 'Tambahkan catatan (opsional)...' : 'Jelaskan alasan penolakan (wajib)...'}
                 required={actionType === 'reject'}
               />

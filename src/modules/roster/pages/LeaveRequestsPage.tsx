@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { PageHeader } from '../../../components';
-import LeaveRequestsTable from '../components/LeaveRequestsTable';
+import LeaveRequestsTable from '../components/LeaveRequestsTable.tsx';
 
 type StatusFilter = 'all' | 'pending' | 'approved' | 'rejected';
 

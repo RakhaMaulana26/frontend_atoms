@@ -34,7 +34,14 @@ export const rosterService = {
    */
   async getAutoAssignedUsers(params: { date: string; shift: '07-13' | '13-19' | '19-07' }): Promise<{ users: Array<{id:number; name:string; role:string}> }> {
     const response = await apiClient.get('/roster/auto-assignment', { params });
-    return response.data;
+    const payload = response.data as { users?: Array<{id:number; name:string; role:string}>; data?: Array<{id:number; name:string; role:string}> };
+    return {
+      users: Array.isArray(payload.users)
+        ? payload.users
+        : Array.isArray(payload.data)
+        ? payload.data
+        : [],
+    };
   },
 
   /**

@@ -136,6 +136,12 @@ const SwapShiftModal: React.FC<SwapShiftModalProps> = ({ isOpen, onClose, onSucc
     return availablePartners.find((p) => p.employee_id === selectedPartnerId) || null;
   }, [availablePartners, selectedPartnerId]);
 
+  const isRequesterManagerTeknik = useMemo(() => {
+    const roleNormalized = String(user?.role || '').toLowerCase();
+    const employeeTypeNormalized = String(user?.employee?.employee_type || '').toLowerCase();
+    return roleNormalized === 'manager teknik' || employeeTypeNormalized === 'manager teknik';
+  }, [user?.role, user?.employee?.employee_type]);
+
   // Date options are constrained by roster period and selected partner/shift context.
   const availableDates = useMemo(() => {
     const baseDates = [...new Set(
@@ -736,7 +742,7 @@ const SwapShiftModal: React.FC<SwapShiftModalProps> = ({ isOpen, onClose, onSucc
                   <div className="mt-3 p-3 bg-blue-50 border border-blue-100 rounded-lg">
                     <div className="flex items-center gap-2">
                       <Shield className="w-4 h-4 text-blue-600" />
-                      <span className="text-xs font-medium text-blue-700">Manager on Duty:</span>
+                      <span className="text-xs font-medium text-blue-700">{isRequesterManagerTeknik ? 'General Manager:' : 'Manager on Duty:'}</span>
                       {loadingCurrentManager ? (
                         <Loader2 className="w-3 h-3 animate-spin text-blue-600" />
                       ) : currentShiftManager ? (
@@ -747,7 +753,7 @@ const SwapShiftModal: React.FC<SwapShiftModalProps> = ({ isOpen, onClose, onSucc
                           )}
                         </>
                       ) : (
-                        <span className="text-xs text-blue-500 italic">No manager assigned</span>
+                        <span className="text-xs text-blue-500 italic">{isRequesterManagerTeknik ? 'General Manager tidak ditemukan' : 'No manager assigned'}</span>
                       )}
                     </div>
                     {selectedShift && (
@@ -836,7 +842,7 @@ const SwapShiftModal: React.FC<SwapShiftModalProps> = ({ isOpen, onClose, onSucc
                   <div className="mt-3 p-3 bg-green-50 border border-green-100 rounded-lg">
                     <div className="flex items-center gap-2">
                       <Shield className="w-4 h-4 text-green-600" />
-                      <span className="text-xs font-medium text-green-700">Manager on Duty:</span>
+                      <span className="text-xs font-medium text-green-700">{isRequesterManagerTeknik ? 'General Manager:' : 'Manager on Duty:'}</span>
                       {loadingRequestedManager ? (
                         <Loader2 className="w-3 h-3 animate-spin text-green-600" />
                       ) : requestedShiftManager ? (
@@ -847,7 +853,7 @@ const SwapShiftModal: React.FC<SwapShiftModalProps> = ({ isOpen, onClose, onSucc
                           )}
                         </>
                       ) : (
-                        <span className="text-xs text-green-500 italic">No manager assigned</span>
+                        <span className="text-xs text-green-500 italic">{isRequesterManagerTeknik ? 'General Manager tidak ditemukan' : 'No manager assigned'}</span>
                       )}
                     </div>
                     {selectedRequestedShift && (

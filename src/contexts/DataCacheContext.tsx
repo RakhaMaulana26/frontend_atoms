@@ -656,30 +656,7 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
     lastUserIdRef.current = currentUserId;
   }, [isAuthenticated, user?.id]);
 
-  // Refresh notifications only on window focus or when tab becomes visible (no auto polling).
-  useEffect(() => {
-    if (!isAuthenticated || !isInitialized) return;
-
-    const refreshNotificationsRealtime = () => {
-      loadNotificationsByCategory();
-      loadNotifications();
-    };
-
-    const onFocus = () => refreshNotificationsRealtime();
-    const onVisibilityChange = () => {
-      if (!document.hidden) {
-        refreshNotificationsRealtime();
-      }
-    };
-
-    window.addEventListener('focus', onFocus);
-    document.addEventListener('visibilitychange', onVisibilityChange);
-
-    return () => {
-      window.removeEventListener('focus', onFocus);
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-    };
-  }, [isAuthenticated, isInitialized, loadNotificationsByCategory, loadNotifications]);
+  // Auto refresh on focus/visibility intentionally disabled to reduce repeated GET load.
 
   // Add new user to cache
   const addUser = useCallback((user: User) => {

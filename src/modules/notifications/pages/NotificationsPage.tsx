@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
 import { notificationService } from '../repository/notificationService';
-import { shiftRequestService } from '../../roster/repository/shiftRequestService';
+import { shiftRequestService, type ShiftRequestItem } from '../../roster/repository/shiftRequestService';
 import { leaveRequestService } from '../../roster/repository/leaveRequestService';
 import { rosterService } from '../../roster/repository/rosterService';
 import { PageHeader, Button, Modal } from '../../../components';
@@ -13,13 +13,21 @@ import type { User, Notification } from '../../../types';
 import type { LeaveRequest } from '../../roster/types/leaveRequest';
 import { getAllShiftsSorted, type ShiftKey } from '../../roster/constants/shifts';
 import { 
-  Inbox, Star, Send, Trash2, Mail, MailOpen, X, Clock, Plus, RefreshCw, Archive, Check, Search, FileText, Calendar
+  Inbox, Star, Send, Trash2, Mail, MailOpen, X, Clock, Plus, RefreshCw, Archive, Check, Search, FileText, Calendar, ChevronDown
 } from 'lucide-react';
 import { format } from 'date-fns';
 
 type NotificationCategory = 'all' | 'inbox' | 'starred' | 'sent' | 'trash' | 'roster' | 'drafts' | 'scheduled';
 
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const;
+
+const LEAVE_REQUEST_CREATED_EVENT = 'leave-request:create-optimistic';
+const LEAVE_REQUEST_CONFIRMED_EVENT = 'leave-request:create-confirmed';
+const LEAVE_REQUEST_ROLLED_BACK_EVENT = 'leave-request:create-rolled-back';
+
+const SHIFT_SWAP_REQUEST_CREATED_EVENT = 'shift-swap-request:create-optimistic';
+const SHIFT_SWAP_REQUEST_CONFIRMED_EVENT = 'shift-swap-request:create-confirmed';
+const SHIFT_SWAP_REQUEST_ROLLED_BACK_EVENT = 'shift-swap-request:create-rolled-back';
 
 const NotificationsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -54,8 +62,12 @@ const NotificationsPage: React.FC = () => {
   const [isRosterTaskModalOpen, setIsRosterTaskModalOpen] = useState(false);
   const [isRosterTaskSaving, setIsRosterTaskSaving] = useState(false);
   const [selectedRosterUserIds, setSelectedRosterUserIds] = useState<number[]>([]);
+  const [rosterTaskUserSearchQuery, setRosterTaskUserSearchQuery] = useState('');
+  const [autoAssignedRosterUsers, setAutoAssignedRosterUsers] = useState<Array<{ id: number; name: string; role: string; email?: string }>>([]);
+  const [isLoadingAutoAssignedUsers, setIsLoadingAutoAssignedUsers] = useState(false);
   const [rosterTaskSendMode, setRosterTaskSendMode] = useState<'now' | 'draft' | 'schedule'>('now');
   const [rosterTaskScheduledDateTime, setRosterTaskScheduledDateTime] = useState<string>('');
+  const [showExtraCategories, setShowExtraCategories] = useState(false);
 
   // Draft and Scheduled states - Initialize from localStorage
   const [drafts, setDrafts] = useState<Notification[]>(() => {
@@ -78,6 +90,9 @@ const NotificationsPage: React.FC = () => {
   
   const [sendMode, setSendMode] = useState<'now' | 'draft' | 'schedule'>('now');
   const [scheduledDateTime, setScheduledDateTime] = useState<string>('');
+  const [optimisticNotifications, setOptimisticNotifications] = useState<Notification[]>([]);
+  const [leaveApprovalInfoById, setLeaveApprovalInfoById] = useState<Record<number, { items: Array<{ name: string; status: 'pending' | 'approved' | 'rejected' | 'needs_assignment'; label: string }>; summary?: string }>>({});
+  const [shiftApprovalInfoById, setShiftApprovalInfoById] = useState<Record<number, { items: Array<{ label: string; name: string; status: 'pending' | 'approved' | 'rejected' | 'needs_assignment' }>; summary?: string }>>({});
 
   const [rosterTaskDrafts, setRosterTaskDrafts] = useState<any[]>(() => {
     try {
@@ -99,6 +114,7 @@ const NotificationsPage: React.FC = () => {
 
   const isAdmin = user?.role === 'Admin';
   const isManager = user?.role === 'Manager Teknik' || user?.role === 'General Manager';
+  const canManageNotifications = isAdmin || isManager;
   const isRosterCategory = activeCategory === 'roster';
   const datesPerPage = 4;
 
@@ -167,21 +183,11 @@ const NotificationsPage: React.FC = () => {
     description: '',
     date: '',
     shift_key: '07-13' as ShiftKey,
-    role: 'CNS',
+    role: 'General',
     priority: 'medium' as 'low' | 'medium' | 'high',
     assigned_to: [] as number[],
   });
 
-  const availableRosterUsers = useMemo(() => {
-    if (!users) return [];
-    const selectedRole = rosterTaskForm.role?.toLowerCase();
-    if (!selectedRole) return users;
-    if (selectedRole === 'cns' || selectedRole === 'support') {
-      return users.filter((u: User) => u.role.toLowerCase() === selectedRole);
-    }
-    return users;
-  }, [users, rosterTaskForm.role]);
-  
   // Compose form state
   const [composeForm, setComposeForm] = useState({
     title: '',
@@ -194,6 +200,7 @@ const NotificationsPage: React.FC = () => {
   const [isSending, setIsSending] = useState(false);
   const [processingShiftRequestIds, setProcessingShiftRequestIds] = useState<Set<number>>(new Set());
   const [shiftRequestStatusById, setShiftRequestStatusById] = useState<Record<number, string>>({});
+  const previousActiveCategoryRef = useRef<NotificationCategory>(activeCategory);
   
   // Track notifications that have been actioned (approved/rejected) to hide buttons
   const [actionedNotificationIds, setActionedNotificationIds] = useState<Set<number>>(() => {
@@ -230,6 +237,106 @@ const NotificationsPage: React.FC = () => {
     localStorage.setItem('roster_task_scheduled', JSON.stringify(rosterTaskScheduled));
   }, [rosterTaskScheduled]);
 
+  // Auto-fill recipients from roster members on duty for selected date + shift.
+  useEffect(() => {
+    if (!isRosterTaskModalOpen) return;
+
+    const selectedDate = rosterTaskForm.date;
+    const selectedShift = rosterTaskForm.shift_key as '07-13' | '13-19' | '19-07';
+
+    if (!selectedDate || !selectedShift) {
+      setAutoAssignedRosterUsers([]);
+      setSelectedRosterUserIds([]);
+      return;
+    }
+
+    let isActive = true;
+
+    const loadAutoAssignedUsers = async () => {
+      setIsLoadingAutoAssignedUsers(true);
+      try {
+        const response = await rosterService.getAutoAssignedUsers({
+          date: selectedDate,
+          shift: selectedShift,
+        });
+
+        if (!isActive) return;
+
+        const usersFromRoster = Array.isArray(response?.users)
+          ? response.users.map((u) => ({
+              id: Number(u.id),
+              name: String(u.name || ''),
+              role: String(u.role || '-'),
+            }))
+          : [];
+
+        setAutoAssignedRosterUsers(usersFromRoster);
+        setSelectedRosterUserIds(usersFromRoster.map((u) => u.id));
+      } catch {
+        if (!isActive) return;
+        setAutoAssignedRosterUsers([]);
+        setSelectedRosterUserIds([]);
+      } finally {
+        if (isActive) {
+          setIsLoadingAutoAssignedUsers(false);
+        }
+      }
+    };
+
+    loadAutoAssignedUsers();
+
+    return () => {
+      isActive = false;
+    };
+  }, [isRosterTaskModalOpen, rosterTaskForm.date, rosterTaskForm.shift_key]);
+
+  // Dispatch due scheduled notifications once on mount/changes (no periodic polling).
+  useEffect(() => {
+    const dispatchDueScheduledNotifications = async () => {
+      const dueNotifications = scheduledNotifications.filter(notification => {
+        const scheduledAt = notification.data?.scheduled_at;
+        return scheduledAt ? new Date(scheduledAt).getTime() <= Date.now() : false;
+      });
+
+      if (dueNotifications.length === 0) return;
+
+      const successfullySentIds: number[] = [];
+
+      for (const notification of dueNotifications) {
+        const recipientIds = Array.isArray(notification.data?.recipients)
+          ? notification.data.recipients
+          : [];
+
+        if (recipientIds.length === 0) {
+          toast.error(`Skipping scheduled notification "${notification.title}" because no recipients were selected.`);
+          continue;
+        }
+
+        try {
+          await notificationService.sendNotification({
+            user_ids: recipientIds,
+            title: notification.title,
+            message: notification.message,
+            send_email: notification.data?.send_email,
+          });
+
+          successfullySentIds.push(notification.id);
+          toast.success(`Scheduled notification sent: ${notification.title}`);
+        } catch (error: any) {
+          console.error('Failed to send scheduled notification', error);
+          toast.error(`Failed to send scheduled notification "${notification.title}". It will retry later.`);
+        }
+      }
+
+      if (successfullySentIds.length > 0) {
+        setScheduledNotifications(prev => prev.filter(notification => !successfullySentIds.includes(notification.id)));
+        refreshNotificationsByCategory();
+      }
+    };
+
+    void dispatchDueScheduledNotifications();
+  }, [refreshNotificationsByCategory, scheduledNotifications]);
+
   // Sync shift request status for actionable notifications
   useEffect(() => {
     const currentList = activeCategory === 'all'
@@ -257,37 +364,487 @@ const NotificationsPage: React.FC = () => {
     }
 
     let mounted = true;
-    // Only fetch if we have actioned notifications, otherwise use cache as-is
-    const timeoutId = setTimeout(async () => {
-      const fetchStatuses = async () => {
-        const results = await Promise.all(
-          shiftRequestIds.map(async (id: number) => {
-            try {
-              const response = await shiftRequestService.getShiftRequest(id);
-              return [id, response.data?.status || 'unknown'] as const;
-            } catch {
-              return [id, 'unknown'] as const;
-            }
-          })
-        );
+    const fetchStatuses = async () => {
+      const results = await Promise.all(
+        shiftRequestIds.map(async (id: number) => {
+          try {
+            const response = await shiftRequestService.getShiftRequest(id);
+            return [id, response.data?.status || 'unknown'] as const;
+          } catch {
+            return [id, 'unknown'] as const;
+          }
+        })
+      );
 
-        if (!mounted) return;
+      if (!mounted) return;
 
-        const statusMap: Record<number, string> = {};
-        results.forEach(([id, status]) => {
-          statusMap[id] = status;
-        });
-        setShiftRequestStatusById(statusMap);
-      };
+      const statusMap: Record<number, string> = {};
+      results.forEach(([id, status]) => {
+        statusMap[id] = status;
+      });
+      setShiftRequestStatusById(statusMap);
+    };
 
-      await fetchStatuses();
-    }, 500); // Debounce API calls by 500ms
+    fetchStatuses();
 
     return () => {
       mounted = false;
-      clearTimeout(timeoutId);
     };
-  }, [activeCategory]);
+  }, [activeCategory, notificationsByCategory]);
+
+  const formatNotificationDate = (value?: string): string => {
+    if (!value) return '-';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return value;
+    return parsed.toLocaleDateString('id-ID', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    });
+  };
+
+  const buildLeaveNotificationTitle = (request: LeaveRequest): string => {
+    return request.id > 0
+      ? `Permohonan Cuti Terkirim #${request.id}`
+      : 'Permohonan Cuti Terkirim';
+  };
+
+  const buildLeaveOptimisticNotification = (request: LeaveRequest): Notification => {
+    const requestTypeName = request.request_type_name || request.request_type || 'Cuti';
+    const startLabel = formatNotificationDate(request.start_date);
+    const endLabel = formatNotificationDate(request.end_date);
+    const message = `Permohonan ${requestTypeName} Anda (${startLabel} - ${endLabel}) telah dikirim dan menunggu persetujuan.`;
+
+    return {
+      id: request.id,
+      user_id: user?.id || 0,
+      sender_id: user?.id,
+      type: 'inbox',
+      title: buildLeaveNotificationTitle(request),
+      message,
+      category: 'leave_request',
+      data: {
+        leave_request_id: request.id,
+        request_type: request.request_type,
+        request_type_name: request.request_type_name,
+        start_date: request.start_date,
+        end_date: request.end_date,
+        employee_name: request.employee?.user?.name || user?.name,
+      },
+      reference_id: request.id,
+      is_read: false,
+      is_starred: false,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      sender: user
+        ? {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+          }
+        : undefined,
+    };
+  };
+
+  const buildShiftSwapOptimisticNotification = (request: ShiftRequestItem): Notification => {
+    const targetName = request.target_employee?.user?.name || 'rekan kerja';
+    const message = `Permintaan tukar shift Anda telah dikirim ke ${targetName} dan menunggu persetujuan.`;
+
+    return {
+      id: request.id,
+      user_id: user?.id || 0,
+      sender_id: user?.id,
+      type: 'inbox',
+      title: 'Permintaan Tukar Shift Dikirim',
+      message,
+      category: 'shift_request',
+      data: {
+        shift_request_id: request.id,
+        requester_employee_id: request.requester_employee_id,
+        target_employee_id: request.target_employee_id,
+        status: request.status,
+      },
+      reference_id: request.id,
+      is_read: false,
+      is_starred: false,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      sender: user
+        ? {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+          }
+        : undefined,
+    };
+  };
+
+  useEffect(() => {
+    const handleLeaveCreated = (event: Event) => {
+      const customEvent = event as CustomEvent<{ request: LeaveRequest }>;
+      const request = customEvent.detail?.request;
+      if (!request) return;
+
+      const notification = buildLeaveOptimisticNotification(request);
+      setOptimisticNotifications((prev) => [notification, ...prev.filter((item) => item.id !== notification.id)]);
+    };
+
+    const handleLeaveConfirmed = (event: Event) => {
+      const customEvent = event as CustomEvent<{ tempId: number; request: LeaveRequest }>;
+      const tempId = customEvent.detail?.tempId;
+      const request = customEvent.detail?.request;
+      if (!request || typeof tempId !== 'number') return;
+
+      setOptimisticNotifications((prev) =>
+        prev.map((item) =>
+          item.id === tempId
+            ? {
+                ...item,
+                title: buildLeaveNotificationTitle(request),
+                reference_id: request.id,
+                data: {
+                  ...(item.data as any),
+                  leave_request_id: request.id,
+                  request_type: request.request_type,
+                  request_type_name: request.request_type_name,
+                  start_date: request.start_date,
+                  end_date: request.end_date,
+                },
+              }
+            : item
+        )
+      );
+    };
+
+    const handleLeaveRolledBack = (event: Event) => {
+      const customEvent = event as CustomEvent<{ tempId: number }>;
+      const tempId = customEvent.detail?.tempId;
+      if (typeof tempId !== 'number') return;
+      setOptimisticNotifications((prev) => prev.filter((item) => item.id !== tempId));
+    };
+
+    const handleShiftSwapCreated = (event: Event) => {
+      const customEvent = event as CustomEvent<{ request: ShiftRequestItem }>;
+      const request = customEvent.detail?.request;
+      if (!request) return;
+
+      const notification = buildShiftSwapOptimisticNotification(request);
+      setOptimisticNotifications((prev) => [notification, ...prev.filter((item) => item.id !== notification.id)]);
+    };
+
+    const handleShiftSwapConfirmed = (event: Event) => {
+      const customEvent = event as CustomEvent<{ tempId: number; request: ShiftRequestItem }>;
+      const tempId = customEvent.detail?.tempId;
+      const request = customEvent.detail?.request;
+      if (!request || typeof tempId !== 'number') return;
+
+      setOptimisticNotifications((prev) =>
+        prev.map((item) =>
+          item.id === tempId
+            ? {
+                ...item,
+                reference_id: request.id,
+                data: {
+                  ...(item.data as any),
+                  shift_request_id: request.id,
+                  status: request.status,
+                },
+              }
+            : item
+        )
+      );
+    };
+
+    const handleShiftSwapRolledBack = (event: Event) => {
+      const customEvent = event as CustomEvent<{ tempId: number }>;
+      const tempId = customEvent.detail?.tempId;
+      if (typeof tempId !== 'number') return;
+      setOptimisticNotifications((prev) => prev.filter((item) => item.id !== tempId));
+    };
+
+    window.addEventListener(LEAVE_REQUEST_CREATED_EVENT, handleLeaveCreated as EventListener);
+    window.addEventListener(LEAVE_REQUEST_CONFIRMED_EVENT, handleLeaveConfirmed as EventListener);
+    window.addEventListener(LEAVE_REQUEST_ROLLED_BACK_EVENT, handleLeaveRolledBack as EventListener);
+    window.addEventListener(SHIFT_SWAP_REQUEST_CREATED_EVENT, handleShiftSwapCreated as EventListener);
+    window.addEventListener(SHIFT_SWAP_REQUEST_CONFIRMED_EVENT, handleShiftSwapConfirmed as EventListener);
+    window.addEventListener(SHIFT_SWAP_REQUEST_ROLLED_BACK_EVENT, handleShiftSwapRolledBack as EventListener);
+
+    return () => {
+      window.removeEventListener(LEAVE_REQUEST_CREATED_EVENT, handleLeaveCreated as EventListener);
+      window.removeEventListener(LEAVE_REQUEST_CONFIRMED_EVENT, handleLeaveConfirmed as EventListener);
+      window.removeEventListener(LEAVE_REQUEST_ROLLED_BACK_EVENT, handleLeaveRolledBack as EventListener);
+      window.removeEventListener(SHIFT_SWAP_REQUEST_CREATED_EVENT, handleShiftSwapCreated as EventListener);
+      window.removeEventListener(SHIFT_SWAP_REQUEST_CONFIRMED_EVENT, handleShiftSwapConfirmed as EventListener);
+      window.removeEventListener(SHIFT_SWAP_REQUEST_ROLLED_BACK_EVENT, handleShiftSwapRolledBack as EventListener);
+    };
+  }, [user]);
+
+  const getLeaveApprovalStatusLabel = (status: 'pending' | 'approved' | 'rejected' | 'needs_assignment') => {
+    switch (status) {
+      case 'approved':
+        return 'Disetujui';
+      case 'rejected':
+        return 'Ditolak';
+      case 'needs_assignment':
+        return 'Belum Ditentukan';
+      default:
+        return 'Menunggu';
+    }
+  };
+
+  const getLeaveApprovalStatusClass = (status: 'pending' | 'approved' | 'rejected' | 'needs_assignment') => {
+    switch (status) {
+      case 'approved':
+        return 'bg-emerald-100 text-emerald-700';
+      case 'rejected':
+        return 'bg-red-100 text-red-700';
+      case 'needs_assignment':
+        return 'bg-amber-100 text-amber-800';
+      default:
+        return 'bg-yellow-100 text-yellow-800';
+    }
+  };
+
+  const getShiftApprovalStatusClass = (status: 'pending' | 'approved' | 'rejected' | 'needs_assignment') => {
+    switch (status) {
+      case 'approved':
+        return 'bg-emerald-100 text-emerald-700';
+      case 'rejected':
+        return 'bg-red-100 text-red-700';
+      case 'needs_assignment':
+        return 'bg-amber-100 text-amber-800';
+      default:
+        return 'bg-yellow-100 text-yellow-800';
+    }
+  };
+
+  const getUserNameByEmployeeId = (employeeId?: number | null) => {
+    if (!employeeId) return null;
+    const matched = users?.find((item: User) => item.employee?.id === employeeId);
+    return matched?.name || null;
+  };
+
+  const getUserNameByUserId = (userId?: number | null) => {
+    if (!userId) return null;
+    const matched = users?.find((item: User) => item.id === userId);
+    return matched?.name || null;
+  };
+
+  const buildLeaveApprovalInfoFromNotification = (notification: Notification) => {
+    const data = parseNotificationData(notification) || {};
+    const managerEmployeeIds = Array.isArray(data.manager_employee_ids)
+      ? data.manager_employee_ids.map((value: any) => Number(value)).filter((value: number) => !Number.isNaN(value))
+      : [];
+    const managerUserIds = Array.isArray(data.manager_user_ids)
+      ? data.manager_user_ids.map((value: any) => Number(value)).filter((value: number) => !Number.isNaN(value))
+      : [];
+    const status = typeof data.status === 'string' ? data.status : 'pending';
+    const normalizedStatus: 'pending' | 'approved' | 'rejected' | 'needs_assignment' = status === 'approved'
+      ? 'approved'
+      : status === 'rejected'
+      ? 'rejected'
+      : 'pending';
+
+    const namesFromUsers = managerUserIds
+      .map((id: number) => getUserNameByUserId(id))
+      .filter(Boolean) as string[];
+    const namesFromEmployees = managerEmployeeIds
+      .map((id: number) => getUserNameByEmployeeId(id))
+      .filter(Boolean) as string[];
+    const managerNames = Array.from(new Set([...namesFromUsers, ...namesFromEmployees]));
+
+    if (managerNames.length === 0) return null;
+
+    return {
+      items: managerNames.map((name) => ({
+        name,
+        status: normalizedStatus,
+        label: getLeaveApprovalStatusLabel(normalizedStatus),
+      })),
+    };
+  };
+
+  const buildShiftApprovalInfoFromNotification = (notification: Notification) => {
+    const data = parseNotificationData(notification) || {};
+    const managerEmployeeIds = Array.isArray(data.manager_employee_ids)
+      ? data.manager_employee_ids.map((value: any) => Number(value)).filter((value: number) => !Number.isNaN(value))
+      : [];
+    const managerUserIds = Array.isArray(data.manager_user_ids)
+      ? data.manager_user_ids.map((value: any) => Number(value)).filter((value: number) => !Number.isNaN(value))
+      : [];
+    const isManagerToManager = Boolean(data.is_manager_to_manager);
+    const status = typeof data.status === 'string' ? data.status : 'pending';
+    const normalizedStatus: 'pending' | 'approved' | 'rejected' | 'needs_assignment' = status === 'approved'
+      ? 'approved'
+      : status === 'rejected' || status === 'cancelled'
+      ? 'rejected'
+      : 'pending';
+
+    const targetName = getUserNameByUserId(Number(data.target_user_id))
+      || getUserNameByEmployeeId(Number(data.target_employee_id))
+      || 'Target';
+
+    const managerNames = Array.from(new Set([
+      ...managerUserIds.map((id: number) => getUserNameByUserId(id)).filter(Boolean) as string[],
+      ...managerEmployeeIds.map((id: number) => getUserNameByEmployeeId(id)).filter(Boolean) as string[],
+    ]));
+
+    if (managerNames.length === 0) return null;
+
+    const items: Array<{ label: string; name: string; status: 'pending' | 'approved' | 'rejected' | 'needs_assignment' }> = [
+      { label: 'Target', name: targetName, status: normalizedStatus },
+    ];
+
+    if (isManagerToManager) {
+      const generalManagerName = managerNames[0] || 'General Manager';
+      items.push({
+        label: 'General Manager',
+        name: generalManagerName,
+        status: normalizedStatus,
+      });
+      return { items };
+    }
+
+    const [firstManager, secondManager] = managerNames;
+    if (firstManager) {
+      items.push({ label: 'Manager Asal', name: firstManager, status: normalizedStatus });
+    }
+    if (secondManager) {
+      items.push({ label: 'Manager Tujuan', name: secondManager, status: normalizedStatus });
+    }
+
+    return { items };
+  };
+
+  const buildLeaveApprovalInfo = (leaveRequest: LeaveRequest) => {
+    const approvals = Array.isArray(leaveRequest.approval_dates) ? leaveRequest.approval_dates : [];
+    if (approvals.length === 0) {
+      return {
+        items: [],
+        summary: 'Persetujuan manager sedang diproses.',
+      };
+    }
+
+    const grouped = new Map<string, { name: string; status: 'pending' | 'approved' | 'rejected' | 'needs_assignment'; label: string }>();
+
+    approvals.forEach((approval) => {
+      const managerName = approval.manager?.name || 'Manager belum ditentukan';
+      const key = approval.manager?.id ? String(approval.manager.id) : managerName;
+      const status: 'pending' | 'approved' | 'rejected' | 'needs_assignment' = approval.needs_assignment
+        ? 'needs_assignment'
+        : approval.status || 'pending';
+
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          name: managerName,
+          status,
+          label: getLeaveApprovalStatusLabel(status),
+        });
+        return;
+      }
+
+      const current = grouped.get(key);
+      if (!current) return;
+
+      if (current.status === 'rejected' || status === 'rejected') {
+        current.status = 'rejected';
+      } else if (current.status === 'pending' || status === 'pending') {
+        current.status = 'pending';
+      } else if (current.status === 'needs_assignment' || status === 'needs_assignment') {
+        current.status = 'needs_assignment';
+      } else {
+        current.status = 'approved';
+      }
+
+      current.label = getLeaveApprovalStatusLabel(current.status);
+      grouped.set(key, current);
+    });
+
+    return {
+      items: Array.from(grouped.values()),
+    };
+  };
+
+  const buildShiftApprovalInfo = (shiftRequest: ShiftRequestItem, managers: any) => {
+    const targetName = shiftRequest.target_employee?.user?.name || 'Target';
+    const requesterRole = String((shiftRequest as any)?.requester_employee?.user?.role || '').toLowerCase();
+    const targetRole = String((shiftRequest as any)?.target_employee?.user?.role || '').toLowerCase();
+    const isManagerRole = (role: string) => role === 'manager teknik' || role === 'general manager';
+    const isRejected = shiftRequest.status === 'rejected';
+    const isCancelled = shiftRequest.status === 'cancelled';
+    const targetStatus: 'pending' | 'approved' | 'rejected' = isRejected || isCancelled
+      ? 'rejected'
+      : shiftRequest.approved_by_target
+      ? 'approved'
+      : 'pending';
+    const items: Array<{ label: string; name: string; status: 'pending' | 'approved' | 'rejected' | 'needs_assignment' }> = [
+      {
+        label: 'Target',
+        name: targetName,
+        status: targetStatus,
+      },
+    ];
+
+    const fromManagerName = managers?.from_manager?.name || 'Manager asal belum ditentukan';
+    const toManagerName = managers?.to_manager?.name || 'Manager tujuan belum ditentukan';
+    const isSameManager = Boolean(managers?.is_same_manager);
+    const isManagerToManager = Boolean(shiftRequest.is_manager_to_manager) || (isManagerRole(requesterRole) && isManagerRole(targetRole));
+
+    const fromManagerStatus: 'pending' | 'approved' | 'rejected' = isRejected || isCancelled
+      ? 'rejected'
+      : shiftRequest.approved_by_from_manager
+      ? 'approved'
+      : 'pending';
+    const toManagerStatus: 'pending' | 'approved' | 'rejected' = isRejected || isCancelled
+      ? 'rejected'
+      : shiftRequest.approved_by_to_manager
+      ? 'approved'
+      : 'pending';
+
+    if (isManagerToManager) {
+      const generalManagerUser = users?.find((item: User) => String(item.role || '').toLowerCase() === 'general manager');
+      const generalManagerName = generalManagerUser?.name
+        || managers?.from_manager?.name
+        || managers?.to_manager?.name
+        || 'General Manager belum ditentukan';
+      items.push({
+        label: 'General Manager',
+        name: generalManagerName,
+        status: isRejected || isCancelled
+          ? 'rejected'
+          : shiftRequest.approved_by_from_manager || shiftRequest.approved_by_to_manager
+          ? 'approved'
+          : 'pending',
+      });
+      return { items };
+    }
+
+    if (isSameManager) {
+      items.push({
+        label: 'Manager',
+        name: fromManagerName,
+        status: isRejected || isCancelled
+          ? 'rejected'
+          : shiftRequest.approved_by_from_manager || shiftRequest.approved_by_to_manager
+          ? 'approved'
+          : 'pending',
+      });
+    } else {
+      items.push({
+        label: 'Manager Asal',
+        name: fromManagerName,
+        status: fromManagerStatus,
+      });
+      items.push({
+        label: 'Manager Tujuan',
+        name: toManagerName,
+        status: toManagerStatus,
+      });
+    }
+
+    return { items };
+  };
+
   
 
 
@@ -437,7 +994,7 @@ const NotificationsPage: React.FC = () => {
       return;
     }
 
-    const { title, description, date, shift_key, role, priority, assigned_to } = rosterTaskForm;
+    const { title, description, date, shift_key, priority, assigned_to } = rosterTaskForm;
     if (!title.trim() || !date.trim()) {
       toast.error('Judul dan tanggal wajib diisi');
       return;
@@ -448,12 +1005,16 @@ const NotificationsPage: React.FC = () => {
       return;
     }
 
+    const selectedUsers = users.filter((u: User) => selectedRosterUserIds.includes(u.id));
+    const uniqueSelectedRoles = Array.from(new Set(selectedUsers.map((u: User) => String(u.role || '').trim()).filter(Boolean)));
+    const derivedRole = uniqueSelectedRoles.length === 1 ? uniqueSelectedRoles[0] : 'General';
+
     const rosterTaskData = {
       title,
       description,
       date,
       shift_key: normalizeShiftKeyForApi(shift_key),
-      role,
+      role: derivedRole,
       priority,
       assigned_to: selectedRosterUserIds.length > 0
         ? selectedRosterUserIds
@@ -476,7 +1037,7 @@ const NotificationsPage: React.FC = () => {
         description: '',
         date: '',
         shift_key: '07-13',
-        role: 'CNS',
+        role: 'General',
         priority: 'medium',
         assigned_to: [],
       });
@@ -503,7 +1064,7 @@ const NotificationsPage: React.FC = () => {
         description: '',
         date: '',
         shift_key: '07-13',
-        role: 'CNS',
+        role: 'General',
         priority: 'medium',
         assigned_to: [],
       });
@@ -526,7 +1087,7 @@ const NotificationsPage: React.FC = () => {
         description: '',
         date: '',
         shift_key: '07-13',
-        role: 'CNS',
+        role: 'General',
         priority: 'medium',
         assigned_to: [],
       });
@@ -626,6 +1187,81 @@ const NotificationsPage: React.FC = () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [isUserDropdownOpen]);
+
+  const groupedSentNotifications = useMemo(() => {
+    const sentList = (notificationsByCategory.sent || []).slice();
+    const grouped = new Map<string, Notification>();
+
+    sentList.forEach((notification) => {
+      const sentAt = new Date(notification.created_at);
+      const minuteKey = Number.isNaN(sentAt.getTime())
+        ? notification.created_at
+        : `${sentAt.getFullYear()}-${sentAt.getMonth() + 1}-${sentAt.getDate()} ${sentAt.getHours()}:${sentAt.getMinutes()}`;
+      const groupKey = `${notification.sender_id || 0}|${notification.title}|${notification.message}|${minuteKey}`;
+
+      const existing = grouped.get(groupKey);
+      const recipientName = users?.find((u: User) => u.id === notification.user_id)?.name || `User #${notification.user_id}`;
+
+      if (!existing) {
+        grouped.set(groupKey, {
+          ...notification,
+          data: {
+            ...(parseNotificationData(notification) || {}),
+            grouped_notification_ids: [notification.id],
+            grouped_recipient_names: [recipientName],
+          },
+        });
+        return;
+      }
+
+      const existingData = (existing.data || {}) as any;
+      const existingIds: number[] = Array.isArray(existingData.grouped_notification_ids)
+        ? existingData.grouped_notification_ids
+        : [existing.id];
+      const existingNames: string[] = Array.isArray(existingData.grouped_recipient_names)
+        ? existingData.grouped_recipient_names
+        : [];
+
+      const mergedIds = Array.from(new Set([...existingIds, notification.id]));
+      const mergedNames = Array.from(new Set([...existingNames, recipientName]));
+
+      grouped.set(groupKey, {
+        ...existing,
+        is_read: existing.is_read && notification.is_read,
+        created_at: new Date(existing.created_at).getTime() >= new Date(notification.created_at).getTime()
+          ? existing.created_at
+          : notification.created_at,
+        data: {
+          ...existingData,
+          grouped_notification_ids: mergedIds,
+          grouped_recipient_names: mergedNames,
+        },
+      });
+    });
+
+    return Array.from(grouped.values()).sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+  }, [notificationsByCategory.sent, users]);
+
+  const normalizeNotificationFingerprint = (notification: Notification): string => {
+    const category = String(notification.category || '').toLowerCase();
+    const title = String(notification.title || '').toLowerCase();
+    const message = String(notification.message || '').toLowerCase();
+    return `${category}::${title}::${message}`;
+  };
+
+  const dedupedOptimisticInbox = useMemo(() => {
+    const inboxNotifications = notificationsByCategory.inbox || [];
+    const existingFingerprints = new Set(inboxNotifications.map(normalizeNotificationFingerprint));
+
+    return optimisticNotifications.filter((notification) => !existingFingerprints.has(normalizeNotificationFingerprint(notification)));
+  }, [optimisticNotifications, notificationsByCategory.inbox]);
+
+  const mergedInboxNotifications = useMemo(() => {
+    const inboxNotifications = notificationsByCategory.inbox || [];
+    return [...dedupedOptimisticInbox, ...inboxNotifications];
+  }, [dedupedOptimisticInbox, notificationsByCategory.inbox]);
   
   // Get notifications for current category from cache
   // For 'all' category, combine all unique notifications from inbox + sent (starred and trash overlap)
@@ -647,8 +1283,8 @@ const NotificationsPage: React.FC = () => {
         });
     }
 
-    const inboxNotifications = notificationsByCategory.inbox || [];
-    const sentNotifications = notificationsByCategory.sent || [];
+    const inboxNotifications = mergedInboxNotifications;
+    const sentNotifications = groupedSentNotifications;
     
     if (activeCategory === 'all') {
       const allNotificationsMap = new Map<number, Notification>();
@@ -678,17 +1314,133 @@ const NotificationsPage: React.FC = () => {
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     }
 
+    if (activeCategory === 'sent') {
+      return sentNotifications;
+    }
+
     return (notificationsByCategory[activeCategory] || [])
       .slice()
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-  }, [activeCategory, notificationsByCategory, rosterTasks, activeShift, activeDate, user]);
+  }, [activeCategory, mergedInboxNotifications, rosterTasks, activeShift, activeDate, user, groupedSentNotifications, notificationsByCategory]);
   
   const stats = {
     ...notificationStats,
+    inbox: mergedInboxNotifications.length,
+    sent: groupedSentNotifications.length,
     roster: rosterTasks.length,
   };
   const isLoading = loadingStates.notifications;
   const canCreateRosterTask = isAdmin || isManager;
+
+  useEffect(() => {
+    const visibleNotifications = notifications.filter((item) => item.category === 'leave_request' || item.category === 'shift_request');
+    if (visibleNotifications.length === 0) return;
+
+    let isActive = true;
+
+    const loadApprovalInfo = async () => {
+      const leaveIds = new Set<number>();
+      const shiftIds = new Set<number>();
+      let seededLeaveInfo: Record<number, { items: Array<{ name: string; status: 'pending' | 'approved' | 'rejected' | 'needs_assignment'; label: string }>; summary?: string }> = {};
+      let seededShiftInfo: Record<number, { items: Array<{ label: string; name: string; status: 'pending' | 'approved' | 'rejected' | 'needs_assignment' }>; summary?: string }> = {};
+
+      visibleNotifications.forEach((notification) => {
+        if (notification.category === 'leave_request') {
+          const leaveId = getLeaveRequestIdFromNotification(notification);
+          if (leaveId && leaveId > 0 && !leaveApprovalInfoById[leaveId]) {
+            const seeded = buildLeaveApprovalInfoFromNotification(notification);
+            if (seeded) {
+              seededLeaveInfo = { ...seededLeaveInfo, [leaveId]: seeded };
+              return;
+            }
+          }
+          if (leaveId && leaveId > 0 && !leaveApprovalInfoById[leaveId]) {
+            leaveIds.add(leaveId);
+          }
+        }
+
+        if (notification.category === 'shift_request') {
+          const shiftId = notification.reference_id;
+          if (shiftId && shiftId > 0 && !shiftApprovalInfoById[shiftId]) {
+            const seeded = buildShiftApprovalInfoFromNotification(notification);
+            if (seeded) {
+              seededShiftInfo = { ...seededShiftInfo, [shiftId]: seeded };
+              return;
+            }
+          }
+          if (shiftId && shiftId > 0 && !shiftApprovalInfoById[shiftId]) {
+            shiftIds.add(shiftId);
+          }
+        }
+      });
+
+      if (Object.keys(seededLeaveInfo).length > 0) {
+        setLeaveApprovalInfoById((prev) => ({ ...prev, ...seededLeaveInfo }));
+      }
+
+      if (Object.keys(seededShiftInfo).length > 0) {
+        setShiftApprovalInfoById((prev) => ({ ...prev, ...seededShiftInfo }));
+      }
+
+      if (Object.keys(seededLeaveInfo).length > 0) {
+        Object.keys(seededLeaveInfo).forEach((id) => leaveIds.delete(Number(id)));
+      }
+
+      if (Object.keys(seededShiftInfo).length > 0) {
+        Object.keys(seededShiftInfo).forEach((id) => shiftIds.delete(Number(id)));
+      }
+
+      if (leaveIds.size === 0 && shiftIds.size === 0) return;
+
+      const leavePromises = Array.from(leaveIds).map(async (leaveId) => {
+        try {
+          const response = await leaveRequestService.getLeaveRequestById(leaveId);
+          return { leaveId, data: response.data } as const;
+        } catch {
+          return null;
+        }
+      });
+
+      const shiftPromises = Array.from(shiftIds).map(async (shiftId) => {
+        try {
+          const response = await shiftRequestService.getShiftRequest(shiftId);
+          return { shiftId, data: response.data, managers: response.managers } as const;
+        } catch {
+          return null;
+        }
+      });
+
+      const results = await Promise.all([...leavePromises, ...shiftPromises]);
+      if (!isActive) return;
+
+      const nextLeaveInfo: Record<number, { items: Array<{ name: string; status: 'pending' | 'approved' | 'rejected' | 'needs_assignment'; label: string }>; summary?: string }> = {};
+      const nextShiftInfo: Record<number, { items: Array<{ label: string; name: string; status: 'pending' | 'approved' | 'rejected' | 'needs_assignment' }>; summary?: string }> = {};
+
+      results.forEach((result) => {
+        if (!result) return;
+        if ('leaveId' in result) {
+          nextLeaveInfo[result.leaveId] = buildLeaveApprovalInfo(result.data as LeaveRequest);
+        }
+        if ('shiftId' in result) {
+          nextShiftInfo[result.shiftId] = buildShiftApprovalInfo(result.data as ShiftRequestItem, (result as any).managers);
+        }
+      });
+
+      if (Object.keys(nextLeaveInfo).length > 0) {
+        setLeaveApprovalInfoById((prev) => ({ ...prev, ...nextLeaveInfo }));
+      }
+
+      if (Object.keys(nextShiftInfo).length > 0) {
+        setShiftApprovalInfoById((prev) => ({ ...prev, ...nextShiftInfo }));
+      }
+    };
+
+    void loadApprovalInfo();
+
+    return () => {
+      isActive = false;
+    };
+  }, [notifications, leaveApprovalInfoById, shiftApprovalInfoById, users]);
 
   const normalizeShiftKeyForApi = (shiftKey: string): 'pagi' | 'siang' | 'malam' => {
     if (!shiftKey) return 'pagi';
@@ -699,7 +1451,7 @@ const NotificationsPage: React.FC = () => {
     return 'pagi';
   };
 
-  const parseNotificationData = (notification: Notification): Record<string, any> | null => {
+  function parseNotificationData(notification: Notification): Record<string, any> | null {
     if (!notification.data) return null;
 
     if (typeof notification.data === 'object') {
@@ -715,7 +1467,7 @@ const NotificationsPage: React.FC = () => {
     }
 
     return null;
-  };
+  }
 
   const renderAssignedUsers = (task: any): React.ReactNode => {
     if (!task) {
@@ -781,6 +1533,43 @@ const NotificationsPage: React.FC = () => {
         ))}
       </div>
     );
+  };
+
+  const getAssignedItems = (notificationData: any): any[] => {
+    if (!notificationData) return [];
+
+    const values: any[] = Array.isArray(notificationData.assigned_to)
+      ? notificationData.assigned_to
+      : Array.isArray(notificationData.recipients)
+      ? notificationData.recipients
+      : Array.isArray(notificationData.user_ids)
+      ? notificationData.user_ids
+      : Array.isArray(notificationData.recipient_ids)
+      ? notificationData.recipient_ids
+      : [];
+
+    return values.filter((value) => value !== undefined && value !== null && value !== '');
+  };
+
+  const getAssignedLabels = (notificationData: any): string[] => {
+    const values = getAssignedItems(notificationData);
+    return values.map((value) => {
+      if (typeof value === 'object' && value !== null) {
+        const idValue = typeof value.id === 'number' ? value.id : Number(value.id);
+        const found = !Number.isNaN(idValue) ? users?.find((user: User) => user.id === idValue) : undefined;
+        if (found) return `${found.name} (${found.role})`;
+        if (value.name) return String(value.name);
+        if (value.email) return String(value.email);
+        return String(value.role || value.id || 'Unknown');
+      }
+
+      if (typeof value === 'number') {
+        const found = users?.find((user: User) => user.id === value);
+        return found ? `${found.name} (${found.role})` : String(value);
+      }
+
+      return String(value);
+    }).filter(Boolean);
   };
 
   const parseDateLabelToISO = (value: string): string | null => {
@@ -983,20 +1772,45 @@ const NotificationsPage: React.FC = () => {
       return;
     }
 
+    const markAsNotProcessable = async (message: string) => {
+      setActionedNotificationIds((prev) => new Set(prev).add(notification.id));
+      if (!notification.is_read) {
+        await handleMarkAsRead(notification);
+      }
+      toast.info(message);
+      await refreshNotificationsByCategory();
+    };
+
     try {
       let leaveRequest: LeaveRequest | null = null;
       const leaveRequestId = getLeaveRequestIdFromNotification(notification);
 
       if (leaveRequestId) {
-        const response = await leaveRequestService.getLeaveRequestById(leaveRequestId);
-        leaveRequest = response.data;
+        try {
+          const response = await leaveRequestService.getLeaveRequestById(leaveRequestId);
+          leaveRequest = response.data;
+        } catch (error: any) {
+          if (error?.response?.status === 404) {
+            await markAsNotProcessable('Permintaan cuti ini sudah dibatalkan atau tidak ditemukan, sehingga tidak bisa diproses.');
+            return;
+          }
+          throw error;
+        }
       } else {
         leaveRequest = await findLeaveRequestByMessage(notification);
       }
 
       if (!leaveRequest) {
-        toast.info('Detail permohonan cuti tidak ditemukan dari notifikasi ini. Silakan buka menu Leave Requests.');
-        navigate('/leave-requests');
+        await markAsNotProcessable('Detail permohonan cuti tidak ditemukan, kemungkinan sudah dibatalkan.');
+        return;
+      }
+
+      if (leaveRequest.status !== 'pending') {
+        await markAsNotProcessable(
+          leaveRequest.status === 'rejected'
+            ? 'Permintaan cuti sudah ditolak dan tidak bisa diproses ulang.'
+            : 'Permintaan cuti ini sudah tidak bisa diproses.'
+        );
         return;
       }
 
@@ -1033,6 +1847,34 @@ const NotificationsPage: React.FC = () => {
     if (!users) return [];
     return users.filter((user: User) => selectedUserIds.includes(user.id));
   }, [users, selectedUserIds]);
+
+  const filteredRosterTaskUsers = useMemo(() => {
+    if (!users) return [];
+
+    // Search should target all assignable employees/managers, not only on-duty members.
+    const sourceUsers = users
+      .filter((u: User) => u.role?.toLowerCase() !== 'admin')
+      .map((u: User) => ({
+        id: u.id,
+        name: u.name,
+        role: u.role,
+        email: u.email,
+      }));
+
+    const query = rosterTaskUserSearchQuery.trim().toLowerCase();
+    if (!query) return sourceUsers;
+
+    return sourceUsers.filter((u) =>
+      u.name.toLowerCase().includes(query) ||
+      (u.email || '').toLowerCase().includes(query) ||
+      u.role.toLowerCase().includes(query)
+    );
+  }, [users, rosterTaskUserSearchQuery]);
+
+  const searchableRosterTaskUsers = useMemo(() => {
+    if (!rosterTaskUserSearchQuery.trim()) return [];
+    return filteredRosterTaskUsers;
+  }, [rosterTaskUserSearchQuery, filteredRosterTaskUsers]);
 
   // Refresh notifications for current category
   const handleRefresh = async () => {
@@ -1093,6 +1935,22 @@ const NotificationsPage: React.FC = () => {
     if (activeCategory === 'scheduled') {
       setScheduledNotifications(prev => prev.filter(s => s.id !== notification.id));
       toast.success('Scheduled notification cancelled');
+      return;
+    }
+
+    if (activeCategory === 'sent') {
+      const groupedIds = Array.isArray((notification.data as any)?.grouped_notification_ids)
+        ? ((notification.data as any).grouped_notification_ids as number[])
+        : [notification.id];
+
+      try {
+        groupedIds.forEach((id) => moveNotificationToTrash(id, 'sent'));
+        await Promise.all(groupedIds.map((id) => notificationService.deleteNotification(id)));
+        toast.success(groupedIds.length > 1 ? 'Grouped sent notifications moved to trash' : 'Moved to trash');
+      } catch (error: any) {
+        toast.error(error.response?.data?.message || 'Failed to delete');
+        await refreshNotificationsByCategory();
+      }
       return;
     }
 
@@ -1252,6 +2110,11 @@ const NotificationsPage: React.FC = () => {
   };
 
   const handleSendNotification = async () => {
+    if (!canManageNotifications) {
+      toast.error('Hanya Admin, General Manager, atau Manager Teknik yang dapat mengirim notifikasi.');
+      return;
+    }
+
     if (selectedUserIds.length === 0) {
       toast.error('Please select at least one recipient');
       return;
@@ -1293,6 +2156,11 @@ const NotificationsPage: React.FC = () => {
   };
 
   const handleSaveDraft = async () => {
+    if (!canManageNotifications) {
+      toast.error('Hanya Admin, General Manager, atau Manager Teknik yang dapat menyimpan draft notifikasi.');
+      return;
+    }
+
     if (!composeForm.title.trim()) {
       toast.error('Please enter a title');
       return;
@@ -1347,6 +2215,11 @@ const NotificationsPage: React.FC = () => {
   };
 
   const handleScheduleNotification = async () => {
+    if (!canManageNotifications) {
+      toast.error('Hanya Admin, General Manager, atau Manager Teknik yang dapat menjadwalkan notifikasi.');
+      return;
+    }
+
     if (selectedUserIds.length === 0) {
       toast.error('Please select at least one recipient');
       return;
@@ -1421,6 +2294,11 @@ const NotificationsPage: React.FC = () => {
   };
 
   const handleEditDraft = (notification: Notification) => {
+    if (!canManageNotifications) {
+      toast.error('Hanya Admin, General Manager, atau Manager Teknik yang dapat mengedit draft notifikasi.');
+      return;
+    }
+
     // Load draft data into compose form
     setComposeForm({
       title: notification.title,
@@ -1436,6 +2314,11 @@ const NotificationsPage: React.FC = () => {
   };
 
   const handleSendDraft = async (notification: Notification) => {
+    if (!canManageNotifications) {
+      toast.error('Hanya Admin, General Manager, atau Manager Teknik yang dapat mengirim draft notifikasi.');
+      return;
+    }
+
     setIsSending(true);
     try {
       await notificationService.sendNotification({
@@ -1458,6 +2341,11 @@ const NotificationsPage: React.FC = () => {
   };
 
   const handleEditScheduled = (notification: Notification) => {
+    if (!canManageNotifications) {
+      toast.error('Hanya Admin, General Manager, atau Manager Teknik yang dapat mengedit notifikasi terjadwal.');
+      return;
+    }
+
     // Load scheduled data into compose form
     setComposeForm({
       title: notification.title,
@@ -1500,6 +2388,11 @@ const NotificationsPage: React.FC = () => {
   };
 
   const handleOpenCompose = () => {
+    if (!canManageNotifications) {
+      toast.error('Hanya Admin, General Manager, atau Manager Teknik yang dapat membuat notifikasi.');
+      return;
+    }
+
     setComposeForm({ title: '', message: '', send_email: false });
     setSelectedUserIds([]);
     setUserSearchQuery('');
@@ -1509,16 +2402,22 @@ const NotificationsPage: React.FC = () => {
   };
 
   const handleOpenRosterTaskModal = () => {
+    if (!canCreateRosterTask) {
+      toast.error('Hanya Admin, General Manager, atau Manager Teknik yang dapat menambahkan tugas roster.');
+      return;
+    }
+
     setRosterTaskForm({
       title: '',
       description: '',
       date: '',
       shift_key: '07-13',
-      role: 'CNS',
+      role: 'General',
       priority: 'medium',
       assigned_to: [],
     });
     setSelectedRosterUserIds([]);
+    setRosterTaskUserSearchQuery('');
     setRosterTaskSendMode('now');
     setRosterTaskScheduledDateTime('');
     setIsRosterTaskModalOpen(true);
@@ -1529,7 +2428,7 @@ const NotificationsPage: React.FC = () => {
       key: 'all' as NotificationCategory,
       label: 'All', 
       icon: Archive, 
-      count: stats.inbox + stats.sent + stats.roster, // Inbox + Sent + Roster (non-duplicated)
+      count: stats.inbox + stats.sent + stats.roster,
       bgGradient: 'from-gray-50 to-gray-100/50',
       borderColor: 'border-gray-300',
       iconBg: 'bg-gray-500',
@@ -1626,6 +2525,22 @@ const NotificationsPage: React.FC = () => {
     },
   ];
 
+  const visibleCategoryItems = [...allCategories, ...categories];
+
+  const primaryCategoryItems = visibleCategoryItems.slice(0, 4);
+  const secondaryCategoryItems = visibleCategoryItems.slice(4);
+
+  useEffect(() => {
+    const activeCategoryChanged = previousActiveCategoryRef.current !== activeCategory;
+
+    // Auto-open only when user actually switches to a category in the secondary section.
+    if (activeCategoryChanged && secondaryCategoryItems.some((category) => category.key === activeCategory)) {
+      setShowExtraCategories(true);
+    }
+
+    previousActiveCategoryRef.current = activeCategory;
+  }, [activeCategory, secondaryCategoryItems]);
+
   return (
     <PageHeader
       title="Notifications"
@@ -1635,9 +2550,10 @@ const NotificationsPage: React.FC = () => {
       ]}
     >
       {/* Category Boxes */}
-      {/* Desktop View - Responsive Grid */}
-      <div className="hidden md:grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-4 mb-6">
-        {[...allCategories, ...categories].map((category) => {
+      {/* Desktop View - Compact Summary Cards */}
+      <div className="hidden md:block mb-6 space-y-3 px-1">
+        <div className="grid md:grid-cols-4 auto-rows-fr gap-3">
+          {primaryCategoryItems.map((category) => {
           const Icon = category.icon;
           const isActive = activeCategory === category.key;
           
@@ -1645,57 +2561,158 @@ const NotificationsPage: React.FC = () => {
             <button
               key={category.key}
               onClick={() => handleCategoryChange(category.key as NotificationCategory)}
-              className={`bg-white rounded-2xl border-2 ${category.borderColor} p-4 transition-all duration-200 cursor-pointer h-full min-w-0 flex items-center gap-4 text-left shadow-sm ${
-                isActive 
-                  ? `shadow-xl scale-105`
-                  : `hover:shadow-md hover:scale-[1.02] opacity-95 hover:opacity-100`
+              title={category.label}
+              className={`group relative w-full h-full rounded-2xl border ${category.borderColor} bg-gradient-to-br ${category.bgGradient} p-3 transition-all duration-200 ease-in-out cursor-pointer flex items-center gap-3 text-left shadow-sm ${
+                isActive
+                  ? `shadow-md border-indigo-600 ring-2 ring-indigo-500/30`
+                  : `hover:-translate-y-[2px] hover:shadow-lg hover:opacity-100 active:translate-y-[1px] active:scale-95 active:shadow-sm hover:bg-white/10 hover:brightness-110`
               }`}
+              aria-label={category.label}
             >
-              <div className={`flex-shrink-0 w-14 h-14 ${category.iconBg} rounded-2xl flex items-center justify-center border-2 ${category.iconBorder}`}>
-                <Icon className="h-6 w-6 text-white" />
+              <div className={`flex-shrink-0 w-11 h-11 ${category.iconBg} rounded-xl flex items-center justify-center border border-slate-200 ${category.iconBorder}`}>
+                <Icon className="h-5 w-5 text-white" />
               </div>
-              <div className="min-w-0 flex-1">
-                <p className={`text-sm font-semibold ${category.textColor} truncate`}>{category.label}</p>
-                <p className={`text-3xl font-bold ${category.countColor} leading-none mt-1`}>{category.count}</p>
+              <div className="min-w-0 flex-1 overflow-hidden">
+                <span className={`text-sm font-medium ${category.textColor} whitespace-nowrap truncate`}>{category.label}</span>
+              </div>
+              <span className={`flex-shrink-0 text-[2rem] leading-none font-bold ${category.countColor}`}>{category.count}</span>
+              <div className="pointer-events-none absolute left-1/2 bottom-full mb-2 hidden -translate-x-1/2 rounded-md bg-black/90 px-2 py-1 text-xs text-white opacity-0 transition-opacity duration-200 group-hover:block group-hover:opacity-100 z-50 max-w-[calc(100vw-2rem)] text-center break-words">
+                {category.label}
               </div>
             </button>
           );
         })}
+        </div>
+
+        {secondaryCategoryItems.length > 0 && (
+          <div className="flex flex-col gap-3">
+            <div className={`overflow-hidden transition-all duration-500 ease-in-out ${showExtraCategories ? 'max-h-[520px] opacity-100 pointer-events-auto' : 'max-h-0 opacity-0 pointer-events-none'}`}>
+              <div className={`grid md:grid-cols-4 auto-rows-fr gap-3 pt-1 transition-transform duration-500 ease-in-out ${showExtraCategories ? 'translate-y-0' : '-translate-y-3'}`}>
+                {secondaryCategoryItems.map((category) => {
+                  const Icon = category.icon;
+                  const isActive = activeCategory === category.key;
+
+                  return (
+                    <button
+                      key={category.key}
+                      onClick={() => handleCategoryChange(category.key as NotificationCategory)}
+                      title={category.label}
+                      className={`group relative w-full h-full rounded-2xl border ${category.borderColor} bg-gradient-to-br ${category.bgGradient} p-3 transition-all duration-200 ease-in-out cursor-pointer flex items-center gap-3 text-left shadow-sm ${
+                        isActive
+                          ? `shadow-md border-indigo-600 ring-2 ring-indigo-500/30`
+                          : `hover:-translate-y-[2px] hover:shadow-lg hover:opacity-100 active:translate-y-[1px] active:scale-95 active:shadow-sm hover:bg-white/10 hover:brightness-110`
+                      }`}
+                      aria-label={category.label}
+                    >
+                      <div className={`flex-shrink-0 w-11 h-11 ${category.iconBg} rounded-xl flex items-center justify-center border border-slate-200 ${category.iconBorder}`}>
+                        <Icon className="h-5 w-5 text-white" />
+                      </div>
+                      <div className="min-w-0 flex-1 overflow-hidden">
+                        <span className={`text-sm font-medium ${category.textColor} whitespace-nowrap truncate`}>{category.label}</span>
+                      </div>
+                      <span className={`flex-shrink-0 text-[2rem] leading-none font-bold ${category.countColor}`}>{category.count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowExtraCategories((prev) => !prev)}
+              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center justify-center gap-2 transition-all duration-300"
+            >
+              <span>{showExtraCategories ? 'Sembunyikan Kategori Lain' : 'Tampilkan Kategori Lain'}</span>
+              <ChevronDown className={`h-4 w-4 transition-transform duration-300 ${showExtraCategories ? 'rotate-180' : ''}`} />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Mobile View - Horizontal Pills */}
-      <div className="md:hidden mb-0 relative">
-        <div className="flex gap-3 pb-2 overflow-x-auto px-1">
-          {[...allCategories, ...categories].map((category) => {
-            const isActive = activeCategory === category.key;
-            
-            return (
-              <button
-                key={category.key}
-                onClick={() => handleCategoryChange(category.key as NotificationCategory)}
-                className={`flex items-center gap-3 min-w-[10rem] rounded-2xl border-2 px-4 py-3 transition-all duration-200 ${
-                  isActive 
-                    ? `bg-white ${category.borderColor} shadow-md`
-                    : `bg-white ${category.borderColor} opacity-80 hover:opacity-100`
-                }`}
-              >
-                <span className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl ${category.iconBg} border-2 ${category.iconBorder}`}>
-                  <category.icon className="h-5 w-5 text-white" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className={`text-sm font-semibold ${category.textColor} truncate`}>{category.label}</p>
-                  <p className={`text-base font-bold ${category.countColor} mt-1`}>{category.count}</p>
-                </div>
-              </button>
-            );
-          })}
+      <div className="md:hidden mb-0 relative space-y-2">
+        <div className="relative">
+          <div className="flex gap-3 pb-2 overflow-x-auto px-1">
+            {primaryCategoryItems.map((category) => {
+              const isActive = activeCategory === category.key;
+
+              return (
+                <button
+                  key={category.key}
+                  onClick={() => handleCategoryChange(category.key as NotificationCategory)}
+                  title={category.label}
+                  className={`group relative flex items-center gap-3 min-w-[11rem] rounded-[1.5rem] border-2 px-4 py-3 transition-all duration-200 ${
+                    isActive
+                      ? `bg-white ${category.borderColor} shadow-md ring-2 ring-offset-2 ring-offset-white ring-indigo-500/30`
+                      : `bg-white ${category.borderColor} opacity-90 hover:opacity-100 hover:shadow-md hover:border-slate-400`
+                  }`}
+                  aria-label={category.label}
+                >
+                  <span className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-[1.1rem] ${category.iconBg} border-2 ${category.iconBorder}`}>
+                    <category.icon className="h-5 w-5 text-white" />
+                  </span>
+                  <div className="min-w-0 flex-1 overflow-hidden text-left">
+                    <p className={`text-xs sm:text-sm font-semibold ${category.textColor} whitespace-nowrap truncate`}>{category.label}</p>
+                  </div>
+                  <p className={`flex-shrink-0 text-2xl font-bold ${category.countColor}`}>{category.count}</p>
+                  <div className="pointer-events-none absolute left-1/2 bottom-full mb-2 hidden -translate-x-1/2 rounded-md bg-black/90 px-2 py-1 text-xs text-white opacity-0 transition-opacity duration-200 group-hover:block group-hover:opacity-100 z-50 max-w-[calc(100vw-2rem)] text-center break-words">
+                    {category.label}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Scroll indicator */}
+          <div className="absolute right-0 top-0 h-14 w-12 bg-gradient-to-l from-gray-50 to-transparent pointer-events-none flex items-center justify-end pr-2">
+            <svg className="h-5 w-5 text-gray-400 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </div>
         </div>
-        {/* Scroll indicator */}
-        <div className="absolute right-0 top-0 bottom-2 w-12 bg-gradient-to-l from-gray-50 to-transparent pointer-events-none flex items-center justify-end pr-2">
-          <svg className="h-5 w-5 text-gray-400 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        </div>
+
+        {secondaryCategoryItems.length > 0 && (
+          <div className="flex flex-col gap-2 px-1">
+            <div className={`overflow-hidden transition-all duration-500 ease-in-out ${showExtraCategories ? 'max-h-[220px] opacity-100 pointer-events-auto' : 'max-h-0 opacity-0 pointer-events-none'}`}>
+              <div className={`flex gap-3 pb-2 overflow-x-auto transition-transform duration-500 ease-in-out ${showExtraCategories ? 'translate-y-0' : '-translate-y-3'}`}>
+                {secondaryCategoryItems.map((category) => {
+                  const isActive = activeCategory === category.key;
+
+                  return (
+                    <button
+                      key={category.key}
+                      onClick={() => handleCategoryChange(category.key as NotificationCategory)}
+                      title={category.label}
+                      className={`group relative flex items-center gap-3 min-w-[11rem] rounded-[1.5rem] border-2 px-4 py-3 transition-all duration-200 ${
+                        isActive
+                          ? `bg-white ${category.borderColor} shadow-md ring-2 ring-offset-2 ring-offset-white ring-indigo-500/30`
+                          : `bg-white ${category.borderColor} opacity-90 hover:opacity-100 hover:shadow-md hover:border-slate-400`
+                      }`}
+                      aria-label={category.label}
+                    >
+                      <span className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-[1.1rem] ${category.iconBg} border-2 ${category.iconBorder}`}>
+                        <category.icon className="h-5 w-5 text-white" />
+                      </span>
+                      <div className="min-w-0 flex-1 overflow-hidden text-left">
+                        <p className={`text-xs sm:text-sm font-semibold ${category.textColor} whitespace-nowrap truncate`}>{category.label}</p>
+                      </div>
+                      <p className={`flex-shrink-0 text-2xl font-bold ${category.countColor}`}>{category.count}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowExtraCategories((prev) => !prev)}
+              className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center justify-center gap-2 transition-all duration-300"
+            >
+              <span>{showExtraCategories ? 'Sembunyikan Kategori Lain' : 'Tampilkan Kategori Lain'}</span>
+              <ChevronDown className={`h-4 w-4 transition-transform duration-300 ${showExtraCategories ? 'rotate-180' : ''}`} />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Action Bar */}
@@ -1703,7 +2720,7 @@ const NotificationsPage: React.FC = () => {
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             {(() => {
-              const allItems = [...allCategories, ...categories];
+              const allItems = visibleCategoryItems;
               const activeItem = allItems.find(c => c.key === activeCategory);
               if (!activeItem) return null;
               const ActiveIcon = activeItem.icon;
@@ -1714,7 +2731,7 @@ const NotificationsPage: React.FC = () => {
               );
             })()}
             <h2 className="text-xl font-semibold text-gray-900">
-              {[...allCategories, ...categories].find(c => c.key === activeCategory)?.label}
+              {visibleCategoryItems.find(c => c.key === activeCategory)?.label}
             </h2>
           </div>
           <div className="flex items-center gap-2">
@@ -1727,26 +2744,22 @@ const NotificationsPage: React.FC = () => {
               <RefreshCw className={`h-3 w-3 sm:h-4 sm:w-4 ${(isLoading || isRefreshing) ? 'animate-spin' : ''}`} />
               <span className="ml-1 sm:ml-2">Refresh</span>
             </Button>
-            {canCreateRosterTask && isRosterCategory && (
-              <Button
-                variant="primary"
-                onClick={handleOpenRosterTaskModal}
-                className="bg-[#222E6A] hover:bg-[#1a2452] text-xs px-2 py-1.5 sm:text-base sm:px-4 sm:py-2"
-              >
-                <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="ml-1 sm:ml-2">Add Roster Task</span>
-              </Button>
-            )}
-            {!isRosterCategory && activeCategory !== 'trash' && (
-              <Button
-                variant="primary"
-                onClick={handleOpenCompose}
-                className="bg-[#222E6A] hover:bg-[#1a2452] text-xs px-2 py-1.5 sm:text-base sm:px-4 sm:py-2"
-              >
-                <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="ml-1 sm:ml-2">Compose</span>
-              </Button>
-            )}
+            <Button
+              variant="primary"
+              onClick={handleOpenCompose}
+              className="bg-[#222E6A] hover:bg-[#1a2452] text-xs px-2 py-1.5 sm:text-base sm:px-4 sm:py-2"
+            >
+              <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="ml-1 sm:ml-2">Compose</span>
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleOpenRosterTaskModal}
+              className="bg-[#222E6A] hover:bg-[#1a2452] text-xs px-2 py-1.5 sm:text-base sm:px-4 sm:py-2"
+            >
+              <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="ml-1 sm:ml-2">Add Roster Task</span>
+            </Button>
           </div>
         </div>
       </div>
@@ -1921,11 +2934,20 @@ const NotificationsPage: React.FC = () => {
           </div>
         ) : (
           <div className="divide-y divide-gray-100">
-            {notifications.map((notification) => (
+            {notifications.map((notification) => {
+              const isNonProcessableLeave = isManager
+                && isLeaveRequestNotification(notification)
+                && actionedNotificationIds.has(notification.id);
+
+              return (
               <div
                 key={notification.id}
-                className={`p-3 sm:p-4 hover:bg-gray-50 transition-colors ${
-                  !notification.is_read ? 'bg-blue-50' : ''
+                className={`p-3 sm:p-4 transition-colors ${
+                  isNonProcessableLeave
+                    ? 'bg-gray-100/80 border-l-4 border-gray-300'
+                    : !notification.is_read
+                    ? 'bg-blue-50 hover:bg-blue-100/50'
+                    : 'hover:bg-gray-50'
                 }`}
               >
                 <div className="flex items-start gap-3 sm:gap-4">
@@ -1960,6 +2982,11 @@ const NotificationsPage: React.FC = () => {
                         }`}>
                           {notification.title}
                         </h3>
+                        {isNonProcessableLeave && (
+                          <span className="ml-2 px-2 py-0.5 rounded-full text-[11px] font-semibold flex-shrink-0 bg-gray-200 text-gray-700">
+                            Dibatalkan
+                          </span>
+                        )}
                         {/* Status Badge for Roster Tasks */}
                         {isRosterCategory && notification.data && (() => {
                           const status = (notification.data as any).status || 'pending';
@@ -1979,10 +3006,100 @@ const NotificationsPage: React.FC = () => {
                       <p className="text-sm text-gray-600 line-clamp-2 mb-2.5">
                         {notification.message}
                       </p>
+                      {notification.category === 'leave_request' && (() => {
+                        const leaveId = getLeaveRequestIdFromNotification(notification);
+                        if (!leaveId || leaveId <= 0) {
+                          return (
+                            <div className="text-xs text-gray-500 mb-2">
+                              Persetujuan: menunggu detail manager.
+                            </div>
+                          );
+                        }
+
+                        const info = leaveApprovalInfoById[leaveId];
+                        if (!info) {
+                          return (
+                            <div className="text-xs text-gray-500 mb-2">
+                              Persetujuan: memuat data manager...
+                            </div>
+                          );
+                        }
+
+                        const items = info.items || [];
+                        if (items.length === 0) {
+                          return (
+                            <div className="text-xs text-gray-500 mb-2">
+                              Persetujuan: {info.summary || 'menunggu manager.'}
+                            </div>
+                          );
+                        }
+
+                        const visibleItems = items.slice(0, 3);
+                        const extraCount = items.length - visibleItems.length;
+
+                        return (
+                          <div className="flex flex-wrap items-center gap-2 mb-2">
+                            {visibleItems.map((item, index) => (
+                              <span
+                                key={`${item.name}-${index}`}
+                                className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium ${getLeaveApprovalStatusClass(item.status)}`}
+                              >
+                                {item.name} · {item.label}
+                              </span>
+                            ))}
+                            {extraCount > 0 && (
+                              <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-medium text-gray-600">
+                                +{extraCount} lainnya
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })()}
+
+                      {notification.category === 'shift_request' && (() => {
+                        const shiftId = notification.reference_id;
+                        if (!shiftId || shiftId <= 0) {
+                          return (
+                            <div className="text-xs text-gray-500 mb-2">
+                              Persetujuan: menunggu detail permintaan.
+                            </div>
+                          );
+                        }
+
+                        const info = shiftApprovalInfoById[shiftId];
+                        if (!info) {
+                          return (
+                            <div className="text-xs text-gray-500 mb-2">
+                              Persetujuan: memuat data approver...
+                            </div>
+                          );
+                        }
+
+                        const items = info.items || [];
+                        if (items.length === 0) return null;
+
+                        return (
+                          <div className="flex flex-wrap items-center gap-2 mb-2">
+                            {items.map((item, index) => (
+                              <span
+                                key={`${item.label}-${index}`}
+                                className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium ${getShiftApprovalStatusClass(item.status)}`}
+                              >
+                                {item.label}: {item.name} · {getLeaveApprovalStatusLabel(item.status)}
+                              </span>
+                            ))}
+                          </div>
+                        );
+                      })()}
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-400">
                         {notification.sender && (
                           <span className="flex items-center gap-1 truncate">
                             From: {notification.sender.name}
+                          </span>
+                        )}
+                        {activeCategory === 'sent' && Array.isArray((notification.data as any)?.grouped_recipient_names) && (
+                          <span className="flex items-center gap-1 truncate max-w-full">
+                            To: {((notification.data as any).grouped_recipient_names as string[]).join(', ')}
                           </span>
                         )}
                         <span className="flex items-center gap-1 whitespace-nowrap">
@@ -2177,12 +3294,17 @@ const NotificationsPage: React.FC = () => {
                         <>
                           {isManager && isLeaveRequestNotification(notification) && (
                             <Button
-                              variant="success"
+                              variant={actionedNotificationIds.has(notification.id) ? 'outline' : 'success'}
                               effect3d={false}
                               onClick={() => openLeaveApprovalFromNotification(notification)}
-                              className="w-full sm:w-auto text-xs sm:text-sm px-3 py-2 whitespace-nowrap"
+                              disabled={actionedNotificationIds.has(notification.id)}
+                              className={`w-full sm:w-auto text-xs sm:text-sm px-3 py-2 whitespace-nowrap ${
+                                actionedNotificationIds.has(notification.id)
+                                  ? 'text-gray-500 border-gray-300 bg-gray-100'
+                                  : ''
+                              }`}
                             >
-                              Proses Cuti
+                              {actionedNotificationIds.has(notification.id) ? 'Dibatalkan' : 'Proses Cuti'}
                             </Button>
                           )}
                           <Button
@@ -2200,7 +3322,7 @@ const NotificationsPage: React.FC = () => {
                   </div>
                 </div>
               </div>
-            ))}
+            );})}
           </div>
         )}
       </div>
@@ -2210,69 +3332,55 @@ const NotificationsPage: React.FC = () => {
         isOpen={isRosterTaskModalOpen}
         onClose={() => setIsRosterTaskModalOpen(false)}
         title="Add Roster Task"
-        size="md"
+        size="lg"
       >
-        <div className="space-y-4">
+        <div className="space-y-5 max-h-[72vh] overflow-y-auto pr-1">
           <div>
-            <label className="block text-sm font-medium text-gray-700">Title</label>
+            <label className="block text-sm font-semibold text-gray-700">Title</label>
             <input
               type="text"
               value={rosterTaskForm.title}
               onChange={(e) => setRosterTaskForm(prev => ({ ...prev, title: e.target.value }))}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500" 
+              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2.5 shadow-sm focus:border-[#222E6A] focus:ring-2 focus:ring-[#222E6A]/20" 
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">Description</label>
+            <label className="block text-sm font-semibold text-gray-700">Description</label>
             <textarea
               value={rosterTaskForm.description}
               onChange={(e) => setRosterTaskForm(prev => ({ ...prev, description: e.target.value }))}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
+              rows={3}
+              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2.5 shadow-sm focus:border-[#222E6A] focus:ring-2 focus:ring-[#222E6A]/20"
             />
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700">Date</label>
+              <label className="block text-sm font-semibold text-gray-700">Date</label>
               <input
                 type="date"
                 value={rosterTaskForm.date}
                 onChange={(e) => setRosterTaskForm(prev => ({ ...prev, date: e.target.value }))}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500" 
+                className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2.5 shadow-sm focus:border-[#222E6A] focus:ring-2 focus:ring-[#222E6A]/20" 
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Shift</label>
+              <label className="block text-sm font-semibold text-gray-700">Shift</label>
               <select
                 value={rosterTaskForm.shift_key}
                 onChange={(e) => setRosterTaskForm(prev => ({ ...prev, shift_key: e.target.value as ShiftKey }))}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
+                className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2.5 shadow-sm focus:border-[#222E6A] focus:ring-2 focus:ring-[#222E6A]/20"
               >
-                <option value="07-13">07-13</option>
-                <option value="13-19">13-19</option>
-                <option value="19-07">19-07</option>
-              </select>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Role</label>
-              <select
-                value={rosterTaskForm.role}
-                onChange={(e) => setRosterTaskForm(prev => ({ ...prev, role: e.target.value }))}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
-              >
-                <option value="CNS">CNS</option>
-                <option value="Support">Support</option>
-                <option value="Manager Teknik">Manager Teknik</option>
-                <option value="General Manager">General Manager</option>
+                <option value="07-13">Pagi</option>
+                <option value="13-19">Siang</option>
+                <option value="19-07">Malam</option>
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Priority</label>
+              <label className="block text-sm font-semibold text-gray-700">Priority</label>
               <select
                 value={rosterTaskForm.priority}
                 onChange={(e) => setRosterTaskForm(prev => ({ ...prev, priority: e.target.value as 'low' | 'medium' | 'high' }))}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
+                className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2.5 shadow-sm focus:border-[#222E6A] focus:ring-2 focus:ring-[#222E6A]/20"
               >
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
@@ -2280,8 +3388,111 @@ const NotificationsPage: React.FC = () => {
               </select>
             </div>
           </div>
+
+          <div className="relative">
+            <label className="block text-sm font-semibold text-gray-700">Search Karyawan</label>
+            <input
+              type="text"
+              value={rosterTaskUserSearchQuery}
+              onChange={(e) => setRosterTaskUserSearchQuery(e.target.value)}
+              placeholder="Cari semua karyawan atau manager..."
+              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2.5 shadow-sm focus:border-[#222E6A] focus:ring-2 focus:ring-[#222E6A]/20"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Digunakan untuk mencari seluruh karyawan atau manager yang akan di-assign.
+            </p>
+            {!!rosterTaskForm.date && !!rosterTaskForm.shift_key && (
+              <p className="mt-1 text-xs text-[#1e3a8a]">
+                Otomatis terpilih dari roster bertugas: {autoAssignedRosterUsers.length} orang.
+              </p>
+            )}
+
+            {rosterTaskUserSearchQuery.trim() && (
+              <div className="absolute left-0 right-0 top-full mt-2 rounded-lg border border-gray-200 bg-white shadow-lg z-30 max-h-64 overflow-y-auto">
+                {searchableRosterTaskUsers.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-2">
+                    {searchableRosterTaskUsers.map((u) => {
+                      const isSelected = selectedRosterUserIds.includes(u.id);
+                      return (
+                        <button
+                          key={`search-${u.id}`}
+                          type="button"
+                          onClick={() => {
+                            setSelectedRosterUserIds((prev) =>
+                              prev.includes(u.id)
+                                ? prev.filter((id) => id !== u.id)
+                                : [...prev, u.id]
+                            );
+                          }}
+                          className={`text-left px-2 py-2 border rounded-md transition-colors ${
+                            isSelected
+                              ? 'border-[#222E6A] bg-[#eef2ff]'
+                              : 'border-gray-200 bg-white hover:bg-gray-50'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm font-semibold text-gray-900 break-words whitespace-normal leading-snug">{u.name}</span>
+                            {isSelected && <Check className="h-4 w-4 text-[#222E6A]" />}
+                          </div>
+                          <p className="text-xs text-gray-500 break-words whitespace-normal">{u.role}</p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500 px-3 py-2">
+                    Tidak ada karyawan atau manager yang cocok dengan pencarian.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Send Options</label>
+            <p className="text-sm font-semibold text-gray-700 mb-2">Daftar Karyawan Bertugas</p>
+            <div className="rounded-lg border border-gray-200 bg-white p-2 max-h-[22rem] overflow-y-auto">
+              {!rosterTaskForm.date ? (
+                <p className="text-sm text-gray-500 px-1 py-2">Pilih tanggal terlebih dahulu untuk menampilkan petugas roster.</p>
+              ) : isLoadingAutoAssignedUsers ? (
+                <p className="text-sm text-gray-500 px-1 py-2">Memuat anggota bertugas...</p>
+              ) : autoAssignedRosterUsers.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {autoAssignedRosterUsers.map((u) => {
+                    const isSelected = selectedRosterUserIds.includes(u.id);
+                    return (
+                      <button
+                        key={`on-duty-${u.id}`}
+                        type="button"
+                        onClick={() => {
+                          setSelectedRosterUserIds((prev) =>
+                            prev.includes(u.id)
+                              ? prev.filter((id) => id !== u.id)
+                              : [...prev, u.id]
+                          );
+                        }}
+                        className={`text-left px-2 py-2 border rounded-md transition-colors ${
+                          isSelected
+                            ? 'border-[#222E6A] bg-[#eef2ff]'
+                            : 'border-gray-200 bg-white hover:bg-gray-50'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-semibold text-gray-900 break-words whitespace-normal leading-snug">{u.name}</span>
+                          {isSelected && <Check className="h-4 w-4 text-[#222E6A]" />}
+                        </div>
+                        <p className="text-xs text-gray-500 break-words whitespace-normal">{u.role}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500 px-1 py-2">Tidak ada anggota bertugas pada tanggal dan shift tersebut.</p>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Send Options</label>
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <input
@@ -2352,42 +3563,7 @@ const NotificationsPage: React.FC = () => {
             </div>
           )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Assign to Users</label>
-            <div className="mt-1 flex items-center gap-2 text-xs text-gray-500">
-              <span>Role: <strong>{rosterTaskForm.role}</strong></span>
-              <span>|</span>
-              <span>{availableRosterUsers.length} users matching role</span>
-            </div>
-
-            <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto border border-gray-200 p-2 rounded-md bg-white">
-              {availableRosterUsers.length ? availableRosterUsers.map((u: User) => {
-                const isSelected = selectedRosterUserIds.includes(u.id);
-                return (
-                  <button
-                    key={u.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedRosterUserIds(prev =>
-                        prev.includes(u.id) ? prev.filter((id) => id !== u.id) : [...prev, u.id]
-                      );
-                    }}
-                    className={`text-left px-2 py-2 border rounded-md ${
-                      isSelected ? 'border-purple-500 bg-purple-50' : 'border-gray-200 bg-white hover:bg-gray-50'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">{u.name}</span>
-                      {isSelected && <Check className="h-4 w-4 text-purple-600" />}
-                    </div>
-                    <p className="text-xs text-gray-500">{u.role}</p>
-                  </button>
-                );
-              }) : <p className="text-sm text-gray-500">No users available for selected role</p>}
-            </div>
-            <p className="text-xs text-gray-500 mt-1">Kosongkan untuk umum/role-based assignment.</p>
-          </div>
-          <div className="flex justify-end gap-2">
+          <div className="flex justify-end gap-3 pt-2 border-t border-gray-200">
             <Button variant="outline" onClick={() => setIsRosterTaskModalOpen(false)}>
               Batal
             </Button>
@@ -2412,77 +3588,52 @@ const NotificationsPage: React.FC = () => {
           {(() => {
             const taskData = selectedNotification.data as any;
             const isRosterTaskDetail = selectedNotification.category === 'roster' || selectedNotification.type === 'roster_task';
-
-            if (isRosterTaskDetail && taskData) {
-              return (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                      <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Title</p>
-                      <p className="mt-2 text-sm font-semibold text-gray-900">{selectedNotification.title}</p>
-                    </div>
-                    <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                      <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Priority</p>
-                      <p className="mt-2 text-sm font-semibold text-gray-900">{String(taskData.priority || selectedNotification.message || '-').toUpperCase()}</p>
-                    </div>
-                    <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                      <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Date</p>
-                      <p className="mt-2 text-sm text-gray-900">{taskData.date || '-'}</p>
-                    </div>
-                    <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                      <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Shift</p>
-                      <p className="mt-2 text-sm text-gray-900">{taskData.shift_key || '-'}</p>
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl border border-gray-200 bg-white p-4">
-                    <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Description</p>
-                    <p className="mt-2 text-sm text-gray-700 whitespace-pre-wrap break-words">{taskData.description || '-'}</p>
-                  </div>
-
-                  <div className="rounded-xl border border-gray-200 bg-white p-4">
-                    <p className="text-xs uppercase tracking-[0.2em] text-gray-500 mb-2">Assigned</p>
-                    <div className="flex flex-wrap gap-2">{renderAssignedUsers(taskData)}</div>
-                  </div>
-
-                  <div className="flex items-center gap-2 text-xs text-gray-400">
-                    <Clock className="h-3 w-3" />
-                    <span>{format(new Date(selectedNotification.created_at), 'EEEE, MMMM dd, yyyy \'at\' HH:mm')}</span>
-                  </div>
-                </div>
-              );
-            }
+            const detailData = isRosterTaskDetail ? taskData : selectedNotification.data;
+            const assignedLabels = getAssignedLabels(detailData);
+            const isSender = selectedNotification.sender?.id === user?.id || selectedNotification.sender_id === user?.id;
+            const showAssigned = isSender && assignedLabels.length > 0;
+            const messageContent = isRosterTaskDetail
+              ? taskData.description || selectedNotification.message || 'No details available.'
+              : selectedNotification.message || 'No details available.';
 
             return (
-              <div className="space-y-4">
-                <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
-                  <p className="text-xs uppercase tracking-[0.2em] text-gray-500 mb-2">Title</p>
-                  <h3 className="text-lg font-semibold text-gray-900">{selectedNotification.title}</h3>
-                </div>
-
-                <div className="rounded-2xl border border-gray-200 bg-white p-5">
-                  <p className="text-xs uppercase tracking-[0.2em] text-gray-500 mb-2">Message</p>
-                  <p className="text-sm leading-7 text-gray-700 whitespace-pre-wrap break-words">
-                    {selectedNotification.message}
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-gray-200 bg-white p-5">
-                  <p className="text-xs uppercase tracking-[0.2em] text-gray-500 mb-2">Assigned</p>
-                  <div className="flex flex-wrap gap-2">{renderAssignedUsers(selectedNotification.data)}</div>
-                </div>
-
-                {selectedNotification.sender && (
-                  <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
-                    <p className="text-xs uppercase tracking-[0.2em] text-gray-500 mb-2">From</p>
-                    <p className="text-sm font-semibold text-gray-900">{selectedNotification.sender.name}</p>
-                    <p className="text-sm text-gray-500 break-all">{selectedNotification.sender.email}</p>
+              <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200/70">
+                <div className="space-y-6">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.2em] text-slate-500 mb-2">Title</p>
+                    <h3 className="text-2xl font-semibold text-slate-900 leading-tight">{selectedNotification.title}</h3>
                   </div>
-                )}
 
-                <div className="flex items-center gap-2 text-xs text-gray-400">
-                  <Clock className="h-3 w-3" />
-                  <span>{format(new Date(selectedNotification.created_at), 'EEEE, MMMM dd, yyyy \'at\' HH:mm')}</span>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.2em] text-slate-500 mb-3">Message</p>
+                    <p className="text-sm leading-7 text-slate-700 whitespace-pre-wrap break-words">{messageContent}</p>
+                  </div>
+
+                  <div className="border-t border-slate-200/70 pt-5">
+                    <div className="space-y-4">
+                      {selectedNotification.sender && (
+                        <div>
+                          <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500 mb-1">From</p>
+                          <p className="text-sm font-semibold text-slate-900">{selectedNotification.sender.name}</p>
+                          {selectedNotification.sender.email && (
+                            <p className="text-sm text-slate-500 break-all">{selectedNotification.sender.email}</p>
+                          )}
+                        </div>
+                      )}
+
+                      {showAssigned && (
+                        <div>
+                          <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500 mb-1">Sent to</p>
+                          <p className="text-sm text-slate-700">{assignedLabels.join(', ')}</p>
+                        </div>
+                      )}
+
+                      <div>
+                        <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500 mb-1">Date</p>
+                        <p className="text-sm font-semibold text-slate-900">{format(new Date(selectedNotification.created_at), 'EEEE, MMMM dd, yyyy \'at\' HH:mm')}</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             );
