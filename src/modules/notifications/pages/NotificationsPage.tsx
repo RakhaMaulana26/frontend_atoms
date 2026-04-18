@@ -1330,7 +1330,7 @@ const NotificationsPage: React.FC = () => {
     roster: rosterTasks.length,
   };
   const isLoading = loadingStates.notifications;
-  const canCreateRosterTask = isAdmin || isManager;
+  const canCreateRosterTask = isManager;
 
   useEffect(() => {
     const visibleNotifications = notifications.filter((item) => item.category === 'leave_request' || item.category === 'shift_request');
@@ -2752,14 +2752,16 @@ const NotificationsPage: React.FC = () => {
               <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
               <span className="ml-1 sm:ml-2">Compose</span>
             </Button>
-            <Button
-              variant="primary"
-              onClick={handleOpenRosterTaskModal}
-              className="bg-[#222E6A] hover:bg-[#1a2452] text-xs px-2 py-1.5 sm:text-base sm:px-4 sm:py-2"
-            >
-              <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
-              <span className="ml-1 sm:ml-2">Add Roster Task</span>
-            </Button>
+            {canCreateRosterTask && (
+              <Button
+                variant="primary"
+                onClick={handleOpenRosterTaskModal}
+                className="bg-[#222E6A] hover:bg-[#1a2452] text-xs px-2 py-1.5 sm:text-base sm:px-4 sm:py-2"
+              >
+                <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="ml-1 sm:ml-2">Add Roster Task</span>
+              </Button>
+            )}
           </div>
         </div>
       </div>

@@ -88,6 +88,13 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
   const effectiveStartDateMax = isDoctorLeaveInStartedRoster
     ? (rosterEndDate || todayDateString)
     : (rosterEndDate || undefined);
+  const offDates = approvalPreview?.off_dates ?? [];
+  const isAllOffRange = Boolean(
+    approvalPreview
+    && offDates.length > 0
+    && approvalPreview.approvals.length === 0
+    && approvalPreview.missing_dates.length === 0
+  );
 
   // Auto-filled values
   const applicantName = user?.name || '';
@@ -248,6 +255,11 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
     // Validation based on request type
     if (!requestType || !startDate || !endDate) {
       toast.error('Please fill in all required fields');
+      return;
+    }
+
+    if (isAllOffRange) {
+      toast.error('Semua tanggal yang dipilih adalah hari libur, sehingga tidak perlu mengajukan cuti.');
       return;
     }
 
@@ -470,6 +482,23 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
               ))}
             </ul>
           </div>
+        )}
+
+        {!isLoadingApprovalPreview && !approvalPreviewError && approvalPreview && offDates.length > 0 && (
+          <div className="mt-2">
+            <p className="text-xs text-emerald-700 mb-1">Tanggal libur tidak memerlukan persetujuan:</p>
+            <ul className="list-disc list-inside space-y-0.5">
+              {offDates.map((item, index) => (
+                <li key={`${item}-${index}`} className="text-xs text-emerald-600">{item}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {!isLoadingApprovalPreview && !approvalPreviewError && isAllOffRange && (
+          <p className="mt-2 text-xs text-red-700">
+            Semua tanggal yang dipilih adalah hari libur. Pengajuan cuti akan dinonaktifkan.
+          </p>
         )}
 
         {!isLoadingApprovalPreview && !approvalPreviewError && approvalPreview && approvalPreview.missing_dates.length === 0 && (
@@ -1300,6 +1329,7 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ isOpen, onClose, 
             variant="primary"
             isLoading={isLoading}
             className="w-full sm:ml-auto sm:w-auto px-6 bg-[#222E6A] hover:bg-[#1a2452]"
+            disabled={isAllOffRange}
           >
             <span className="text-xs sm:text-sm">Submit</span>
           </Button>

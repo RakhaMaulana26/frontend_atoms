@@ -233,6 +233,8 @@ const RosterDetailPage: React.FC = () => {
   const [selectedRosterDay, setSelectedRosterDay] = useState<RosterDay | null>(null);
   const [isSwapShiftModalOpen, setIsSwapShiftModalOpen] = useState(false);
   const [isLeaveRequestModalOpen, setIsLeaveRequestModalOpen] = useState(false);
+  const isAdmin = user?.role === 'Admin';
+  const canRequestSelf = !isAdmin;
 
   // Get roster from cache (already loaded at startup)
   const roster = id ? getRosterDetail(Number(id)) : null;
@@ -541,13 +543,13 @@ const RosterDetailPage: React.FC = () => {
 
             {activeTab === 'swap' && (
               <ShiftSwapRequestsTable
-                onRequestNew={() => setIsSwapShiftModalOpen(true)}
+                onRequestNew={canRequestSelf ? () => setIsSwapShiftModalOpen(true) : undefined}
               />
             )}
 
             {activeTab === 'leave' && (
               <LeaveRequestsTable
-                onRequestNew={() => setIsLeaveRequestModalOpen(true)}
+                onRequestNew={canRequestSelf ? () => setIsLeaveRequestModalOpen(true) : undefined}
               />
             )}
           </div>

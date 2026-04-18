@@ -44,5 +44,3 @@ export { default as RosterCalendarView } from './feature/roster/RosterCalendarVi
 export { default as RosterWeekView } from './feature/roster/RosterWeekView';
 export { default as ShiftAssignmentCard } from './feature/roster/ShiftAssignmentCard';
 
-// Activity Feature Components (from feature/activity/)
-export { default as ActivityLogCard } from './feature/activity/ActivityLogCard';

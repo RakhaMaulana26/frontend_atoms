@@ -45,6 +45,7 @@ export interface LeaveApprovalPreview {
     manager_role: string | null;
   }>;
   missing_dates: string[];
+  off_dates: string[];
 }
 
 class LeaveRequestService {

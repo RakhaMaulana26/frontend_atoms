@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Breadcrumbs, Modal, Button } from '../';
+import { Breadcrumbs, Modal, Button, ProfileModal, ChangePasswordModal } from '../';
 import AppHeader from './AppHeader';
 import { useAuth } from '../../modules/auth/core/AuthContext';
 import { LogOut } from 'lucide-react';
@@ -18,17 +18,16 @@ interface PageHeaderProps {
 }
 
 const PageHeader: React.FC<PageHeaderProps> = ({ title, subtitle, breadcrumbs, children, contentContainerClassName }) => {
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isChangePasswordModalOpen, setIsChangePasswordModalOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* App Header */}
       <AppHeader 
-        onProfileClick={() => {
-          // You can add profile modal here if needed
-          console.log('Profile clicked from PageHeader');
-        }}
+        onProfileClick={() => setIsProfileModalOpen(true)}
         onLogoutClick={() => setIsLogoutConfirmOpen(true)}
       />
 
@@ -56,6 +55,21 @@ const PageHeader: React.FC<PageHeaderProps> = ({ title, subtitle, breadcrumbs, c
       </div>
 
       {/* Logout Confirmation Modal */}
+      <ProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+        user={user}
+        onChangePassword={() => {
+          setIsProfileModalOpen(false);
+          setIsChangePasswordModalOpen(true);
+        }}
+      />
+
+      <ChangePasswordModal
+        isOpen={isChangePasswordModalOpen}
+        onClose={() => setIsChangePasswordModalOpen(false)}
+      />
+
       <Modal
         isOpen={isLogoutConfirmOpen}
         onClose={() => setIsLogoutConfirmOpen(false)}

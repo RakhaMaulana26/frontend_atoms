@@ -3,11 +3,11 @@ import type { ReactNode } from 'react';
 import type { User, Notification } from '../types';
 import type { RosterPeriod } from '../modules/roster/types/roster';
 import type { LeaveRequest } from '../modules/roster/types/leaveRequest';
-import type { ActivityLog, ActivityLogStatistics } from '../services/activityLogService';
+import type { ActivityLog, ActivityLogStatistics } from '../modules/activity-log/repository/activityLogService';
 import { adminService } from '../services/adminService';
 import { notificationService } from '../modules/notifications/repository/notificationService';
 import { rosterService } from '../modules/roster/repository/rosterService';
-import { activityLogService } from '../services/activityLogService';
+import { activityLogService } from '../modules/activity-log/repository/activityLogService';
 import { useAuth } from '../modules/auth/core/AuthContext';
 
 type NotificationCategory = 'inbox' | 'starred' | 'sent' | 'trash' | 'roster' | 'drafts' | 'scheduled';

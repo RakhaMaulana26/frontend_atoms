@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { activityLogService, type ActivityLog } from '../services/activityLogService';
+import { activityLogService, type ActivityLog } from '../repository/activityLogService';
 
 interface UseRecentActivitiesReturn {
   activities: ActivityLog[];

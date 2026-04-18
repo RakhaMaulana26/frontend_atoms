@@ -25,7 +25,6 @@ const ProfileModal: React.FC<ProfileModalProps> = ({
     name: '',
     email: '',
     role: '',
-    employee_type: '',
   });
   const [isLoading, setIsLoading] = useState(false);
   const { updateUser } = useAuth();
@@ -36,7 +35,6 @@ const ProfileModal: React.FC<ProfileModalProps> = ({
         name: user.name || '',
         email: user.email || '',
         role: user.role || '',
-        employee_type: user.employee?.employee_type || '',
       });
     }
   }, [user]);
@@ -46,6 +44,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({
     if (!user) return;
 
     setIsLoading(true);
+    const existingEmployeeType = user.employee?.employee_type;
     
     const optimisticUser: User = {
       ...user,
@@ -54,7 +53,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({
       role: formData.role as any,
       employee: user.employee ? {
         ...user.employee,
-        employee_type: formData.employee_type as any
+        employee_type: existingEmployeeType || user.employee.employee_type,
       } : undefined,
     };
     
@@ -65,7 +64,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({
         name: formData.name,
         email: formData.email,
         role: formData.role as any,
-        employee_type: formData.employee_type as any,
+        employee_type: existingEmployeeType || user.employee?.employee_type,
         is_active: user.is_active,
       });
       
@@ -123,19 +122,6 @@ const ProfileModal: React.FC<ProfileModalProps> = ({
             { value: 'staff', label: 'Staff' },
           ]}
           required
-        />
-
-        <Select
-          label="Employee Type"
-          value={formData.employee_type}
-          onChange={(e) => setFormData({ ...formData, employee_type: e.target.value })}
-          options={[
-            { value: 'pilot', label: 'Pilot' },
-            { value: 'air_traffic_controller', label: 'Air Traffic Controller' },
-            { value: 'maintenance', label: 'Maintenance' },
-            { value: 'ground_crew', label: 'Ground Crew' },
-            { value: 'administrative', label: 'Administrative' },
-          ]}
         />
 
         <div className="flex gap-4 pt-4">

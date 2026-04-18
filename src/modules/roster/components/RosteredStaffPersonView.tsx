@@ -66,8 +66,8 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
   const tableContainerRef = useRef<HTMLDivElement>(null);
   const cellRefs = useRef<Map<string, HTMLElement>>(new Map());
 
-  // Check if user can edit (Admin or Manager Teknik)
-  const canEdit = user?.role === 'Admin' || user?.role === 'Manager Teknik';
+  // Check if user can edit (Manager Teknik or General Manager)
+  const canEdit = user?.role === 'Manager Teknik' || user?.role === 'General Manager';
   const isRosterPublished = (roster.status || '').toLowerCase() === 'published';
   const canEditRoster = canEdit && !isRosterPublished;
 

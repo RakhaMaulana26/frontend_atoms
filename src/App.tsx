@@ -14,7 +14,7 @@ import HomePage from './pages/HomePage';
 import MaintenancePage from './pages/MaintenancePage';
 import InventoryPage from './pages/InventoryPage';
 import SettingsPage from './pages/SettingsPage';
-import ActivityPage from './pages/ActivityPage';
+import ActivityPage from './modules/activity-log/pages/ActivityPage';
 
 // Auth Pages
 import AuthPage from './modules/auth/pages/AuthPage';

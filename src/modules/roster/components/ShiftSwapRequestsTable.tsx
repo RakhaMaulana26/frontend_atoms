@@ -14,7 +14,6 @@ import { Check, X, Loader2, RefreshCw, ChevronLeft, ChevronRight, AlertCircle } 
 interface ShiftSwapRequestsTableProps {
   onRequestNew?: () => void;
   rosterId?: number;
-  onRequestLeave?: () => void;
 }
 
 const SHIFT_SWAP_REQUEST_CREATED_EVENT = 'shift-swap-request:create-optimistic';
@@ -25,7 +24,6 @@ const waitForNextPaint = () => new Promise<void>((resolve) => window.requestAnim
 const ShiftSwapRequestsTable: React.FC<ShiftSwapRequestsTableProps> = ({
   onRequestNew,
   rosterId,
-  onRequestLeave,
 }) => {
   const { user } = useAuth();
   const [requests, setRequests] = useState<ShiftRequestItem[]>([]);
@@ -493,12 +491,12 @@ const ShiftSwapRequestsTable: React.FC<ShiftSwapRequestsTableProps> = ({
     <div>
       {/* Title */}
       <div className="mb-4 sm:mb-6">
-        <h2 className="text-xl sm:text-2xl font-bold text-[#222E6A]">Shift Swap & Leave Requests</h2>
-        <p className="text-sm text-gray-600 mt-1">Manage your shift swap requests and leave applications</p>
+        <h2 className="text-xl sm:text-2xl font-bold text-[#222E6A]">Permintaan Tukar Shift</h2>
+        <p className="text-sm text-gray-600 mt-1">Kelola permintaan tukar shift pada periode roster aktif</p>
       </div>
 
       {/* Request Buttons */}
-      {(onRequestNew || onRequestLeave) && (
+      {onRequestNew && (
         <div className="mb-4 sm:mb-6 -mx-4 sm:mx-0 pl-0 sm:pl-0 flex gap-2 sm:gap-3 flex-wrap">
           {onRequestNew && (
             <button 
@@ -506,16 +504,7 @@ const ShiftSwapRequestsTable: React.FC<ShiftSwapRequestsTableProps> = ({
               className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-gradient-to-br from-[#222E6A] via-[#2a3a7f] to-[#1a235c] hover:from-[#1a235c] hover:via-[#222E6A] hover:to-[#2a3a7f] rounded-xl transition-colors font-semibold text-white text-xs sm:text-sm shadow-md border border-gray-200"
             >
               <span className="text-lg sm:text-xl">+</span>
-              <span>Request Shift Swap</span>
-            </button>
-          )}
-          {onRequestLeave && (
-            <button 
-              onClick={onRequestLeave}
-              className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-gradient-to-br from-green-600 via-green-700 to-green-800 hover:from-green-700 hover:via-green-800 hover:to-green-900 rounded-xl transition-colors font-semibold text-white text-xs sm:text-sm shadow-md border border-gray-200"
-            >
-              <span className="text-lg sm:text-xl">+</span>
-              <span>Request Leave</span>
+              <span>Ajukan Tukar Shift</span>
             </button>
           )}
         </div>

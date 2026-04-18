@@ -1,4 +1,4 @@
-import apiClient from '../lib/api';
+import apiClient from '../../../lib/api';
 
 export interface ActivityLog {
   id: number;
@@ -52,7 +52,7 @@ export const activityLogService = {
   // Get activity logs with pagination and filters
   getActivityLogs: async (filters?: ActivityLogFilters): Promise<ActivityLogResponse> => {
     const params = new URLSearchParams();
-    
+
     if (filters?.module) params.append('module', filters.module);
     if (filters?.action) params.append('action', filters.action);
     if (filters?.user_id) params.append('user_id', filters.user_id.toString());

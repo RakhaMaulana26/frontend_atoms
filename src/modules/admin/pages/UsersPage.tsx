@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { toast } from 'react-toastify';
 import { useAuth } from '../../auth/core/AuthContext';
 import { useDataCache } from '../../../contexts/DataCacheContext';
@@ -42,20 +43,38 @@ const UsersPage: React.FC = () => {
   const [isGeneratingToken, setIsGeneratingToken] = useState(false);
   const [lastGeneratedTime, setLastGeneratedTime] = useState(0);
   const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
+  const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left: number } | null>(null);
   
   const isSendingRef = useRef(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const dropdownMenuRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setOpenDropdownId(null);
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+      if (dropdownMenuRef.current && dropdownMenuRef.current.contains(target)) {
+        return;
       }
+      if (target.closest('[data-user-actions-trigger="true"]')) {
+        return;
+      }
+      setOpenDropdownId(null);
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (openDropdownId === null) return;
+    const closeDropdown = () => setOpenDropdownId(null);
+    window.addEventListener('scroll', closeDropdown, true);
+    window.addEventListener('resize', closeDropdown);
+    return () => {
+      window.removeEventListener('scroll', closeDropdown, true);
+      window.removeEventListener('resize', closeDropdown);
+    };
+  }, [openDropdownId]);
 
   // Debounce search query
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
@@ -330,17 +349,43 @@ const UsersPage: React.FC = () => {
       key: 'actions',
       header: 'Actions',
       render: (user: User) => (
-        <div className="relative" ref={openDropdownId === user.id ? dropdownRef : null}>
+        <div className="relative">
           <button
-            onClick={() => setOpenDropdownId(openDropdownId === user.id ? null : user.id)}
+            data-user-actions-trigger="true"
+            onClick={(event) => {
+              if (openDropdownId === user.id) {
+                setOpenDropdownId(null);
+                return;
+              }
+
+              const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+              const menuWidth = 224;
+              const padding = 8;
+              const estimatedHeight = 220;
+
+              let left = rect.right - menuWidth;
+              left = Math.min(Math.max(left, padding), window.innerWidth - menuWidth - padding);
+
+              let top = rect.bottom + 8;
+              if (top + estimatedHeight > window.innerHeight - padding) {
+                top = Math.max(padding, rect.top - 8 - estimatedHeight);
+              }
+
+              setDropdownPosition({ top, left });
+              setOpenDropdownId(user.id);
+            }}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
             title="More actions"
           >
             <MoreVertical className="h-4 w-4 text-gray-600" />
           </button>
           
-          {openDropdownId === user.id && (
-            <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+          {openDropdownId === user.id && dropdownPosition && createPortal(
+            <div
+              ref={dropdownMenuRef}
+              style={{ top: dropdownPosition.top, left: dropdownPosition.left }}
+              className="fixed w-56 max-w-[calc(100vw-2rem)] max-h-[60vh] overflow-auto bg-white rounded-lg shadow-lg border border-gray-200 z-[60]"
+            >
               <div className="py-1">
                 {!user.deleted_at ? (
                   <>
@@ -399,7 +444,8 @@ const UsersPage: React.FC = () => {
                   </button>
                 )}
               </div>
-            </div>
+            </div>,
+            document.body
           )}
         </div>
       ),

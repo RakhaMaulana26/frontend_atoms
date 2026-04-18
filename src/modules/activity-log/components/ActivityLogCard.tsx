@@ -1,6 +1,6 @@
 import React from 'react';
 import { Calendar, Users, AlertTriangle, Package, Settings, LogIn, UserPlus, Edit, Trash2, RotateCcw, Send, Check, X } from 'lucide-react';
-import type { ActivityLog } from '../../../services/activityLogService';
+import type { ActivityLog } from '../repository/activityLogService';
 
 interface ActivityLogCardProps {
   activity: ActivityLog;
@@ -17,7 +17,7 @@ const getActivityIcon = (action: string, module: string) => {
   if (moduleLower.includes('notification')) return Send;
   if (moduleLower.includes('shift')) return RotateCcw;
 
-  // Action-based icons  
+  // Action-based icons
   if (actionLower.includes('login')) return LogIn;
   if (actionLower.includes('create') || actionLower.includes('add')) return UserPlus;
   if (actionLower.includes('update') || actionLower.includes('edit')) return Edit;
@@ -27,7 +27,7 @@ const getActivityIcon = (action: string, module: string) => {
   if (actionLower.includes('reject')) return X;
   if (actionLower.includes('urgent') || actionLower.includes('maintenance')) return AlertTriangle;
   if (actionLower.includes('inventory') || actionLower.includes('stock')) return Package;
-  
+
   return Settings; // Default icon
 };
 
@@ -41,7 +41,7 @@ const getActivityColor = (action: string, module: string) => {
       bg: 'bg-red-50',
       icon: 'bg-red-500',
       border: 'border-red-200',
-      gradient: 'from-red-500/5 to-orange-500/5'
+      gradient: 'from-red-500/5 to-orange-500/5',
     };
   }
 
@@ -50,8 +50,8 @@ const getActivityColor = (action: string, module: string) => {
     return {
       bg: 'bg-green-50',
       icon: 'bg-green-500',
-      border: 'border-green-200', 
-      gradient: 'from-green-500/5 to-emerald-500/5'
+      border: 'border-green-200',
+      gradient: 'from-green-500/5 to-emerald-500/5',
     };
   }
 
@@ -61,7 +61,7 @@ const getActivityColor = (action: string, module: string) => {
       bg: 'bg-yellow-50',
       icon: 'bg-yellow-500',
       border: 'border-yellow-200',
-      gradient: 'from-yellow-500/5 to-orange-500/5'
+      gradient: 'from-yellow-500/5 to-orange-500/5',
     };
   }
 
@@ -71,7 +71,7 @@ const getActivityColor = (action: string, module: string) => {
       bg: 'bg-gradient-to-r from-[#222E6A]/5 to-[#454D7C]/5',
       icon: 'bg-[#222E6A]',
       border: 'border-[#222E6A]/10',
-      gradient: 'from-[#222E6A]/5 to-[#454D7C]/5'
+      gradient: 'from-[#222E6A]/5 to-[#454D7C]/5',
     };
   }
 
@@ -80,7 +80,7 @@ const getActivityColor = (action: string, module: string) => {
       bg: 'bg-gradient-to-r from-[#454D7C]/5 to-purple-500/5',
       icon: 'bg-[#454D7C]',
       border: 'border-[#454D7C]/10',
-      gradient: 'from-[#454D7C]/5 to-purple-500/5'
+      gradient: 'from-[#454D7C]/5 to-purple-500/5',
     };
   }
 
@@ -89,7 +89,7 @@ const getActivityColor = (action: string, module: string) => {
     bg: 'bg-gradient-to-r from-[#222E6A]/5 to-[#454D7C]/5',
     icon: 'bg-[#222E6A]',
     border: 'border-[#222E6A]/10',
-    gradient: 'from-[#222E6A]/5 to-[#454D7C]/5'
+    gradient: 'from-[#222E6A]/5 to-[#454D7C]/5',
   };
 };
 
@@ -117,18 +117,22 @@ const ActivityLogCard: React.FC<ActivityLogCardProps> = ({ activity, isCompact =
   const colors = getActivityColor(activity.action, activity.module);
 
   return (
-    <div className={`
-      flex items-start gap-4 p-4 rounded-lg transition-all hover:shadow-sm
+    <div
+      className={`
+      flex items-start gap-4 rounded-lg transition-all hover:shadow-sm
       bg-gradient-to-r ${colors.gradient} border ${colors.border}
       ${isCompact ? 'p-3' : 'p-4'}
-    `}>
-      <div className={`
-        flex-shrink-0 w-10 h-10 ${colors.icon} rounded-full flex items-center justify-center shadow-sm
+    `}
+    >
+      <div
+        className={`
+        flex-shrink-0 ${colors.icon} rounded-full flex items-center justify-center shadow-sm
         ${isCompact ? 'w-8 h-8' : 'w-10 h-10'}
-      `}>
+      `}
+      >
         <Icon className={`text-white ${isCompact ? 'h-4 w-4' : 'h-5 w-5'}`} />
       </div>
-      
+
       <div className="flex-1 min-w-0">
         <p className={`font-medium text-gray-900 leading-snug ${isCompact ? 'text-sm' : 'text-base'}`}>
           {activity.description}
@@ -146,9 +150,11 @@ const ActivityLogCard: React.FC<ActivityLogCardProps> = ({ activity, isCompact =
             </>
           )}
           <span className="text-gray-400">•</span>
-          <span className={`px-2 py-0.5 bg-white/50 text-gray-700 rounded-full font-medium ${
-            isCompact ? 'text-xs px-1.5 py-0.5' : 'text-xs px-2 py-0.5'
-          }`}>
+          <span
+            className={`px-2 py-0.5 bg-white/50 text-gray-700 rounded-full font-medium ${
+              isCompact ? 'text-xs px-1.5 py-0.5' : 'text-xs px-2 py-0.5'
+            }`}
+          >
             {activity.module}
           </span>
         </div>

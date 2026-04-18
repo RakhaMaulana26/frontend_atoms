@@ -6,7 +6,6 @@ import {
   User as UserIcon,
   ChevronDown,
   LogOut,
-  Settings,
   Bell
 } from 'lucide-react';
 
@@ -108,16 +107,6 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onProfileClick, onLogoutClick }) 
                   >
                     <UserIcon className="h-4 w-4" />
                     Profile Settings
-                  </button>
-                  <button
-                    onClick={() => {
-                      setIsUserMenuOpen(false);
-                      navigate('/settings');
-                    }}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3 transition-colors"
-                  >
-                    <Settings className="h-4 w-4" />
-                    Preferences
                   </button>
                   <hr className="my-2" />
                   <div className="px-2 pb-1">
