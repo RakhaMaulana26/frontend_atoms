@@ -3,6 +3,7 @@ import { toast } from 'react-toastify';
 import { useAuth } from '../../../modules/auth/core/AuthContext';
 import { adminService } from '../../../services/adminService';
 import type { User } from '../../../types';
+import { USER_ROLES, USER_ROLE_LABELS } from '../../../types';
 import Modal from '../../common/Modal';
 import Button from '../../ui/Button';
 import Input from '../../common/Input';
@@ -28,6 +29,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({
   });
   const [isLoading, setIsLoading] = useState(false);
   const { updateUser } = useAuth();
+  const isAdmin = user?.role === USER_ROLES.ADMIN;
 
   useEffect(() => {
     if (user) {
@@ -39,9 +41,13 @@ const ProfileModal: React.FC<ProfileModalProps> = ({
     }
   }, [user]);
 
+  const roleLabel = formData.role
+    ? USER_ROLE_LABELS[formData.role as keyof typeof USER_ROLE_LABELS]
+    : '';
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    if (!user || !isAdmin) return;
 
     setIsLoading(true);
     const existingEmployeeType = user.employee?.employee_type;
@@ -100,6 +106,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({
           type="text"
           value={formData.name}
           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+          disabled={!isAdmin}
           required
         />
 
@@ -108,19 +115,16 @@ const ProfileModal: React.FC<ProfileModalProps> = ({
           type="email"
           value={formData.email}
           onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+          disabled={!isAdmin}
           required
         />
 
-        <Select
+        <Input
           label="Role"
-          value={formData.role}
-          onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-          options={[
-            { value: 'admin', label: 'Administrator' },
-            { value: 'manager', label: 'Manager' },
-            { value: 'supervisor', label: 'Supervisor' },
-            { value: 'staff', label: 'Staff' },
-          ]}
+          type="text"
+          value={roleLabel || formData.role}
+          onChange={() => undefined}
+          disabled
           required
         />
 
@@ -128,9 +132,11 @@ const ProfileModal: React.FC<ProfileModalProps> = ({
           <Button type="button" variant="outline" onClick={onChangePassword} className="flex-1">
             Change Password
           </Button>
-          <Button type="submit" variant="primary" isLoading={isLoading} className="flex-1">
-            Save Changes
-          </Button>
+          {isAdmin && (
+            <Button type="submit" variant="primary" isLoading={isLoading} className="flex-1">
+              Save Changes
+            </Button>
+          )}
         </div>
       </form>
     </Modal>

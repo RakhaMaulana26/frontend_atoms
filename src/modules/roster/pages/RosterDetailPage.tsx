@@ -234,7 +234,8 @@ const RosterDetailPage: React.FC = () => {
   const [isSwapShiftModalOpen, setIsSwapShiftModalOpen] = useState(false);
   const [isLeaveRequestModalOpen, setIsLeaveRequestModalOpen] = useState(false);
   const isAdmin = user?.role === 'Admin';
-  const canRequestSelf = !isAdmin;
+  const isGeneralManager = user?.role === 'General Manager';
+  const canRequestSelf = !isAdmin && !isGeneralManager;
 
   // Get roster from cache (already loaded at startup)
   const roster = id ? getRosterDetail(Number(id)) : null;

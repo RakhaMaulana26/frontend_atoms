@@ -114,7 +114,9 @@ const NotificationsPage: React.FC = () => {
 
   const isAdmin = user?.role === 'Admin';
   const isManager = user?.role === 'Manager Teknik' || user?.role === 'General Manager';
-  const canManageNotifications = isAdmin || isManager;
+  const isCns = user?.role === 'Cns';
+  const isSupport = user?.role === 'Support';
+  const canManageNotifications = isAdmin || isManager || isCns || isSupport;
   const isRosterCategory = activeCategory === 'roster';
   const datesPerPage = 4;
 
@@ -2111,7 +2113,7 @@ const NotificationsPage: React.FC = () => {
 
   const handleSendNotification = async () => {
     if (!canManageNotifications) {
-      toast.error('Hanya Admin, General Manager, atau Manager Teknik yang dapat mengirim notifikasi.');
+      toast.error('Hanya Admin, General Manager, Manager Teknik, CNS, atau Support yang dapat mengirim notifikasi.');
       return;
     }
 
@@ -2157,7 +2159,7 @@ const NotificationsPage: React.FC = () => {
 
   const handleSaveDraft = async () => {
     if (!canManageNotifications) {
-      toast.error('Hanya Admin, General Manager, atau Manager Teknik yang dapat menyimpan draft notifikasi.');
+      toast.error('Hanya Admin, General Manager, Manager Teknik, CNS, atau Support yang dapat menyimpan draft notifikasi.');
       return;
     }
 
@@ -2216,7 +2218,7 @@ const NotificationsPage: React.FC = () => {
 
   const handleScheduleNotification = async () => {
     if (!canManageNotifications) {
-      toast.error('Hanya Admin, General Manager, atau Manager Teknik yang dapat menjadwalkan notifikasi.');
+      toast.error('Hanya Admin, General Manager, Manager Teknik, CNS, atau Support yang dapat menjadwalkan notifikasi.');
       return;
     }
 
@@ -2295,7 +2297,7 @@ const NotificationsPage: React.FC = () => {
 
   const handleEditDraft = (notification: Notification) => {
     if (!canManageNotifications) {
-      toast.error('Hanya Admin, General Manager, atau Manager Teknik yang dapat mengedit draft notifikasi.');
+      toast.error('Hanya Admin, General Manager, Manager Teknik, CNS, atau Support yang dapat mengedit draft notifikasi.');
       return;
     }
 
@@ -2315,7 +2317,7 @@ const NotificationsPage: React.FC = () => {
 
   const handleSendDraft = async (notification: Notification) => {
     if (!canManageNotifications) {
-      toast.error('Hanya Admin, General Manager, atau Manager Teknik yang dapat mengirim draft notifikasi.');
+      toast.error('Hanya Admin, General Manager, Manager Teknik, CNS, atau Support yang dapat mengirim draft notifikasi.');
       return;
     }
 
@@ -2342,7 +2344,7 @@ const NotificationsPage: React.FC = () => {
 
   const handleEditScheduled = (notification: Notification) => {
     if (!canManageNotifications) {
-      toast.error('Hanya Admin, General Manager, atau Manager Teknik yang dapat mengedit notifikasi terjadwal.');
+      toast.error('Hanya Admin, General Manager, Manager Teknik, CNS, atau Support yang dapat mengedit notifikasi terjadwal.');
       return;
     }
 
@@ -2389,7 +2391,7 @@ const NotificationsPage: React.FC = () => {
 
   const handleOpenCompose = () => {
     if (!canManageNotifications) {
-      toast.error('Hanya Admin, General Manager, atau Manager Teknik yang dapat membuat notifikasi.');
+      toast.error('Hanya Admin, General Manager, Manager Teknik, CNS, atau Support yang dapat membuat notifikasi.');
       return;
     }
 

@@ -684,8 +684,8 @@ const RostersPage: React.FC = () => {
     updateRosterInList
   } = useDataCache();
 
-  // Only Manager Teknik and General Manager can create/edit/delete rosters
-  const canManageRoster = ['Manager Teknik', 'General Manager'].includes(user?.role || '');
+  // Only Manager Teknik can create/edit/delete rosters
+  const canManageRoster = user?.role === 'Manager Teknik';
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
