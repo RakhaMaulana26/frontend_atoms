@@ -1026,7 +1026,7 @@ const RostersPage: React.FC = () => {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 items-start">
             {filteredRosters.map((roster) => {
               const label = `${new Date(0, roster.month - 1).toLocaleString('default', { month: 'long' })} ${roster.year}`;
               const badge = badgeByStatus[roster.status] || badgeByStatus.default;
@@ -1035,7 +1035,7 @@ const RostersPage: React.FC = () => {
               return (
                 <div
                   key={roster.id}
-                  className="border border-gray-200 rounded-lg p-3 sm:p-4 hover:shadow-md transition-shadow"
+                  className="self-start h-fit border border-gray-200 rounded-lg p-3 sm:p-4 hover:shadow-md transition-shadow"
                 >
                   <div className="flex items-start justify-between mb-3 gap-2">
                     <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -1068,7 +1068,7 @@ const RostersPage: React.FC = () => {
                         disabled={isSyncing}
                         className="w-full text-xs sm:text-sm border border-green-300 rounded px-2 py-1.5 sm:py-2 text-green-600 hover:bg-green-50 inline-flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
                       >
-                        <RefreshCw className={`h-3 w-3 sm:h-3.5 sm:w-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                        <RefreshCw className={`h-3 w-3 sm:h-3.5 sm:w-3.5 flex-shrink-0 ${isSyncing ? 'animate-spin' : ''}`} />
                         <span className="truncate">{isSyncing ? 'Syncing...' : 'Sync from Spreadsheet'}</span>
                       </button>
                     </div>
@@ -1084,7 +1084,7 @@ const RostersPage: React.FC = () => {
                         disabled={pushingRosterId === roster.id}
                         className="w-full text-xs sm:text-sm border border-[#454D7C] rounded px-2 py-1.5 sm:py-2 text-[#454D7C] hover:bg-[#D8DAED] inline-flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
                       >
-                        <ArrowUpToLine className={`h-3 w-3 sm:h-3.5 sm:w-3.5 ${pushingRosterId === roster.id ? 'animate-pulse' : ''}`} />
+                        <ArrowUpToLine className={`h-3 w-3 sm:h-3.5 sm:w-3.5 flex-shrink-0 ${pushingRosterId === roster.id ? 'animate-pulse' : ''}`} />
                         <span className="truncate">{pushingRosterId === roster.id ? 'Pushing...' : 'Push to Spreadsheet'}</span>
                       </button>
                     </div>
@@ -1102,7 +1102,7 @@ const RostersPage: React.FC = () => {
                   
                   {/* Publish button - show for draft rosters */}
                   {canManageRoster && roster.status === 'draft' && (
-                    <div className="mb-0">
+                    <div className="mb-2">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -1111,7 +1111,7 @@ const RostersPage: React.FC = () => {
                         disabled={publishingRosterId === roster.id}
                         className="w-full text-xs sm:text-sm border border-green-400 rounded px-2 py-1.5 sm:py-2 text-green-700 bg-green-50 hover:bg-green-100 inline-flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
                       >
-                        <CheckCircle className={`h-3 w-3 sm:h-3.5 sm:w-3.5 ${publishingRosterId === roster.id ? 'animate-pulse' : ''}`} />
+                        <CheckCircle className={`h-3 w-3 sm:h-3.5 sm:w-3.5 flex-shrink-0 ${publishingRosterId === roster.id ? 'animate-pulse' : ''}`} />
                         <span className="truncate">{publishingRosterId === roster.id ? 'Publishing...' : 'Publish Roster'}</span>
                       </button>
                     </div>
@@ -1119,20 +1119,21 @@ const RostersPage: React.FC = () => {
                   
                   {/* Edit and Delete (+ View on mobile) buttons - for draft rosters only */}
                   {canManageRoster && roster.status === 'draft' && (
-                    <div className="-mt-1 sm:-mt-2 space-y-1 sm:space-y-0">
+                    <div className="space-y-2">
                       {/* View Details on mobile only */}
                       <Button
                         onClick={() => navigate(`/rosters/${roster.id}`)}
                         variant="outline"
                         size="sm"
+                        fullWidth
                         leftIcon={<Eye className="h-3 w-3 sm:h-4 sm:w-4" />}
-                        className="sm:hidden w-full text-xs !border-gray-300 !text-gray-800 hover:!bg-gray-50"
+                        className="sm:hidden w-full !rounded text-xs !border-gray-300 !text-gray-800 hover:!bg-gray-50"
                         effect3d={false}
                       >
                         View
                       </Button>
 
-                      <div className="grid grid-cols-2 gap-1">
+                      <div className="grid grid-cols-2 gap-2">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -1141,9 +1142,9 @@ const RostersPage: React.FC = () => {
                           type="button"
                           className="w-full min-w-0 h-10 sm:h-11 text-xs sm:text-sm border border-[#24367A] rounded-lg px-2 text-[#24367A] hover:bg-[#EEF2FF] inline-flex items-center justify-center gap-1.5 font-medium leading-none transition-colors"
                         >
-                          <Edit2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                          <Edit2 className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
                           <span className="hidden sm:inline">Edit Period</span>
-                          <span className="sm:hidden">Edit</span>
+                          <span className="sm:hidden truncate">Edit</span>
                         </button>
                         <button
                           onClick={(e) => {
@@ -1153,23 +1154,24 @@ const RostersPage: React.FC = () => {
                           type="button"
                           className="w-full min-w-0 h-10 sm:h-11 text-xs sm:text-sm border border-red-300 rounded-lg px-2 text-red-600 hover:bg-red-50 inline-flex items-center justify-center gap-1.5 font-medium leading-none transition-colors"
                         >
-                          <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
-                          Delete
+                          <Trash2 className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                          <span className="truncate">Delete</span>
                         </button>
                       </div>
                     </div>
                   )}
-                  
+
                   {/* Unpublish button (+ View on mobile) - for published rosters only */}
                   {canManageRoster && roster.status === 'published' && (
-                    <div className="space-y-1">
+                    <div className="space-y-2 sm:space-y-0">
                       {/* View Details on mobile only */}
                       <Button
                         onClick={() => navigate(`/rosters/${roster.id}`)}
                         variant="outline"
                         size="sm"
+                        fullWidth
                         leftIcon={<Eye className="h-3 w-3 sm:h-4 sm:w-4" />}
-                        className="sm:hidden w-full text-xs !border-gray-300 !text-gray-800 hover:!bg-gray-50"
+                        className="sm:hidden w-full !rounded text-xs !border-gray-300 !text-gray-800 hover:!bg-gray-50"
                         effect3d={false}
                       >
                         View
@@ -1183,8 +1185,8 @@ const RostersPage: React.FC = () => {
                         className="w-full text-xs sm:text-sm border border-red-400 rounded px-2 py-1.5 sm:py-2 text-red-600 hover:bg-red-50 inline-flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
                         disabled={unpublishingRosterId === roster.id}
                       >
-                        <XCircle className={`h-3 w-3 sm:h-4 sm:w-4 ${unpublishingRosterId === roster.id ? 'animate-pulse' : ''}`} />
-                        {unpublishingRosterId === roster.id ? 'Unpublishing...' : 'Unpublish'}
+                        <XCircle className={`h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0 ${unpublishingRosterId === roster.id ? 'animate-pulse' : ''}`} />
+                        <span className="truncate">{unpublishingRosterId === roster.id ? 'Unpublishing...' : 'Unpublish'}</span>
                       </button>
                     </div>
                   )}
