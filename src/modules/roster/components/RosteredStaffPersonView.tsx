@@ -56,6 +56,9 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
   const [autoFillPattern, setAutoFillPattern] = useState(false);
   const [applyToGroup, setApplyToGroup] = useState(false);
   const [showFullMonth, setShowFullMonth] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(
+    () => (typeof window !== 'undefined' ? window.innerWidth < 640 : false)
+  );
   const [optimisticAssignments, setOptimisticAssignments] = useState<Record<string, ShiftAssignment>>({});
   const [addingManagerToGroup, setAddingManagerToGroup] = useState<{ type: string; groupNum: number } | null>(null);
   const [addGroupSearch, setAddGroupSearch] = useState('');
@@ -83,6 +86,15 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
       setPendingRemovalReassign(null);
     }
   }, [canEditRoster]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobileViewport(window.innerWidth < 640);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Update toolbar position when selection changes
   useEffect(() => {
@@ -1317,11 +1329,22 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
   const displayedDays = showFullMonth
     ? Array.from({ length: daysInMonth }, (_, index) => index + 1)
     : (weeks[currentWeek] || []);
-  const stickyNameWidth = showFullMonth ? 150 : 260;
-  const stickyGradeWidth = showFullMonth ? 64 : 110;
-  const stickyRoleWidth = showFullMonth ? 110 : 170;
+  const stickyNameWidth = isMobileViewport
+    ? 120
+    : (showFullMonth ? 150 : 260);
+  const stickyGradeWidth = isMobileViewport
+    ? 52
+    : (showFullMonth ? 64 : 110);
+  const stickyRoleWidth = isMobileViewport
+    ? 82
+    : (showFullMonth ? 110 : 170);
+  const shouldStickyMetaColumns = !isMobileViewport;
+  const stickySectionWidth = stickyNameWidth + stickyGradeWidth + stickyRoleWidth;
   const stickyGradeLeft = stickyNameWidth;
   const stickyRoleLeft = stickyNameWidth + stickyGradeWidth;
+  const dayColumnWidth = showFullMonth
+    ? (isMobileViewport ? 32 : 40)
+    : (isMobileViewport ? 32 : 56);
 
   // Get all unique employees from the entire roster period
   const getAllUniqueEmployees = (): Map<number, Employee> => {
@@ -2080,7 +2103,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-3xl shadow-lg border border-gray-100 mx-0 p-3 sm:p-5 lg:p-7 xl:p-8 overflow-visible isolate">
+    <div className="bg-white rounded-3xl shadow-lg border border-gray-100 -mx-2 sm:mx-0 p-4 sm:p-5 lg:p-7 xl:p-8 overflow-visible isolate">
       <RosteredStaffPrintStyles />
 
       <RosteredStaffHeader
@@ -2147,7 +2170,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
       {/* Roster Table - Person View */}
       <div 
         ref={tableContainerRef}
-        className="roster-print-area overflow-x-auto overflow-y-visible w-full rounded-2xl relative"
+        className="roster-print-area overflow-x-auto overflow-y-visible w-full rounded-2xl relative touch-pan-x"
         style={{ scrollbarGutter: 'stable' }}
       >
         <div className="print-only-main-title hidden">
@@ -2156,7 +2179,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
           <div className="print-roster-date">{printDateLabel}</div>
         </div>
 
-        <table className={`${showFullMonth ? 'w-max min-w-[1280px]' : 'w-full min-w-[980px]'} border-collapse table-layout-fixed`} style={{ tableLayout: 'auto' }}>
+        <table className={`${showFullMonth ? 'w-max min-w-[1120px] sm:min-w-[1280px]' : 'w-full min-w-[640px] sm:min-w-[980px]'} border-collapse table-layout-fixed`} style={{ tableLayout: 'auto' }}>
           <thead className="sticky top-0 z-30">
             <tr>
               <th
@@ -2172,10 +2195,10 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
                 Name
               </th>
               <th
-                className="text-center text-[11px] sm:text-xs lg:text-sm font-semibold text-white px-2 sm:px-3 py-2 sm:py-3 whitespace-nowrap sticky top-0 z-40"
+                className={`text-center text-[11px] sm:text-xs lg:text-sm font-semibold text-white px-2 sm:px-3 py-2 sm:py-3 whitespace-nowrap top-0 ${shouldStickyMetaColumns ? 'sticky z-40' : 'z-30'}`}
                 style={{
                   backgroundColor: '#222E6A',
-                  left: `${stickyGradeLeft}px`,
+                  ...(shouldStickyMetaColumns ? { left: `${stickyGradeLeft}px` } : {}),
                   width: `${stickyGradeWidth}px`,
                   minWidth: `${stickyGradeWidth}px`,
                   maxWidth: `${stickyGradeWidth}px`,
@@ -2185,10 +2208,10 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
                 Kelas
               </th>
               <th
-                className="text-center text-[11px] sm:text-xs lg:text-sm font-semibold text-white px-2 sm:px-3 py-2 sm:py-3 whitespace-nowrap sticky top-0 z-40"
+                className={`text-center text-[11px] sm:text-xs lg:text-sm font-semibold text-white px-2 sm:px-3 py-2 sm:py-3 whitespace-nowrap top-0 ${shouldStickyMetaColumns ? 'sticky z-40' : 'z-30'}`}
                 style={{
                   backgroundColor: '#222E6A',
-                  left: `${stickyRoleLeft}px`,
+                  ...(shouldStickyMetaColumns ? { left: `${stickyRoleLeft}px` } : {}),
                   width: `${stickyRoleWidth}px`,
                   minWidth: `${stickyRoleWidth}px`,
                   maxWidth: `${stickyRoleWidth}px`,
@@ -2200,19 +2223,17 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
               {displayedDays.map((day) => (
                 <th
                   key={day}
-                  className={`text-center font-semibold text-white sticky top-0 z-30 ${showFullMonth ? 'px-1 py-2 text-[10px]' : 'text-[10px] sm:text-xs lg:text-sm px-2 sm:px-3 py-2 sm:py-3'}`}
+                  className={`text-center font-semibold text-white sticky top-0 z-30 ${showFullMonth ? 'px-1 py-2 text-[10px]' : 'px-1.5 py-2 text-[9px] sm:text-xs lg:text-sm sm:px-3 sm:py-3'}`}
                   style={{ 
                     backgroundColor: '#222E6A',
-                    ...(showFullMonth ? {
-                      width: '40px',
-                      minWidth: '40px',
-                      maxWidth: '40px',
-                    } : {}),
+                    width: `${dayColumnWidth}px`,
+                    minWidth: `${dayColumnWidth}px`,
+                    maxWidth: `${dayColumnWidth}px`,
                     boxSizing: 'border-box',
                   }}
                 >
-                  <div className={`${showFullMonth ? 'text-[8px]' : 'text-[9px] sm:text-[10px]'} text-white/70`}>{getDayName(roster.year, roster.month, day)}</div>
-                  <div className="font-bold">{day}</div>
+                  <div className={`${showFullMonth ? 'text-[8px]' : 'text-[7px] sm:text-[10px]'} text-white/70 leading-none`}>{getDayName(roster.year, roster.month, day)}</div>
+                  <div className="font-bold leading-none mt-0.5">{day}</div>
                 </th>
               ))}
               <th className="w-6 sm:w-12 rounded-tr-xl sticky top-0 z-30" style={{ backgroundColor: '#222E6A' }}></th>
@@ -2278,8 +2299,14 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
                   <tr className="print-type-header">
                     <td 
                       colSpan={3}
-                      className="px-3 sm:px-4 py-3 text-sm sm:text-base font-bold text-white border-y-2 border-[#1a235c] sticky left-0 z-10"
-                      style={{ backgroundColor: '#222E6A' }}
+                      className="px-3 sm:px-4 py-3 text-sm sm:text-base font-bold text-white border-y-2 border-[#1a235c] sticky left-0 z-30"
+                      style={{
+                        backgroundColor: '#222E6A',
+                        width: `${stickySectionWidth}px`,
+                        minWidth: `${stickySectionWidth}px`,
+                        maxWidth: `${stickySectionWidth}px`,
+                        boxSizing: 'border-box',
+                      }}
                     >
                       <div>{typeGroup.type}</div>
                       <div className="print-section-date hidden">{printDateLabel}</div>
@@ -2302,8 +2329,14 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
                           <tr>
                             <td 
                               colSpan={3}
-                              className="px-3 sm:px-4 py-2 text-[11px] sm:text-sm font-bold text-gray-800 border-y border-orange-300 sticky left-0 z-10"
-                              style={{ backgroundColor: '#fed7aa' }}
+                              className="px-3 sm:px-4 py-2 text-[11px] sm:text-sm font-bold text-gray-800 border-y border-orange-300 sticky left-0 z-30"
+                              style={{
+                                backgroundColor: '#fed7aa',
+                                width: `${stickySectionWidth}px`,
+                                minWidth: `${stickySectionWidth}px`,
+                                maxWidth: `${stickySectionWidth}px`,
+                                boxSizing: 'border-box',
+                              }}
                             >
                               Grup {actualGroupNumber}
                             </td>
@@ -2324,7 +2357,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
                         return (
                           <tr key={row.employee.id} className={`hover:bg-gray-50 transition-colors ${isManagerGroupPopupOpen ? 'relative z-[140]' : ''}`}>
                             <td
-                              className={`px-3 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-xs lg:text-sm font-medium text-gray-900 sticky left-0 bg-white relative overflow-visible ${isManagerGroupPopupOpen ? 'z-[150]' : 'z-10'} ${!isLastRowInGroup || !isLastGroup ? 'border-b border-gray-200' : ''}`}
+                              className={`px-2 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-xs lg:text-sm font-medium text-gray-900 sticky left-0 bg-white overflow-visible ${isManagerGroupPopupOpen ? 'z-[150]' : 'z-10'} ${!isLastRowInGroup || !isLastGroup ? 'border-b border-gray-200' : ''}`}
                               style={{
                                 width: `${stickyNameWidth}px`,
                                 minWidth: `${stickyNameWidth}px`,
@@ -2420,9 +2453,9 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
                               </div>
                             </td>
                             <td
-                              className={`px-2 sm:px-3 py-2 sm:py-3 text-center text-[10px] sm:text-xs lg:text-sm text-gray-700 sticky bg-white z-10 ${!isLastRowInGroup || !isLastGroup ? 'border-b border-gray-200' : ''}`}
+                              className={`px-2 sm:px-3 py-2 sm:py-3 text-center text-[10px] sm:text-xs lg:text-sm text-gray-700 bg-white ${shouldStickyMetaColumns ? 'sticky z-10' : 'z-0'} ${!isLastRowInGroup || !isLastGroup ? 'border-b border-gray-200' : ''}`}
                               style={{
-                                left: `${stickyGradeLeft}px`,
+                                ...(shouldStickyMetaColumns ? { left: `${stickyGradeLeft}px` } : {}),
                                 width: `${stickyGradeWidth}px`,
                                 minWidth: `${stickyGradeWidth}px`,
                                 maxWidth: `${stickyGradeWidth}px`,
@@ -2432,9 +2465,9 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
                               {row.employee.user.grade || '-'}
                             </td>
                             <td
-                              className={`px-2 sm:px-3 py-2 sm:py-3 text-center text-[10px] sm:text-xs lg:text-sm text-gray-700 sticky bg-white z-10 ${!isLastRowInGroup || !isLastGroup ? 'border-b border-gray-200' : ''}`}
+                              className={`px-2 sm:px-3 py-2 sm:py-3 text-center text-[10px] sm:text-xs lg:text-sm text-gray-700 bg-white ${shouldStickyMetaColumns ? 'sticky z-10' : 'z-0'} ${!isLastRowInGroup || !isLastGroup ? 'border-b border-gray-200' : ''}`}
                               style={{
-                                left: `${stickyRoleLeft}px`,
+                                ...(shouldStickyMetaColumns ? { left: `${stickyRoleLeft}px` } : {}),
                                 width: `${stickyRoleWidth}px`,
                                 minWidth: `${stickyRoleWidth}px`,
                                 maxWidth: `${stickyRoleWidth}px`,

@@ -2435,52 +2435,40 @@ const NotificationsPage: React.FC = () => {
         )}
       </div>
 
-      {/* Mobile View - Horizontal Pills */}
-      <div className="md:hidden mb-0 relative space-y-2">
-        <div className="relative">
-          <div className="flex gap-3 pb-2 overflow-x-auto px-1">
-            {primaryCategoryItems.map((category) => {
-              const isActive = activeCategory === category.key;
+      {/* Mobile View - Fixed 4-Column Grid */}
+      <div className="md:hidden mb-0 space-y-2">
+        <div className="grid grid-cols-4 gap-2">
+          {primaryCategoryItems.map((category) => {
+            const isActive = activeCategory === category.key;
 
-              return (
-                <button
-                  key={category.key}
-                  onClick={() => handleCategoryChange(category.key as NotificationCategory)}
-                  title={category.label}
-                  className={`group relative flex items-center gap-3 min-w-[11rem] rounded-[1.5rem] border-2 px-4 py-3 transition-all duration-200 ${
-                    isActive
-                      ? `bg-white ${category.borderColor} shadow-md ring-2 ring-offset-2 ring-offset-white ring-indigo-500/30`
-                      : `bg-white ${category.borderColor} opacity-90 hover:opacity-100 hover:shadow-md hover:border-slate-400`
-                  }`}
-                  aria-label={category.label}
-                >
-                  <span className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-[1.1rem] ${category.iconBg} border-2 ${category.iconBorder}`}>
-                    <category.icon className="h-5 w-5 text-white" />
-                  </span>
-                  <div className="min-w-0 flex-1 overflow-hidden text-left">
-                    <p className={`text-xs sm:text-sm font-semibold ${category.textColor} whitespace-nowrap truncate`}>{category.label}</p>
-                  </div>
-                  <p className={`flex-shrink-0 text-2xl font-bold ${category.countColor}`}>{category.count}</p>
-                  <div className="pointer-events-none absolute left-1/2 bottom-full mb-2 hidden -translate-x-1/2 rounded-md bg-black/90 px-2 py-1 text-xs text-white opacity-0 transition-opacity duration-200 group-hover:block group-hover:opacity-100 z-50 max-w-[calc(100vw-2rem)] text-center break-words">
-                    {category.label}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Scroll indicator */}
-          <div className="absolute right-0 top-0 h-14 w-12 bg-gradient-to-l from-gray-50 to-transparent pointer-events-none flex items-center justify-end pr-2">
-            <svg className="h-5 w-5 text-gray-400 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </div>
+            return (
+              <button
+                key={category.key}
+                onClick={() => handleCategoryChange(category.key as NotificationCategory)}
+                title={category.label}
+                className={`group relative min-h-[88px] rounded-2xl border p-2 transition-all duration-200 ease-in-out shadow-sm flex flex-col items-center justify-between ${
+                  isActive
+                    ? `border-indigo-600 ring-2 ring-indigo-500/30 bg-white`
+                    : `${category.borderColor} bg-white hover:shadow-md`
+                }`}
+                aria-label={category.label}
+              >
+                <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${category.iconBg} border ${category.iconBorder}`}>
+                  <category.icon className="h-4 w-4 text-white" />
+                </span>
+                <p className={`w-full text-center text-[11px] font-semibold leading-tight ${category.textColor} truncate`}>
+                  {category.label}
+                </p>
+                <p className={`text-lg leading-none font-bold ${category.countColor}`}>{category.count}</p>
+              </button>
+            );
+          })}
         </div>
 
         {secondaryCategoryItems.length > 0 && (
-          <div className="flex flex-col gap-2 px-1">
-            <div className={`overflow-hidden transition-all duration-500 ease-in-out ${showExtraCategories ? 'max-h-[220px] opacity-100 pointer-events-auto' : 'max-h-0 opacity-0 pointer-events-none'}`}>
-              <div className={`flex gap-3 pb-2 overflow-x-auto transition-transform duration-500 ease-in-out ${showExtraCategories ? 'translate-y-0' : '-translate-y-3'}`}>
+          <div className="flex flex-col gap-2">
+            <div className={`overflow-hidden transition-all duration-500 ease-in-out ${showExtraCategories ? 'max-h-[420px] opacity-100 pointer-events-auto' : 'max-h-0 opacity-0 pointer-events-none'}`}>
+              <div className={`grid grid-cols-4 gap-2 transition-transform duration-500 ease-in-out ${showExtraCategories ? 'translate-y-0' : '-translate-y-3'}`}>
                 {secondaryCategoryItems.map((category) => {
                   const isActive = activeCategory === category.key;
 
@@ -2489,20 +2477,20 @@ const NotificationsPage: React.FC = () => {
                       key={category.key}
                       onClick={() => handleCategoryChange(category.key as NotificationCategory)}
                       title={category.label}
-                      className={`group relative flex items-center gap-3 min-w-[11rem] rounded-[1.5rem] border-2 px-4 py-3 transition-all duration-200 ${
+                      className={`group relative min-h-[88px] rounded-2xl border p-2 transition-all duration-200 ease-in-out shadow-sm flex flex-col items-center justify-between ${
                         isActive
-                          ? `bg-white ${category.borderColor} shadow-md ring-2 ring-offset-2 ring-offset-white ring-indigo-500/30`
-                          : `bg-white ${category.borderColor} opacity-90 hover:opacity-100 hover:shadow-md hover:border-slate-400`
+                          ? `border-indigo-600 ring-2 ring-indigo-500/30 bg-white`
+                          : `${category.borderColor} bg-white hover:shadow-md`
                       }`}
                       aria-label={category.label}
                     >
-                      <span className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-[1.1rem] ${category.iconBg} border-2 ${category.iconBorder}`}>
-                        <category.icon className="h-5 w-5 text-white" />
+                      <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${category.iconBg} border ${category.iconBorder}`}>
+                        <category.icon className="h-4 w-4 text-white" />
                       </span>
-                      <div className="min-w-0 flex-1 overflow-hidden text-left">
-                        <p className={`text-xs sm:text-sm font-semibold ${category.textColor} whitespace-nowrap truncate`}>{category.label}</p>
-                      </div>
-                      <p className={`flex-shrink-0 text-2xl font-bold ${category.countColor}`}>{category.count}</p>
+                      <p className={`w-full text-center text-[11px] font-semibold leading-tight ${category.textColor} truncate`}>
+                        {category.label}
+                      </p>
+                      <p className={`text-lg leading-none font-bold ${category.countColor}`}>{category.count}</p>
                     </button>
                   );
                 })}
@@ -2523,7 +2511,7 @@ const NotificationsPage: React.FC = () => {
 
       {/* Action Bar */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex items-center gap-3">
             {(() => {
               const allItems = visibleCategoryItems;
@@ -2540,12 +2528,12 @@ const NotificationsPage: React.FC = () => {
               {visibleCategoryItems.find(c => c.key === activeCategory)?.label}
             </h2>
           </div>
-          <div className="flex items-center gap-2">
+          <div className={`grid ${canCreateRosterTask ? 'grid-cols-3' : 'grid-cols-2'} sm:flex items-stretch sm:items-center gap-2 w-full sm:w-auto`}>
             <Button
               variant="outline"
               onClick={handleRefresh}
               disabled={isLoading || isRefreshing}
-              className="text-xs px-2 py-1.5 sm:text-base sm:px-4 sm:py-2"
+              className="w-full h-9 sm:h-auto sm:w-auto justify-center text-xs px-2 py-1.5 sm:text-base sm:px-4 sm:py-2"
             >
               <RefreshCw className={`h-3 w-3 sm:h-4 sm:w-4 ${(isLoading || isRefreshing) ? 'animate-spin' : ''}`} />
               <span className="ml-1 sm:ml-2">Refresh</span>
@@ -2553,7 +2541,7 @@ const NotificationsPage: React.FC = () => {
             <Button
               variant="primary"
               onClick={handleOpenCompose}
-              className="bg-[#222E6A] hover:bg-[#1a2452] text-xs px-2 py-1.5 sm:text-base sm:px-4 sm:py-2"
+              className="w-full h-9 sm:h-auto sm:w-auto justify-center bg-[#222E6A] hover:bg-[#1a2452] text-xs px-2 py-1.5 sm:text-base sm:px-4 sm:py-2"
             >
               <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
               <span className="ml-1 sm:ml-2">Compose</span>
@@ -2562,10 +2550,11 @@ const NotificationsPage: React.FC = () => {
               <Button
                 variant="primary"
                 onClick={handleOpenRosterTaskModal}
-                className="bg-[#222E6A] hover:bg-[#1a2452] text-xs px-2 py-1.5 sm:text-base sm:px-4 sm:py-2"
+                className="w-full h-9 sm:h-auto sm:w-auto justify-center bg-[#222E6A] hover:bg-[#1a2452] text-xs px-2 py-1.5 sm:text-base sm:px-4 sm:py-2"
               >
                 <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="ml-1 sm:ml-2">Add Roster Task</span>
+                <span className="ml-1 sm:ml-2 hidden sm:inline">Add Roster Task</span>
+                <span className="ml-1 sm:hidden">Add Task</span>
               </Button>
             )}
           </div>

@@ -391,77 +391,62 @@ const RosterDetailPage: React.FC = () => {
         <div className={`${activeTab === 'staff' ? 'max-w-none px-2 sm:px-2 lg:px-2' : 'max-w-7xl px-4 sm:px-6 lg:px-8'} mx-auto`}>
           {/* Tab Navigation */}
           <div className="flex items-center justify-center mb-6 sm:mb-8 -mx-4 sm:mx-0">
-            <div className="relative flex items-center gap-1.5 sm:gap-3 p-1.5 sm:p-2 bg-white rounded-2xl shadow-lg border border-gray-200 w-full sm:max-w-5xl">
-              {/* Animated Sliding Indicator - Mobile */}
+            <div className="relative flex items-center p-1 bg-white rounded-2xl shadow-lg border border-gray-200 w-full sm:max-w-5xl overflow-hidden">
               <div
-                className="absolute h-[calc(100%-12px)] bg-gradient-to-br from-[#222E6A] via-[#2a3a7f] to-[#1a235c] rounded-xl transition-all duration-300 ease-out shadow-md sm:hidden"
+                className="absolute top-1 bottom-1 left-1 bg-[#222E6A] rounded-xl shadow-sm transition-transform duration-300 ease-out"
                 style={{
-                  width: 'calc(25% - 4px)',
-                  left: activeTab === 'calendar'
-                    ? '6px'
-                    : activeTab === 'staff'
-                    ? 'calc(25% + 2px)'
-                    : activeTab === 'swap'
-                    ? 'calc(50% - 2px)'
-                    : 'calc(75% - 6px)',
-                }}
-              />
-              
-              {/* Animated Sliding Indicator - Desktop */}
-              <div
-                className="absolute h-[calc(100%-16px)] bg-gradient-to-br from-[#222E6A] via-[#2a3a7f] to-[#1a235c] rounded-xl transition-all duration-300 ease-out shadow-md hidden sm:block"
-                style={{
-                  width: 'calc(25% - 8px)',
-                  left: activeTab === 'calendar'
-                    ? '8px'
-                    : activeTab === 'staff'
-                    ? 'calc(25% + 4px)'
-                    : activeTab === 'swap'
-                    ? 'calc(50% + 0px)'
-                    : 'calc(75% - 4px)',
+                  width: 'calc((100% - 0.5rem) / 4)',
+                  transform:
+                    activeTab === 'calendar'
+                      ? 'translateX(0%)'
+                      : activeTab === 'staff'
+                      ? 'translateX(100%)'
+                      : activeTab === 'swap'
+                      ? 'translateX(200%)'
+                      : 'translateX(300%)',
                 }}
               />
 
               {/* Tab Buttons */}
               <button
                 onClick={() => setActiveTab('calendar')}
-                className={`relative z-10 flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-8 py-2.5 sm:py-3 rounded-xl text-sm sm:text-base font-semibold transition-colors duration-300 whitespace-nowrap flex-1 ${
-                  activeTab === 'calendar' ? 'text-white' : 'text-gray-700 hover:text-gray-900'
+                className={`relative z-10 flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 whitespace-nowrap flex-1 ${
+                  activeTab === 'calendar' ? 'text-white' : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
-                <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />
+                <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 <span>Personal</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('staff')}
-                className={`relative z-10 flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-8 py-2.5 sm:py-3 rounded-xl text-sm sm:text-base font-semibold transition-colors duration-300 whitespace-nowrap flex-1 ${
-                  activeTab === 'staff' ? 'text-white' : 'text-gray-700 hover:text-gray-900'
+                className={`relative z-10 flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 whitespace-nowrap flex-1 ${
+                  activeTab === 'staff' ? 'text-white' : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
-                <Users className="h-4 w-4 sm:h-5 sm:w-5" />
+                <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 <span className="hidden sm:inline">Jadwal Bersama</span>
                 <span className="sm:hidden">Bersama</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('swap')}
-                className={`relative z-10 flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-8 py-2.5 sm:py-3 rounded-xl text-sm sm:text-base font-semibold transition-colors duration-300 whitespace-nowrap flex-1 ${
-                  activeTab === 'swap' ? 'text-white' : 'text-gray-700 hover:text-gray-900'
+                className={`relative z-10 flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 whitespace-nowrap flex-1 ${
+                  activeTab === 'swap' ? 'text-white' : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
-                <ArrowRightLeft className="h-4 w-4 sm:h-5 sm:w-5" />
+                <ArrowRightLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 <span className="hidden sm:inline">Tukar Jadwal</span>
                 <span className="sm:hidden">Tukar</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('leave')}
-                className={`relative z-10 flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-8 py-2.5 sm:py-3 rounded-xl text-sm sm:text-base font-semibold transition-colors duration-300 whitespace-nowrap flex-1 ${
-                  activeTab === 'leave' ? 'text-white' : 'text-gray-700 hover:text-gray-900'
+                className={`relative z-10 flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 whitespace-nowrap flex-1 ${
+                  activeTab === 'leave' ? 'text-white' : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
-                <FileText className="h-4 w-4 sm:h-5 sm:w-5" />
+                <FileText className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 <span>Cuti</span>
               </button>
             </div>
