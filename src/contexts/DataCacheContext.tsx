@@ -472,7 +472,10 @@ export const DataCacheProvider: React.FC<{ children: ReactNode }> = ({ children 
         }));
       } else {
         // Load all categories in single request
-        const response = await notificationService.getAllNotifications();
+        const response = await notificationService.getAllNotifications({
+          page: 1,
+          per_page: 30,
+        });
         
         setNotificationsByCategory({
           inbox: response.data?.inbox || [],

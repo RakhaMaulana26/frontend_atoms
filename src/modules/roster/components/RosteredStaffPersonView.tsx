@@ -2230,7 +2230,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
                 <React.Fragment key={`type-${typeGroup.type}`}>
                   {typeGroup.type === 'CNS' && (
                     <>
-                      <tr className="print-only-cns-title hidden print-break-before">
+                      <tr className="print-only-cns-title hidden">
                         <td colSpan={displayedDays.length + 4}>
                           <div className="print-roster-title">JADWAL DINAS TEKNIK TELEKOMUNIKASI</div>
                           <div className="print-roster-subtitle">BULAN : {`${getMonthName(roster.month)} ${roster.year}`}</div>
@@ -2253,7 +2253,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
                   )}
                   {typeGroup.type === 'Support' && (
                     <>
-                      <tr className="print-only-support-title hidden print-break-before">
+                      <tr className="print-only-support-title hidden">
                         <td colSpan={displayedDays.length + 4}>
                           <div className="print-roster-title">JADWAL DINAS TEKNIK FASILITAS PENUNJANG</div>
                           <div className="print-roster-subtitle">BULAN : {`${getMonthName(roster.month)} ${roster.year}`}</div>

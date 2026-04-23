@@ -339,7 +339,7 @@ const NotificationsPage: React.FC = () => {
     void dispatchDueScheduledNotifications();
   }, [refreshNotificationsByCategory, scheduledNotifications]);
 
-  // Sync shift request status for actionable notifications
+  // Build shift request status map from notification payload to avoid per-item API calls.
   useEffect(() => {
     const currentList = activeCategory === 'all'
       ? (() => {
@@ -352,46 +352,16 @@ const NotificationsPage: React.FC = () => {
         })()
       : (notificationsByCategory[activeCategory] || []);
 
-    const shiftRequestIds = Array.from(
-      new Set(
-        currentList
-          .filter((n: Notification) => n.category === 'shift_request' && !!n.reference_id)
-          .map((n: Notification) => n.reference_id as number)
-      )
-    );
+    const statusMap: Record<number, string> = {};
 
-    if (shiftRequestIds.length === 0) {
-      setShiftRequestStatusById({});
-      return;
-    }
-
-    let mounted = true;
-    const fetchStatuses = async () => {
-      const results = await Promise.all(
-        shiftRequestIds.map(async (id: number) => {
-          try {
-            const response = await shiftRequestService.getShiftRequest(id);
-            return [id, response.data?.status || 'unknown'] as const;
-          } catch {
-            return [id, 'unknown'] as const;
-          }
-        })
-      );
-
-      if (!mounted) return;
-
-      const statusMap: Record<number, string> = {};
-      results.forEach(([id, status]) => {
-        statusMap[id] = status;
+    currentList
+      .filter((n: Notification) => n.category === 'shift_request' && !!n.reference_id)
+      .forEach((n: Notification) => {
+        const data = parseNotificationData(n) || {};
+        statusMap[n.reference_id as number] = typeof data.status === 'string' ? data.status : 'unknown';
       });
-      setShiftRequestStatusById(statusMap);
-    };
 
-    fetchStatuses();
-
-    return () => {
-      mounted = false;
-    };
+    setShiftRequestStatusById(statusMap);
   }, [activeCategory, notificationsByCategory]);
 
   const formatNotificationDate = (value?: string): string => {
@@ -717,138 +687,6 @@ const NotificationsPage: React.FC = () => {
 
     return { items };
   };
-
-  const buildLeaveApprovalInfo = (leaveRequest: LeaveRequest) => {
-    const approvals = Array.isArray(leaveRequest.approval_dates) ? leaveRequest.approval_dates : [];
-    if (approvals.length === 0) {
-      return {
-        items: [],
-        summary: 'Persetujuan manager sedang diproses.',
-      };
-    }
-
-    const grouped = new Map<string, { name: string; status: 'pending' | 'approved' | 'rejected' | 'needs_assignment'; label: string }>();
-
-    approvals.forEach((approval) => {
-      const managerName = approval.manager?.name || 'Manager belum ditentukan';
-      const key = approval.manager?.id ? String(approval.manager.id) : managerName;
-      const status: 'pending' | 'approved' | 'rejected' | 'needs_assignment' = approval.needs_assignment
-        ? 'needs_assignment'
-        : approval.status || 'pending';
-
-      if (!grouped.has(key)) {
-        grouped.set(key, {
-          name: managerName,
-          status,
-          label: getLeaveApprovalStatusLabel(status),
-        });
-        return;
-      }
-
-      const current = grouped.get(key);
-      if (!current) return;
-
-      if (current.status === 'rejected' || status === 'rejected') {
-        current.status = 'rejected';
-      } else if (current.status === 'pending' || status === 'pending') {
-        current.status = 'pending';
-      } else if (current.status === 'needs_assignment' || status === 'needs_assignment') {
-        current.status = 'needs_assignment';
-      } else {
-        current.status = 'approved';
-      }
-
-      current.label = getLeaveApprovalStatusLabel(current.status);
-      grouped.set(key, current);
-    });
-
-    return {
-      items: Array.from(grouped.values()),
-    };
-  };
-
-  const buildShiftApprovalInfo = (shiftRequest: ShiftRequestItem, managers: any) => {
-    const targetName = shiftRequest.target_employee?.user?.name || 'Target';
-    const requesterRole = String((shiftRequest as any)?.requester_employee?.user?.role || '').toLowerCase();
-    const targetRole = String((shiftRequest as any)?.target_employee?.user?.role || '').toLowerCase();
-    const isManagerRole = (role: string) => role === 'manager teknik' || role === 'general manager';
-    const isRejected = shiftRequest.status === 'rejected';
-    const isCancelled = shiftRequest.status === 'cancelled';
-    const targetStatus: 'pending' | 'approved' | 'rejected' = isRejected || isCancelled
-      ? 'rejected'
-      : shiftRequest.approved_by_target
-      ? 'approved'
-      : 'pending';
-    const items: Array<{ label: string; name: string; status: 'pending' | 'approved' | 'rejected' | 'needs_assignment' }> = [
-      {
-        label: 'Target',
-        name: targetName,
-        status: targetStatus,
-      },
-    ];
-
-    const fromManagerName = managers?.from_manager?.name || 'Manager asal belum ditentukan';
-    const toManagerName = managers?.to_manager?.name || 'Manager tujuan belum ditentukan';
-    const isSameManager = Boolean(managers?.is_same_manager);
-    const isManagerToManager = Boolean(shiftRequest.is_manager_to_manager) || (isManagerRole(requesterRole) && isManagerRole(targetRole));
-
-    const fromManagerStatus: 'pending' | 'approved' | 'rejected' = isRejected || isCancelled
-      ? 'rejected'
-      : shiftRequest.approved_by_from_manager
-      ? 'approved'
-      : 'pending';
-    const toManagerStatus: 'pending' | 'approved' | 'rejected' = isRejected || isCancelled
-      ? 'rejected'
-      : shiftRequest.approved_by_to_manager
-      ? 'approved'
-      : 'pending';
-
-    if (isManagerToManager) {
-      const generalManagerUser = users?.find((item: User) => String(item.role || '').toLowerCase() === 'general manager');
-      const generalManagerName = generalManagerUser?.name
-        || managers?.from_manager?.name
-        || managers?.to_manager?.name
-        || 'General Manager belum ditentukan';
-      items.push({
-        label: 'General Manager',
-        name: generalManagerName,
-        status: isRejected || isCancelled
-          ? 'rejected'
-          : shiftRequest.approved_by_from_manager || shiftRequest.approved_by_to_manager
-          ? 'approved'
-          : 'pending',
-      });
-      return { items };
-    }
-
-    if (isSameManager) {
-      items.push({
-        label: 'Manager',
-        name: fromManagerName,
-        status: isRejected || isCancelled
-          ? 'rejected'
-          : shiftRequest.approved_by_from_manager || shiftRequest.approved_by_to_manager
-          ? 'approved'
-          : 'pending',
-      });
-    } else {
-      items.push({
-        label: 'Manager Asal',
-        name: fromManagerName,
-        status: fromManagerStatus,
-      });
-      items.push({
-        label: 'Manager Tujuan',
-        name: toManagerName,
-        status: toManagerStatus,
-      });
-    }
-
-    return { items };
-  };
-
-  
-
 
   // Helper function: Filter roster tasks by shift and current user
   // normalize shift keys for matching and API mapping
@@ -1338,110 +1176,51 @@ const NotificationsPage: React.FC = () => {
     const visibleNotifications = notifications.filter((item) => item.category === 'leave_request' || item.category === 'shift_request');
     if (visibleNotifications.length === 0) return;
 
-    let isActive = true;
+    const nextLeaveInfo: Record<number, { items: Array<{ name: string; status: 'pending' | 'approved' | 'rejected' | 'needs_assignment'; label: string }>; summary?: string }> = {};
+    const nextShiftInfo: Record<number, { items: Array<{ label: string; name: string; status: 'pending' | 'approved' | 'rejected' | 'needs_assignment' }>; summary?: string }> = {};
 
-    const loadApprovalInfo = async () => {
-      const leaveIds = new Set<number>();
-      const shiftIds = new Set<number>();
-      let seededLeaveInfo: Record<number, { items: Array<{ name: string; status: 'pending' | 'approved' | 'rejected' | 'needs_assignment'; label: string }>; summary?: string }> = {};
-      let seededShiftInfo: Record<number, { items: Array<{ label: string; name: string; status: 'pending' | 'approved' | 'rejected' | 'needs_assignment' }>; summary?: string }> = {};
+    visibleNotifications.forEach((notification) => {
+      if (notification.category === 'leave_request') {
+        const leaveId = getLeaveRequestIdFromNotification(notification);
+        if (!leaveId || leaveId <= 0 || leaveApprovalInfoById[leaveId]) return;
 
-      visibleNotifications.forEach((notification) => {
-        if (notification.category === 'leave_request') {
-          const leaveId = getLeaveRequestIdFromNotification(notification);
-          if (leaveId && leaveId > 0 && !leaveApprovalInfoById[leaveId]) {
-            const seeded = buildLeaveApprovalInfoFromNotification(notification);
-            if (seeded) {
-              seededLeaveInfo = { ...seededLeaveInfo, [leaveId]: seeded };
-              return;
-            }
-          }
-          if (leaveId && leaveId > 0 && !leaveApprovalInfoById[leaveId]) {
-            leaveIds.add(leaveId);
-          }
+        const seeded = buildLeaveApprovalInfoFromNotification(notification);
+        if (seeded) {
+          nextLeaveInfo[leaveId] = seeded;
+        } else {
+          nextLeaveInfo[leaveId] = {
+            items: [],
+            summary: 'Persetujuan manager sedang diproses.',
+          };
         }
-
-        if (notification.category === 'shift_request') {
-          const shiftId = notification.reference_id;
-          if (shiftId && shiftId > 0 && !shiftApprovalInfoById[shiftId]) {
-            const seeded = buildShiftApprovalInfoFromNotification(notification);
-            if (seeded) {
-              seededShiftInfo = { ...seededShiftInfo, [shiftId]: seeded };
-              return;
-            }
-          }
-          if (shiftId && shiftId > 0 && !shiftApprovalInfoById[shiftId]) {
-            shiftIds.add(shiftId);
-          }
-        }
-      });
-
-      if (Object.keys(seededLeaveInfo).length > 0) {
-        setLeaveApprovalInfoById((prev) => ({ ...prev, ...seededLeaveInfo }));
       }
 
-      if (Object.keys(seededShiftInfo).length > 0) {
-        setShiftApprovalInfoById((prev) => ({ ...prev, ...seededShiftInfo }));
-      }
+      if (notification.category === 'shift_request') {
+        const shiftId = notification.reference_id;
+        if (!shiftId || shiftId <= 0 || shiftApprovalInfoById[shiftId]) return;
 
-      if (Object.keys(seededLeaveInfo).length > 0) {
-        Object.keys(seededLeaveInfo).forEach((id) => leaveIds.delete(Number(id)));
-      }
-
-      if (Object.keys(seededShiftInfo).length > 0) {
-        Object.keys(seededShiftInfo).forEach((id) => shiftIds.delete(Number(id)));
-      }
-
-      if (leaveIds.size === 0 && shiftIds.size === 0) return;
-
-      const leavePromises = Array.from(leaveIds).map(async (leaveId) => {
-        try {
-          const response = await leaveRequestService.getLeaveRequestById(leaveId);
-          return { leaveId, data: response.data } as const;
-        } catch {
-          return null;
+        const seeded = buildShiftApprovalInfoFromNotification(notification);
+        if (seeded) {
+          nextShiftInfo[shiftId] = seeded;
+        } else {
+          nextShiftInfo[shiftId] = {
+            items: [{
+              label: 'Status',
+              name: 'Menunggu pembaruan',
+              status: 'pending',
+            }],
+          };
         }
-      });
-
-      const shiftPromises = Array.from(shiftIds).map(async (shiftId) => {
-        try {
-          const response = await shiftRequestService.getShiftRequest(shiftId);
-          return { shiftId, data: response.data, managers: response.managers } as const;
-        } catch {
-          return null;
-        }
-      });
-
-      const results = await Promise.all([...leavePromises, ...shiftPromises]);
-      if (!isActive) return;
-
-      const nextLeaveInfo: Record<number, { items: Array<{ name: string; status: 'pending' | 'approved' | 'rejected' | 'needs_assignment'; label: string }>; summary?: string }> = {};
-      const nextShiftInfo: Record<number, { items: Array<{ label: string; name: string; status: 'pending' | 'approved' | 'rejected' | 'needs_assignment' }>; summary?: string }> = {};
-
-      results.forEach((result) => {
-        if (!result) return;
-        if ('leaveId' in result) {
-          nextLeaveInfo[result.leaveId] = buildLeaveApprovalInfo(result.data as LeaveRequest);
-        }
-        if ('shiftId' in result) {
-          nextShiftInfo[result.shiftId] = buildShiftApprovalInfo(result.data as ShiftRequestItem, (result as any).managers);
-        }
-      });
-
-      if (Object.keys(nextLeaveInfo).length > 0) {
-        setLeaveApprovalInfoById((prev) => ({ ...prev, ...nextLeaveInfo }));
       }
+    });
 
-      if (Object.keys(nextShiftInfo).length > 0) {
-        setShiftApprovalInfoById((prev) => ({ ...prev, ...nextShiftInfo }));
-      }
-    };
+    if (Object.keys(nextLeaveInfo).length > 0) {
+      setLeaveApprovalInfoById((prev) => ({ ...prev, ...nextLeaveInfo }));
+    }
 
-    void loadApprovalInfo();
-
-    return () => {
-      isActive = false;
-    };
+    if (Object.keys(nextShiftInfo).length > 0) {
+      setShiftApprovalInfoById((prev) => ({ ...prev, ...nextShiftInfo }));
+    }
   }, [notifications, leaveApprovalInfoById, shiftApprovalInfoById, users]);
 
   const normalizeShiftKeyForApi = (shiftKey: string): 'pagi' | 'siang' | 'malam' => {
@@ -1828,7 +1607,26 @@ const NotificationsPage: React.FC = () => {
     }
   };
 
-  const handleLeaveApprovalSuccess = async () => {
+  const handleLeaveApprovalSuccess = async (updatedLeaveRequest: LeaveRequest) => {
+    if (selectedNotification) {
+      setActionedNotificationIds((prev) => new Set(prev).add(selectedNotification.id));
+
+      const leaveId = getLeaveRequestIdFromNotification(selectedNotification);
+      if (leaveId && leaveId > 0) {
+        setLeaveApprovalInfoById((prev) => ({
+          ...prev,
+          [leaveId]: {
+            items: prev[leaveId]?.items || [],
+            summary: updatedLeaveRequest.status === 'approved'
+              ? 'Permohonan cuti sudah diproses.'
+              : updatedLeaveRequest.status === 'rejected'
+              ? 'Permohonan cuti telah ditolak.'
+              : 'Persetujuan manager sedang diproses.',
+          },
+        }));
+      }
+    }
+
     await refreshNotificationsByCategory();
   };
 
@@ -2072,6 +1870,12 @@ const NotificationsPage: React.FC = () => {
 
     // Handle leave request notifications directly from inbox for managers
     if (isLeaveRequestNotification(notification) && isManager) {
+      if (actionedNotificationIds.has(notification.id)) {
+        setSelectedNotification(notification);
+        setIsDetailModalOpen(true);
+        return;
+      }
+
       openLeaveApprovalFromNotification(notification);
       return;
     }
@@ -2988,7 +2792,7 @@ const NotificationsPage: React.FC = () => {
                         </h3>
                         {isNonProcessableLeave && (
                           <span className="ml-2 px-2 py-0.5 rounded-full text-[11px] font-semibold flex-shrink-0 bg-gray-200 text-gray-700">
-                            Dibatalkan
+                            Sudah Diproses
                           </span>
                         )}
                         {/* Status Badge for Roster Tasks */}
@@ -3308,7 +3112,7 @@ const NotificationsPage: React.FC = () => {
                                   : ''
                               }`}
                             >
-                              {actionedNotificationIds.has(notification.id) ? 'Dibatalkan' : 'Proses Cuti'}
+                              {actionedNotificationIds.has(notification.id) ? 'Sudah Diproses' : 'Proses Cuti'}
                             </Button>
                           )}
                           <Button

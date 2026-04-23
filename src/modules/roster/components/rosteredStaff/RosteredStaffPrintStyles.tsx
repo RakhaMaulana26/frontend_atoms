@@ -5,7 +5,7 @@ const RosteredStaffPrintStyles: React.FC = () => {
     <style>{`
       @media print {
         @page {
-          size: A4 landscape;
+          size: auto;
           margin: 8mm;
         }
 
@@ -49,7 +49,10 @@ const RosteredStaffPrintStyles: React.FC = () => {
 
         .roster-print-area thead {
           position: static !important;
-          /* Avoid repeated column header on each print page so section titles stay on top */
+          display: table-header-group !important;
+        }
+
+        .roster-print-area tfoot {
           display: table-row-group !important;
         }
 
@@ -64,11 +67,18 @@ const RosteredStaffPrintStyles: React.FC = () => {
           display: none !important;
         }
 
+        .print-signature-row {
+          break-inside: avoid-page !important;
+          page-break-inside: avoid !important;
+        }
+
         .print-signature-row td {
           text-align: left !important;
           padding: 28px 24px 20px 0 !important;
           border: none !important;
           background: #ffffff !important;
+          break-inside: avoid-page !important;
+          page-break-inside: avoid !important;
         }
 
         .print-signature-row .print-signature-title {
@@ -106,10 +116,14 @@ const RosteredStaffPrintStyles: React.FC = () => {
 
         .print-only-cns-title {
           display: table-row !important;
+          break-after: avoid-page !important;
+          page-break-after: avoid !important;
         }
 
         .print-only-support-title {
           display: table-row !important;
+          break-after: avoid-page !important;
+          page-break-after: avoid !important;
         }
 
         .print-only-cns-title td {
@@ -178,6 +192,8 @@ const RosteredStaffPrintStyles: React.FC = () => {
 
         .print-section-columns-header {
           display: table-row !important;
+          break-after: avoid-page !important;
+          page-break-after: avoid !important;
         }
 
         .print-section-columns-header .print-col-header {

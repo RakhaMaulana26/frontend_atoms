@@ -48,7 +48,6 @@ const RosterCalendarView: React.FC<RosterCalendarViewProps> = ({
         const myCompleted = (response.data || []).filter((request) =>
           request.requester_employee_id === currentEmployeeId || request.target_employee_id === currentEmployeeId
         );
-
         setCompletedSwaps(myCompleted);
       } catch (error) {
         console.error('Failed to load completed swap overlays for calendar:', error);
@@ -344,8 +343,33 @@ const RosterCalendarView: React.FC<RosterCalendarViewProps> = ({
 
   return (
     <>
+      <style>{`
+        @media print {
+          @page {
+            size: auto;
+            margin: 8mm;
+          }
+
+          .roster-calendar-print-wrapper thead {
+            display: table-header-group !important;
+          }
+
+          .roster-calendar-print-wrapper tfoot {
+            display: table-row-group !important;
+          }
+
+          .print-hidden {
+            display: none !important;
+          }
+
+          .roster-calendar-print-wrapper {
+            width: 100% !important;
+          }
+        }
+      `}</style>
+
       {/* Print Button */}
-      <div className="flex justify-end mb-4 -mx-4 sm:mx-0 pr-0 sm:pr-0">
+      <div className="print-hidden flex justify-end mb-4 -mx-4 sm:mx-0 pr-0 sm:pr-0">
         <button 
           onClick={onPrint}
           className="flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-white hover:bg-gray-100 rounded-xl transition-colors font-medium text-gray-900 shadow-md border border-gray-200 text-sm sm:text-base"
@@ -356,29 +380,31 @@ const RosterCalendarView: React.FC<RosterCalendarViewProps> = ({
       </div>
 
       {/* Calendar */}
-      {renderCalendar()}
+      <div className="roster-calendar-print-wrapper">
+        {renderCalendar()}
 
-      {/* Legend */}
-      <div className="flex items-center justify-center gap-4 sm:gap-8 lg:gap-16 mt-6 sm:mt-8 flex-wrap px-2">
-        <div className="flex items-center gap-2 sm:gap-3">
-          <div className="w-5 h-5 sm:w-6 sm:h-6 bg-blue-500 rounded" />
-          <span className="text-xs sm:text-sm font-medium text-black">Pagi</span>
-        </div>
-        <div className="flex items-center gap-2 sm:gap-3">
-          <div className="w-5 h-5 sm:w-6 sm:h-6 bg-orange-500 rounded" />
-          <span className="text-xs sm:text-sm font-medium text-black">Siang</span>
-        </div>
-        <div className="flex items-center gap-2 sm:gap-3">
-          <div className="w-5 h-5 sm:w-6 sm:h-6 bg-emerald-600 rounded" />
-          <span className="text-xs sm:text-sm font-medium text-black">Malam</span>
-        </div>
-        <div className="flex items-center gap-2 sm:gap-3">
-          <div className="w-5 h-5 sm:w-6 sm:h-6 bg-red-500 rounded" />
-          <span className="text-xs sm:text-sm font-medium text-black">Libur</span>
-        </div>
-        <div className="flex items-center gap-2 sm:gap-3">
-          <div className="w-5 h-5 sm:w-6 sm:h-6 bg-yellow-400 rounded" />
-          <span className="text-xs sm:text-sm font-medium text-black">Cuti/Penugasan Lain</span>
+        {/* Legend */}
+        <div className="flex items-center justify-center gap-4 sm:gap-8 lg:gap-16 mt-6 sm:mt-8 flex-wrap px-2">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="w-5 h-5 sm:w-6 sm:h-6 bg-blue-500 rounded" />
+            <span className="text-xs sm:text-sm font-medium text-black">Pagi</span>
+          </div>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="w-5 h-5 sm:w-6 sm:h-6 bg-orange-500 rounded" />
+            <span className="text-xs sm:text-sm font-medium text-black">Siang</span>
+          </div>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="w-5 h-5 sm:w-6 sm:h-6 bg-emerald-600 rounded" />
+            <span className="text-xs sm:text-sm font-medium text-black">Malam</span>
+          </div>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="w-5 h-5 sm:w-6 sm:h-6 bg-red-500 rounded" />
+            <span className="text-xs sm:text-sm font-medium text-black">Libur</span>
+          </div>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="w-5 h-5 sm:w-6 sm:h-6 bg-yellow-400 rounded" />
+            <span className="text-xs sm:text-sm font-medium text-black">Cuti/Penugasan Lain</span>
+          </div>
         </div>
       </div>
     </>

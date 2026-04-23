@@ -49,6 +49,7 @@ interface UpdateMorningTaskData {
 interface AllNotificationsResponse {
   data: {
     inbox: Notification[];
+    roster?: Notification[];
     starred: Notification[];
     sent: Notification[];
     trash: Notification[];
@@ -60,12 +61,26 @@ interface AllNotificationsResponse {
     trash: number;
     unread: number;
   };
+  pagination?: {
+    page: number;
+    per_page: number;
+    inbox_total: number;
+    roster_total: number;
+    starred_total: number;
+    sent_total: number;
+    trash_total: number;
+  };
+}
+
+interface GetAllNotificationsParams {
+  page?: number;
+  per_page?: number;
 }
 
 export const notificationService = {
   // Get ALL notifications in one request (categorized)
-  async getAllNotifications(): Promise<AllNotificationsResponse> {
-    const response = await apiClient.get<AllNotificationsResponse>('/notifications/all');
+  async getAllNotifications(params: GetAllNotificationsParams = {}): Promise<AllNotificationsResponse> {
+    const response = await apiClient.get<AllNotificationsResponse>('/notifications/all', { params });
     return response.data;
   },
 

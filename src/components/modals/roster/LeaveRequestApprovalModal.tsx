@@ -10,7 +10,7 @@ interface LeaveRequestApprovalModalProps {
   isOpen: boolean;
   onClose: () => void;
   leaveRequest: LeaveRequest | null;
-  onSuccess: () => void;
+  onSuccess: (updatedLeaveRequest: LeaveRequest) => void;
 }
 
 const statusBadgeClassMap: Record<'pending' | 'approved' | 'rejected', string> = {
@@ -120,7 +120,7 @@ const LeaveRequestApprovalModal: React.FC<LeaveRequestApprovalModalProps> = ({
 
       setApprovalNotes('');
       setActionType(null);
-      onSuccess();
+      onSuccess(response.data);
       onClose();
     } catch (error: any) {
       console.error('Failed to update leave request status:', error);
