@@ -49,7 +49,7 @@ const RosteredStaffPrintStyles: React.FC = () => {
 
         .roster-print-area thead {
           position: static !important;
-          display: table-header-group !important;
+          display: table-row-group !important;
         }
 
         .roster-print-area tfoot {

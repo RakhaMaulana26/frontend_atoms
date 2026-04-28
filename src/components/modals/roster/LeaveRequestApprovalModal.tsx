@@ -85,7 +85,6 @@ const LeaveRequestApprovalModal: React.FC<LeaveRequestApprovalModalProps> = ({
   }, [activeLeaveRequest]);
 
   const approvalDates = activeLeaveRequest?.approval_dates ?? [];
-  const approvalSummary = activeLeaveRequest?.approval_summary;
   const currentUserPendingDates = activeLeaveRequest?.current_user_pending_approval_dates ?? [];
   const canTakeAction = activeLeaveRequest?.status === 'pending' && activeLeaveRequest.current_user_can_approve === true;
 
@@ -282,27 +281,6 @@ const LeaveRequestApprovalModal: React.FC<LeaveRequestApprovalModalProps> = ({
             </div>
           </div>
 
-          {approvalSummary && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-                <p className="text-xs text-gray-500">Tanggal Approval</p>
-                <p className="text-sm font-semibold text-gray-900">{approvalSummary.total_dates}</p>
-              </div>
-              <div className="rounded-lg border border-green-200 bg-green-50 p-3">
-                <p className="text-xs text-green-700">Sudah Disetujui</p>
-                <p className="text-sm font-semibold text-green-800">{approvalSummary.approved_dates}</p>
-              </div>
-              <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3">
-                <p className="text-xs text-yellow-700">Masih Menunggu</p>
-                <p className="text-sm font-semibold text-yellow-800">{approvalSummary.pending_dates}</p>
-              </div>
-              <div className="rounded-lg border border-red-200 bg-red-50 p-3">
-                <p className="text-xs text-red-700">Ditolak</p>
-                <p className="text-sm font-semibold text-red-800">{approvalSummary.rejected_dates}</p>
-              </div>
-            </div>
-          )}
-
           {activeLeaveRequest.reason && (
             <div>
               <p className="text-xs text-gray-500 mb-1">Alasan</p>
@@ -383,11 +361,6 @@ const LeaveRequestApprovalModal: React.FC<LeaveRequestApprovalModalProps> = ({
               <h3 className="text-sm font-semibold text-[#222E6A]">Manager Penanggung Jawab per Tanggal</h3>
               <p className="text-xs text-gray-500">Approval mengikuti manager yang bertugas pada tanggal roster terkait.</p>
             </div>
-            {currentUserPendingDates.length > 0 && (
-              <span className="inline-flex items-center self-start rounded-full bg-[#E6E9F7] px-3 py-1 text-xs font-medium text-[#222E6A]">
-                Perlu approval Anda: {currentUserPendingDates.length} tanggal
-              </span>
-            )}
           </div>
 
           <div className="space-y-3">

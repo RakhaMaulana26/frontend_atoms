@@ -6,6 +6,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { toast } from 'react-toastify';
 import type { RosterPeriod, Shift, Employee, ShiftAssignment, ManagerDuty } from '../types/roster';
 import { useAuth } from '../../auth/core/AuthContext';
@@ -13,6 +14,7 @@ import { rosterService } from '../repository/rosterService';
 import { useDataCache } from '../../../contexts/DataCacheContext';
 import RosteredStaffHeader from './rosteredStaff/RosteredStaffHeader';
 import RosteredStaffPrintStyles from './rosteredStaff/RosteredStaffPrintStyles';
+import SectionTableDividerRows from './rosteredStaff/SectionTableDividerRows';
 import { getManagerTeknikEffectiveGroup } from './rosteredStaff/managerGroupLogic';
 
 interface RosteredStaffPersonViewProps {
@@ -64,6 +66,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
   const [addGroupSearch, setAddGroupSearch] = useState('');
   const [pendingRemovalReassign, setPendingRemovalReassign] = useState<PendingRemovalReassign | null>(null);
   const [managerGroupSelectorOpen, setManagerGroupSelectorOpen] = useState<number | null>(null);
+  const [selectedShortageDay, setSelectedShortageDay] = useState<number | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const tableContainerRef = useRef<HTMLDivElement>(null);
@@ -1329,6 +1332,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
   const displayedDays = showFullMonth
     ? Array.from({ length: daysInMonth }, (_, index) => index + 1)
     : (weeks[currentWeek] || []);
+  const displayedDayNames = displayedDays.map((day) => getDayName(roster.year, roster.month, day));
   const stickyNameWidth = isMobileViewport
     ? 120
     : (showFullMonth ? 150 : 260);
@@ -1338,7 +1342,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
   const stickyRoleWidth = isMobileViewport
     ? 82
     : (showFullMonth ? 110 : 170);
-  const shouldStickyMetaColumns = !isMobileViewport;
+  const shouldStickyMetaColumns = false;
   const stickySectionWidth = stickyNameWidth + stickyGradeWidth + stickyRoleWidth;
   const stickyGradeLeft = stickyNameWidth;
   const stickyRoleLeft = stickyNameWidth + stickyGradeWidth;
@@ -1459,6 +1463,81 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
   };
 
   const managerTeknikCount = employeeRows.filter((row) => getEffectiveType(row.employee) === 'Manager Teknik').length;
+
+  const getShiftBucket = (notes?: string | null, shiftName?: string | null): 'pagi' | 'siang' | 'malam' | null => {
+    const note = (notes || '').toLowerCase().trim();
+    const shift = (shiftName || '').toLowerCase().trim();
+
+    if (note === 'l' || note === 'libur' || note === 'off' || note.includes('libur') || note.includes('off')) {
+      return null;
+    }
+
+    if (note === 'p' || note === 'pagi' || note.includes('pagi')) return 'pagi';
+    if (note === 's' || note === 'siang' || note.includes('siang')) return 'siang';
+    if (note === 'm' || note === 'malam' || note.includes('malam')) return 'malam';
+
+    if (shift.includes('libur') || shift.includes('off')) return null;
+    if (shift.includes('morning') || shift.includes('pagi') || shift.includes('shift 1')) return 'pagi';
+    if (shift.includes('afternoon') || shift.includes('siang') || shift.includes('shift 2')) return 'siang';
+    if (shift.includes('night') || shift.includes('malam') || shift.includes('shift 3')) return 'malam';
+
+    return null;
+  };
+
+  const shortageDetailsByDay = (() => {
+    const result = new Map<number, Array<{ shiftLabel: string; missingRoles: string[] }>>();
+
+    displayedDays.forEach((day) => {
+      const counts = {
+        pagi: { manager: 0, cns: 0, support: 0 },
+        siang: { manager: 0, cns: 0, support: 0 },
+        malam: { manager: 0, cns: 0, support: 0 },
+      };
+
+      employeeRows.forEach((row) => {
+        const assignment = row.assignmentsByDay.get(day);
+        if (!assignment) return;
+
+        const shiftName = assignment.shift?.name || shifts.find((s) => s.id === assignment.shift_id)?.name || '';
+        const shiftBucket = getShiftBucket(assignment.notes, shiftName);
+        if (!shiftBucket) return;
+
+        const effectiveType = getEffectiveType(row.employee);
+        if (effectiveType === 'Manager Teknik') counts[shiftBucket].manager += 1;
+        if (effectiveType === 'CNS') counts[shiftBucket].cns += 1;
+        if (effectiveType === 'Support') counts[shiftBucket].support += 1;
+      });
+
+      const dayShortages: Array<{ shiftLabel: string; missingRoles: string[] }> = [];
+      (['pagi', 'siang', 'malam'] as const).forEach((shiftKey) => {
+        const shiftCount = counts[shiftKey];
+        const missingRoles: string[] = [];
+
+        if (shiftCount.manager < 1) {
+          missingRoles.push(`Manager Teknik kurang ${1 - shiftCount.manager}`);
+        }
+        if (shiftCount.cns < 3) {
+          missingRoles.push(`CNS kurang ${3 - shiftCount.cns}`);
+        }
+        if (shiftCount.support < 2) {
+          missingRoles.push(`Support kurang ${2 - shiftCount.support}`);
+        }
+
+        if (missingRoles.length > 0) {
+          const shiftLabel =
+            shiftKey === 'pagi' ? 'Shift Pagi' : shiftKey === 'siang' ? 'Shift Siang' : 'Shift Malam';
+          dayShortages.push({ shiftLabel, missingRoles });
+        }
+      });
+
+      if (dayShortages.length > 0) {
+        result.set(day, dayShortages);
+      }
+    });
+
+    return result;
+  })();
+  const shortageDays = new Set<number>(Array.from(shortageDetailsByDay.keys()));
 
   // Group employees by effective type and group_number from backend
   const allGroupedData = (() => {
@@ -2102,6 +2181,57 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
     window.print();
   };
 
+  const handleShortageDayClick = (day: number) => {
+    if (!shortageDays.has(day)) return;
+    setSelectedShortageDay(day);
+  };
+
+  const selectedShortageDetails = selectedShortageDay !== null
+    ? (shortageDetailsByDay.get(selectedShortageDay) || [])
+    : [];
+
+  const shortageModal =
+    selectedShortageDay !== null &&
+    selectedShortageDetails.length > 0 &&
+    typeof document !== 'undefined'
+      ? createPortal(
+          <div
+            className="print-hidden fixed inset-0 z-[9999] bg-black/45 backdrop-blur-[1px] flex items-center justify-center p-4"
+            onClick={() => setSelectedShortageDay(null)}
+          >
+            <div
+              className="w-full max-w-lg rounded-2xl border border-red-200 bg-white shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="px-4 py-3 sm:px-5 sm:py-4 border-b border-red-100 bg-red-50 rounded-t-2xl">
+                <div className="text-base sm:text-lg font-bold text-red-700">
+                  Kekurangan Karyawan Tanggal {selectedShortageDay}
+                </div>
+              </div>
+
+              <div className="px-4 py-3 sm:px-5 sm:py-4 space-y-2 max-h-[60vh] overflow-y-auto">
+                {selectedShortageDetails.map((item) => (
+                  <div key={`${selectedShortageDay}-${item.shiftLabel}`} className="text-sm text-red-800">
+                    <span className="font-semibold">{item.shiftLabel}:</span> {item.missingRoles.join(', ')}
+                  </div>
+                ))}
+              </div>
+
+              <div className="px-4 py-3 sm:px-5 sm:py-4 border-t border-red-100 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setSelectedShortageDay(null)}
+                  className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition-colors"
+                >
+                  Tutup
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )
+      : null;
+
   return (
     <div className="bg-white rounded-3xl shadow-lg border border-gray-100 -mx-2 sm:mx-0 p-4 sm:p-5 lg:p-7 xl:p-8 overflow-visible isolate">
       <RosteredStaffPrintStyles />
@@ -2144,6 +2274,8 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
           </label>
         </div>
       </div>
+
+      {shortageModal}
 
       {/* Week Navigation Pills */}
       {!showFullMonth && (
@@ -2223,14 +2355,26 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
               {displayedDays.map((day) => (
                 <th
                   key={day}
-                  className={`text-center font-semibold text-white sticky top-0 z-30 ${showFullMonth ? 'px-1 py-2 text-[10px]' : 'px-1.5 py-2 text-[9px] sm:text-xs lg:text-sm sm:px-3 sm:py-3'}`}
+                  className={`text-center font-semibold text-white sticky top-0 z-30 ${showFullMonth ? 'px-1 py-2 text-[10px]' : 'px-1.5 py-2 text-[9px] sm:text-xs lg:text-sm sm:px-3 sm:py-3'} ${shortageDays.has(day) ? 'cursor-pointer' : ''}`}
                   style={{ 
-                    backgroundColor: '#222E6A',
+                    backgroundColor: shortageDays.has(day) ? '#dc2626' : '#222E6A',
                     width: `${dayColumnWidth}px`,
                     minWidth: `${dayColumnWidth}px`,
                     maxWidth: `${dayColumnWidth}px`,
                     boxSizing: 'border-box',
                   }}
+                  onClick={() => {
+                    if (shortageDays.has(day)) {
+                      handleShortageDayClick(day);
+                    }
+                  }}
+                  title={shortageDays.has(day)
+                    ? `Klik untuk lihat kekurangan: ${(
+                        shortageDetailsByDay.get(day) || []
+                      )
+                        .map((item) => `${item.shiftLabel} (${item.missingRoles.join(', ')})`)
+                        .join(' | ')}`
+                    : undefined}
                 >
                   <div className={`${showFullMonth ? 'text-[8px]' : 'text-[7px] sm:text-[10px]'} text-white/70 leading-none`}>{getDayName(roster.year, roster.month, day)}</div>
                   <div className="font-bold leading-none mt-0.5">{day}</div>
@@ -2258,18 +2402,6 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
                           <div className="print-roster-date">{printDateLabel}</div>
                         </td>
                       </tr>
-                      <tr className="print-section-columns-header hidden">
-                        <td className="print-col-header print-col-label">Name</td>
-                        <td className="print-col-header print-col-label">Kelas</td>
-                        <td className="print-col-header print-col-label">Jabatan</td>
-                        {displayedDays.map((day) => (
-                          <td key={`print-cns-day-${day}`} className="print-col-header print-col-day">
-                            <div className="print-col-day-name">{getDayName(roster.year, roster.month, day)}</div>
-                            <div className="print-col-day-number">{day}</div>
-                          </td>
-                        ))}
-                        <td className="print-col-header print-col-tail"></td>
-                      </tr>
                     </>
                   )}
                   {typeGroup.type === 'Support' && (
@@ -2281,20 +2413,28 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
                           <div className="print-roster-date">{printDateLabel}</div>
                         </td>
                       </tr>
-                      <tr className="print-section-columns-header hidden">
-                        <td className="print-col-header print-col-label">Name</td>
-                        <td className="print-col-header print-col-label">Kelas</td>
-                        <td className="print-col-header print-col-label">Jabatan</td>
-                        {displayedDays.map((day) => (
-                          <td key={`print-support-day-${day}`} className="print-col-header print-col-day">
-                            <div className="print-col-day-name">{getDayName(roster.year, roster.month, day)}</div>
-                            <div className="print-col-day-number">{day}</div>
-                          </td>
-                        ))}
-                        <td className="print-col-header print-col-tail"></td>
-                      </tr>
                     </>
                   )}
+
+                  <SectionTableDividerRows
+                    isFirstSection={typeIndex === 0}
+                    showColumnsHeader={typeGroup.type === 'CNS' || typeGroup.type === 'Support'}
+                    totalColSpan={displayedDays.length + 4}
+                    displayedDays={displayedDays}
+                    dayNames={displayedDayNames}
+                    stickyNameWidth={stickyNameWidth}
+                    stickyGradeWidth={stickyGradeWidth}
+                    stickyRoleWidth={stickyRoleWidth}
+                    stickyGradeLeft={stickyGradeLeft}
+                    stickyRoleLeft={stickyRoleLeft}
+                    dayColumnWidth={dayColumnWidth}
+                    showFullMonth={showFullMonth}
+                    shortageDays={shortageDays}
+                    shortageDetailsByDay={shortageDetailsByDay}
+                    onShortageDayClick={handleShortageDayClick}
+                    shouldStickyMetaColumns={shouldStickyMetaColumns}
+                  />
+
                   {/* Employee Type Header */}
                   <tr className="print-type-header">
                     <td 
@@ -2329,9 +2469,9 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
                           <tr>
                             <td 
                               colSpan={3}
-                              className="px-3 sm:px-4 py-2 text-[11px] sm:text-sm font-bold text-gray-800 border-y border-orange-300 sticky left-0 z-30"
+                              className="px-3 sm:px-4 py-2 text-[11px] sm:text-sm font-bold text-[#1f2a5a] border-y border-[#c7d2ff] sticky left-0 z-30"
                               style={{
-                                backgroundColor: '#fed7aa',
+                                backgroundColor: '#e8edff',
                                 width: `${stickySectionWidth}px`,
                                 minWidth: `${stickySectionWidth}px`,
                                 maxWidth: `${stickySectionWidth}px`,
@@ -2342,8 +2482,8 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
                             </td>
                             <td
                               colSpan={displayedDays.length + 1}
-                              className="px-0 py-2 border-y border-orange-300"
-                              style={{ backgroundColor: '#fed7aa' }}
+                              className="px-0 py-2 border-y border-[#c7d2ff]"
+                              style={{ backgroundColor: '#e8edff' }}
                             ></td>
                           </tr>
                         )}
@@ -2377,7 +2517,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
                                         e.stopPropagation();
                                         setManagerGroupSelectorOpen((prev) => (prev === row.employee.id ? null : row.employee.id));
                                       }}
-                                      className="px-2.5 py-0.5 text-[10px] font-semibold rounded-full bg-orange-100 text-orange-700 hover:bg-orange-200 transition-colors border border-orange-300"
+                                      className="px-2.5 py-0.5 text-[10px] font-semibold rounded-full bg-[#e8edff] text-[#1f2a5a] hover:bg-[#dce4ff] transition-colors border border-[#b8c6ff]"
                                       title="Klik untuk pilih grup"
                                     >
                                       Grup {row.employee.group_number || '-'}
