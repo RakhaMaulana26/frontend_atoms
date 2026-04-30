@@ -18,11 +18,25 @@ const HomeFooter: React.FC = () => {
   return (
     <footer className="bg-gradient-to-r from-[#454D7C] to-[#222E6A] text-white relative overflow-hidden">
       <div className="absolute inset-0 opacity-10">
-        <img 
-          src="/assets/image/image14.png" 
-          alt="Background"
-          className="w-full h-full object-cover"
-        />
+        <picture>
+          <source
+            type="image/webp"
+            srcSet="/assets/image/image14-640.webp 640w, /assets/image/image14-960.webp 960w, /assets/image/image14-1280.webp 1280w, /assets/image/image14.webp 1400w"
+            sizes="100vw"
+          />
+          <source
+            type="image/png"
+            srcSet="/assets/image/image14.png"
+          />
+          <img 
+            src="/assets/image/image14.webp" 
+            alt="Background"
+            className="w-full h-full object-cover"
+            loading="lazy"
+            decoding="async"
+            fetchPriority="low"
+          />
+        </picture>
       </div>
       
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -134,6 +148,10 @@ const HomeFooter: React.FC = () => {
                 src="/assets/icon/logopens.svg" 
                 alt="PENS Logo" 
                 className="h-8 w-auto"
+                width={32}
+                height={32}
+                loading="lazy"
+                decoding="async"
               />
               <span className="text-sm font-medium opacity-90">PENS</span>
             </div>
@@ -142,6 +160,10 @@ const HomeFooter: React.FC = () => {
                 src="/assets/icon/logougm.svg" 
                 alt="UGM Logo" 
                 className="h-8 w-auto"
+                width={32}
+                height={32}
+                loading="lazy"
+                decoding="async"
               />
               <span className="text-sm font-medium opacity-90">UGM</span>
             </div>

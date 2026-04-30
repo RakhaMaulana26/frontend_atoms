@@ -1,6 +1,5 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import IllustrationSvg from '../assets/Illus.svg';
 
 const LandingPage: React.FC = () => {
   const navigate = useNavigate();
@@ -47,9 +46,13 @@ const LandingPage: React.FC = () => {
         {/* Illustration */}
         <div className="flex justify-center py-1 md:py-3 md:mt-8 animate-fade-slide-up">
           <img 
-            src={IllustrationSvg} 
+            src="/assets/Illus.svg" 
             alt="AirNav ATOMS Illustration" 
             className="w-full max-w-[200px] md:max-w-[300px] h-auto drop-shadow-2xl"
+            width={300}
+            height={300}
+            decoding="async"
+            fetchPriority="high"
           />
         </div>
 

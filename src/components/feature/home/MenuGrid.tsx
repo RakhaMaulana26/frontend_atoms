@@ -68,6 +68,10 @@ const MenuGrid: React.FC<MenuGridProps> = ({ isInitialized = true }) => {
                         src={item.icon} 
                         alt={item.title} 
                         className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-200"
+                        width={96}
+                        height={96}
+                        loading="lazy"
+                        decoding="async"
                       />
                     </div>
                     <h3 className="text-sm font-semibold text-[#222E6A] text-center leading-tight">

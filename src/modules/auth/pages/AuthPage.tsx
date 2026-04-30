@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../core/AuthContext';
 import { toast } from 'react-toastify';
 import { authService } from '../repository/authService';
-import AirnavLogo from '../../../assets/Airnav.svg';
 import { ChevronLeft, Eye, EyeOff, Mail, CheckCircle, KeyRound } from 'lucide-react';
 
 type AuthView = 'login' | 'activate' | 'forgot-password' | 'forgot-password-success' | 'reset-code' | 'set-password';
@@ -254,7 +253,14 @@ const AuthPage: React.FC = () => {
 
         {/* Logo and Title */}
         <div className="flex items-center justify-center gap-3 mb-6">
-          <img src={AirnavLogo} alt="AirNav Logo" className="w-12 h-12" />
+          <img
+            src="/assets/Airnav.svg"
+            alt="AirNav Logo"
+            className="w-12 h-12"
+            width={48}
+            height={48}
+            decoding="async"
+          />
           <h1 className="text-3xl font-bold text-[#2C3558]">ATOMS</h1>
         </div>
 

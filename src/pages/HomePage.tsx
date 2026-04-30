@@ -32,12 +32,25 @@ const HomePage: React.FC = () => {
       {/* Hero Section */}
       <div className="relative bg-gradient-to-r from-[#454D7C] to-[#222E6A] text-white">
         <div className="absolute inset-0 overflow-hidden">
-          <img 
-            src="/assets/image/image15.png" 
-            alt="AIRNAV Control Tower"
-            className="w-full h-full object-cover opacity-20"
-            loading="lazy"
-          />
+          <picture>
+            <source
+              type="image/webp"
+              srcSet="/assets/image/image15-640.webp 640w, /assets/image/image15-960.webp 960w, /assets/image/image15-1280.webp 1280w, /assets/image/image15.webp 1400w"
+              sizes="100vw"
+            />
+            <source
+              type="image/png"
+              srcSet="/assets/image/image15.png"
+            />
+            <img 
+              src="/assets/image/image15.webp" 
+              alt="AIRNAV Control Tower"
+              className="w-full h-full object-cover opacity-20"
+              loading="lazy"
+              decoding="async"
+              fetchPriority="low"
+            />
+          </picture>
         </div>
         
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">

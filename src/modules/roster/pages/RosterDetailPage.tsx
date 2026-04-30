@@ -236,6 +236,24 @@ const RosterDetailPage: React.FC = () => {
   const isAdmin = user?.role === 'Admin';
   const isGeneralManager = user?.role === 'General Manager';
   const canRequestSelf = !isAdmin && !isGeneralManager;
+  const showPersonalTab = canRequestSelf;
+
+  const visibleTabs = [
+    ...(showPersonalTab ? ([
+      { key: 'calendar' as const, label: 'Personal', shortLabel: 'Personal', icon: Calendar },
+    ]) : []),
+    { key: 'staff' as const, label: 'Jadwal Bersama', shortLabel: 'Bersama', icon: Users },
+    { key: 'swap' as const, label: 'Tukar Jadwal', shortLabel: 'Tukar', icon: ArrowRightLeft },
+    { key: 'leave' as const, label: 'Cuti', shortLabel: 'Cuti', icon: FileText },
+  ];
+
+  const activeTabIndex = Math.max(0, visibleTabs.findIndex(tab => tab.key === activeTab));
+
+  useEffect(() => {
+    if (!showPersonalTab && activeTab === 'calendar') {
+      setActiveTab('staff');
+    }
+  }, [showPersonalTab, activeTab]);
 
   // Get roster from cache (already loaded at startup)
   const roster = id ? getRosterDetail(Number(id)) : null;
@@ -395,60 +413,29 @@ const RosterDetailPage: React.FC = () => {
               <div
                 className="absolute top-1 bottom-1 left-1 bg-[#222E6A] rounded-xl shadow-sm transition-transform duration-300 ease-out"
                 style={{
-                  width: 'calc((100% - 0.5rem) / 4)',
-                  transform:
-                    activeTab === 'calendar'
-                      ? 'translateX(0%)'
-                      : activeTab === 'staff'
-                      ? 'translateX(100%)'
-                      : activeTab === 'swap'
-                      ? 'translateX(200%)'
-                      : 'translateX(300%)',
+                  width: `calc((100% - 0.5rem) / ${visibleTabs.length})`,
+                  transform: `translateX(${activeTabIndex * 100}%)`,
                 }}
               />
 
               {/* Tab Buttons */}
-              <button
-                onClick={() => setActiveTab('calendar')}
-                className={`relative z-10 flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 whitespace-nowrap flex-1 ${
-                  activeTab === 'calendar' ? 'text-white' : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                <span>Personal</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('staff')}
-                className={`relative z-10 flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 whitespace-nowrap flex-1 ${
-                  activeTab === 'staff' ? 'text-white' : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">Jadwal Bersama</span>
-                <span className="sm:hidden">Bersama</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('swap')}
-                className={`relative z-10 flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 whitespace-nowrap flex-1 ${
-                  activeTab === 'swap' ? 'text-white' : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                <ArrowRightLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">Tukar Jadwal</span>
-                <span className="sm:hidden">Tukar</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('leave')}
-                className={`relative z-10 flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 whitespace-nowrap flex-1 ${
-                  activeTab === 'leave' ? 'text-white' : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                <FileText className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                <span>Cuti</span>
-              </button>
+              {visibleTabs.map((tab) => {
+                const TabIcon = tab.icon;
+                const isActive = activeTab === tab.key;
+                return (
+                  <button
+                    key={tab.key}
+                    onClick={() => setActiveTab(tab.key)}
+                    className={`relative z-10 flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 whitespace-nowrap flex-1 ${
+                      isActive ? 'text-white' : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    <TabIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    <span className="hidden sm:inline">{tab.label}</span>
+                    <span className="sm:hidden">{tab.shortLabel}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 

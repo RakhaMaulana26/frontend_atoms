@@ -60,6 +60,10 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onProfileClick, onLogoutClick }) 
                 src="/assets/icon/logoairnav.svg" 
                 alt="AirNav Indonesia Logo" 
                 className="w-16 h-16 object-contain"
+                width={64}
+                height={64}
+                decoding="async"
+                fetchPriority="high"
               />
             </div>
             <div>

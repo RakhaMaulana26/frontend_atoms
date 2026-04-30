@@ -117,6 +117,7 @@ const NotificationsPage: React.FC = () => {
   const isCns = user?.role === 'Cns';
   const isSupport = user?.role === 'Support';
   const canManageNotifications = isAdmin || isManager || isCns || isSupport;
+  const canComposeNotifications = isAdmin || isManager; // CNS dan Support tidak bisa compose
   const isRosterCategory = activeCategory === 'roster';
   const datesPerPage = 4;
 
@@ -2194,8 +2195,8 @@ const NotificationsPage: React.FC = () => {
   };
 
   const handleOpenCompose = () => {
-    if (!canManageNotifications) {
-      toast.error('Hanya Admin, General Manager, Manager Teknik, CNS, atau Support yang dapat membuat notifikasi.');
+    if (!canComposeNotifications) {
+      toast.error('Hanya Admin dan General Manager yang dapat membuat notifikasi.');
       return;
     }
 
@@ -2538,14 +2539,16 @@ const NotificationsPage: React.FC = () => {
               <RefreshCw className={`h-3 w-3 sm:h-4 sm:w-4 ${(isLoading || isRefreshing) ? 'animate-spin' : ''}`} />
               <span className="ml-1 sm:ml-2">Refresh</span>
             </Button>
-            <Button
-              variant="primary"
-              onClick={handleOpenCompose}
-              className="w-full h-9 sm:h-auto sm:w-auto justify-center bg-[#222E6A] hover:bg-[#1a2452] text-xs px-2 py-1.5 sm:text-base sm:px-4 sm:py-2"
-            >
-              <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
-              <span className="ml-1 sm:ml-2">Compose</span>
-            </Button>
+            {canComposeNotifications && (
+              <Button
+                variant="primary"
+                onClick={handleOpenCompose}
+                className="w-full h-9 sm:h-auto sm:w-auto justify-center bg-[#222E6A] hover:bg-[#1a2452] text-xs px-2 py-1.5 sm:text-base sm:px-4 sm:py-2"
+              >
+                <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="ml-1 sm:ml-2">Compose</span>
+              </Button>
+            )}
             {canCreateRosterTask && (
               <Button
                 variant="primary"
