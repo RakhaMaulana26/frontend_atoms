@@ -30,42 +30,34 @@ export const migrateLegacyAuthStorage = (): void => {
   const sessionUser = safeGet(sessionStorage, AUTH_USER_KEY);
 
   if (sessionToken && sessionUser) {
-    safeRemove(localStorage, AUTH_TOKEN_KEY);
-    safeRemove(localStorage, AUTH_USER_KEY);
+    safeSet(localStorage, AUTH_TOKEN_KEY, sessionToken);
+    safeSet(localStorage, AUTH_USER_KEY, sessionUser);
+    safeRemove(sessionStorage, AUTH_TOKEN_KEY);
+    safeRemove(sessionStorage, AUTH_USER_KEY);
     return;
-  }
-
-  const legacyToken = safeGet(localStorage, AUTH_TOKEN_KEY);
-  const legacyUser = safeGet(localStorage, AUTH_USER_KEY);
-
-  if (legacyToken && legacyUser) {
-    safeSet(sessionStorage, AUTH_TOKEN_KEY, legacyToken);
-    safeSet(sessionStorage, AUTH_USER_KEY, legacyUser);
-    safeRemove(localStorage, AUTH_TOKEN_KEY);
-    safeRemove(localStorage, AUTH_USER_KEY);
   }
 };
 
 export const getStoredToken = (): string | null => {
-  return safeGet(sessionStorage, AUTH_TOKEN_KEY) || safeGet(localStorage, AUTH_TOKEN_KEY);
+  return safeGet(localStorage, AUTH_TOKEN_KEY);
 };
 
 export const getStoredUser = (): string | null => {
-  return safeGet(sessionStorage, AUTH_USER_KEY) || safeGet(localStorage, AUTH_USER_KEY);
+  return safeGet(localStorage, AUTH_USER_KEY);
 };
 
 export const setStoredAuth = (token: string, user: string): void => {
-  safeSet(sessionStorage, AUTH_TOKEN_KEY, token);
-  safeSet(sessionStorage, AUTH_USER_KEY, user);
-  safeRemove(localStorage, AUTH_TOKEN_KEY);
-  safeRemove(localStorage, AUTH_USER_KEY);
+  safeSet(localStorage, AUTH_TOKEN_KEY, token);
+  safeSet(localStorage, AUTH_USER_KEY, user);
+  safeRemove(sessionStorage, AUTH_TOKEN_KEY);
+  safeRemove(sessionStorage, AUTH_USER_KEY);
 };
 
 export const clearStoredAuth = (): void => {
-  safeRemove(sessionStorage, AUTH_TOKEN_KEY);
-  safeRemove(sessionStorage, AUTH_USER_KEY);
   safeRemove(localStorage, AUTH_TOKEN_KEY);
   safeRemove(localStorage, AUTH_USER_KEY);
+  safeRemove(sessionStorage, AUTH_TOKEN_KEY);
+  safeRemove(sessionStorage, AUTH_USER_KEY);
 };
 
 export const hasStoredToken = (): boolean => Boolean(getStoredToken());
