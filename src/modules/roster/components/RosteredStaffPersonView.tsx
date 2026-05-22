@@ -1237,33 +1237,35 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
 
   const getShiftClasses = (shiftName: string) => {
     const name = shiftName.toLowerCase();
-    if (name.includes('morning') || name.includes('pagi') || name.includes('shift 1')) return 'bg-blue-500 text-white font-semibold';
-    if (name.includes('afternoon') || name.includes('siang') || name.includes('shift 2')) return 'bg-orange-500 text-white font-semibold';
-    if (name.includes('night') || name.includes('malam') || name.includes('shift 3')) return 'bg-emerald-600 text-white font-semibold';
-    if (name.includes('libur') || name.includes('off')) return 'bg-red-500 text-white font-semibold';
-    return 'bg-yellow-400 text-gray-900 font-semibold';
+    const spmlClass = 'bg-white text-black border border-black font-semibold';
+    if (name.includes('morning') || name.includes('pagi') || name.includes('shift 1')) return spmlClass;
+    if (name.includes('afternoon') || name.includes('siang') || name.includes('shift 2')) return spmlClass;
+    if (name.includes('night') || name.includes('malam') || name.includes('shift 3')) return spmlClass;
+    if (name.includes('libur') || name.includes('off')) return spmlClass;
+    return 'bg-yellow-400 text-black font-semibold';
   };
 
   const getNotesClasses = (notes: string) => {
     const note = notes.toLowerCase().trim();
+    const spmlClass = 'bg-white text-black border border-black font-semibold';
     
     // Shift reguler dengan warna kontras tinggi
-    if (note === 'pagi' || note === 'p') return 'bg-blue-500 text-white font-semibold';
-    if (note === 'siang' || note === 's') return 'bg-orange-500 text-white font-semibold';
-    if (note === 'malam' || note === 'm') return 'bg-emerald-600 text-white font-semibold';
+    if (note === 'pagi' || note === 'p') return spmlClass;
+    if (note === 'siang' || note === 's') return spmlClass;
+    if (note === 'malam' || note === 'm') return spmlClass;
     
     // Libur tetap merah
-    if (note === 'l' || note === 'libur' || note === 'off') return 'bg-red-500 text-white font-semibold';
-    if (note === 'l1' || note === 'l2' || note === 'libur1' || note === 'libur2') return 'bg-red-500 text-white font-semibold';
+    if (note === 'l' || note === 'libur' || note === 'off') return spmlClass;
+    if (note === 'l1' || note === 'l2' || note === 'libur1' || note === 'libur2') return spmlClass;
     
     // Partial matches - Gunakan warna yang sama dengan exact match
-    if (note.includes('pagi')) return 'bg-blue-500 text-white font-semibold';
-    if (note.includes('siang')) return 'bg-orange-500 text-white font-semibold';
-    if (note.includes('malam')) return 'bg-emerald-600 text-white font-semibold';
-    if (note.includes('libur') || note.includes('off')) return 'bg-red-500 text-white font-semibold';
+    if (note.includes('pagi')) return spmlClass;
+    if (note.includes('siang')) return spmlClass;
+    if (note.includes('malam')) return spmlClass;
+    if (note.includes('libur') || note.includes('off')) return spmlClass;
     
     // Semua status selain P/S/M/L -> kuning
-    return 'bg-yellow-400 text-gray-900 font-semibold';
+    return 'bg-yellow-400 text-black font-semibold';
   };
 
   const getShiftDisplayText = (shiftName: string): string => {
@@ -1349,6 +1351,78 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
   const dayColumnWidth = showFullMonth
     ? (isMobileViewport ? 32 : 40)
     : (isMobileViewport ? 32 : 56);
+
+  const renderGroupDateHeader = (key: string) => (
+    <tr key={`group-date-${key}`} className="group-date-header">
+      <td
+        className="text-left text-[10px] sm:text-xs lg:text-sm font-semibold text-white px-3 sm:px-4 py-2 whitespace-nowrap sticky left-0 z-20"
+        style={{
+          backgroundColor: '#222E6A',
+          width: `${stickyNameWidth}px`,
+          minWidth: `${stickyNameWidth}px`,
+          maxWidth: `${stickyNameWidth}px`,
+          boxSizing: 'border-box',
+        }}
+      >
+        Name
+      </td>
+      <td
+        className={`text-center text-[10px] sm:text-xs lg:text-sm font-semibold text-white px-2 sm:px-3 py-2 whitespace-nowrap ${shouldStickyMetaColumns ? 'sticky z-20' : 'z-0'}`}
+        style={{
+          backgroundColor: '#222E6A',
+          ...(shouldStickyMetaColumns ? { left: `${stickyGradeLeft}px` } : {}),
+          width: `${stickyGradeWidth}px`,
+          minWidth: `${stickyGradeWidth}px`,
+          maxWidth: `${stickyGradeWidth}px`,
+          boxSizing: 'border-box',
+        }}
+      >
+        Kelas
+      </td>
+      <td
+        className={`text-center text-[10px] sm:text-xs lg:text-sm font-semibold text-white px-2 sm:px-3 py-2 whitespace-nowrap ${shouldStickyMetaColumns ? 'sticky z-20' : 'z-0'}`}
+        style={{
+          backgroundColor: '#222E6A',
+          ...(shouldStickyMetaColumns ? { left: `${stickyRoleLeft}px` } : {}),
+          width: `${stickyRoleWidth}px`,
+          minWidth: `${stickyRoleWidth}px`,
+          maxWidth: `${stickyRoleWidth}px`,
+          boxSizing: 'border-box',
+        }}
+      >
+        Jabatan
+      </td>
+      {displayedDays.map((day, index) => (
+        <td
+          key={`group-day-${key}-${day}-${index}`}
+          className={`text-center font-semibold text-white ${showFullMonth ? 'px-1 py-2 text-[10px]' : 'px-1.5 py-2 text-[9px] sm:text-xs lg:text-sm sm:px-3 sm:py-3'} ${shortageDays.has(day) ? 'cursor-pointer' : ''}`}
+          style={{
+            backgroundColor: shortageDays.has(day) ? '#dc2626' : '#222E6A',
+            width: `${dayColumnWidth}px`,
+            minWidth: `${dayColumnWidth}px`,
+            maxWidth: `${dayColumnWidth}px`,
+            boxSizing: 'border-box',
+          }}
+          onClick={() => {
+            if (shortageDays.has(day)) {
+              handleShortageDayClick(day);
+            }
+          }}
+          title={shortageDays.has(day)
+            ? `Klik untuk lihat kekurangan: ${(
+                shortageDetailsByDay.get(day) || []
+              )
+                .map((item) => `${item.shiftLabel} (${item.missingRoles.join(', ')})`)
+                .join(' | ')}`
+            : undefined}
+        >
+          <div className={`${showFullMonth ? 'text-[8px]' : 'text-[7px] sm:text-[10px]'} text-white/70 leading-none`}>{displayedDayNames[index]}</div>
+          <div className="font-bold leading-none mt-0.5">{day}</div>
+        </td>
+      ))}
+      <td className="w-6 sm:w-12" style={{ backgroundColor: '#222E6A' }}></td>
+    </tr>
+  );
 
   // Get all unique employees from the entire roster period
   const getAllUniqueEmployees = (): Map<number, Employee> => {
@@ -1468,7 +1542,17 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
     const note = (notes || '').toLowerCase().trim();
     const shift = (shiftName || '').toLowerCase().trim();
 
-    if (note === 'l' || note === 'libur' || note === 'off' || note.includes('libur') || note.includes('off')) {
+    if (
+      note === 'l' ||
+      note === 'libur' ||
+      note === 'off' ||
+      note.includes('libur') ||
+      note.includes('off') ||
+      note.includes('cuti') ||
+      note.includes('tpo') ||
+      note.includes('izin') ||
+      note.includes('sakit')
+    ) {
       return null;
     }
 
@@ -1610,6 +1694,8 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
 
     return result;
   })();
+
+  const shouldShowMainHeader = allGroupedData.length > 0 && allGroupedData[0].type !== 'Manager Teknik';
 
   // Get employees in display order (same order as rendered in UI)
   const getDisplayOrderedEmployees = (): EmployeeRosterRow[] => {
@@ -2312,77 +2398,79 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
         </div>
 
         <table className={`${showFullMonth ? 'w-max min-w-[1120px] sm:min-w-[1280px]' : 'w-full min-w-[640px] sm:min-w-[980px]'} border-collapse table-layout-fixed`} style={{ tableLayout: 'auto' }}>
-          <thead className="sticky top-0 z-30">
-            <tr>
-              <th
-                className="text-left text-[11px] sm:text-xs lg:text-sm font-semibold text-white px-3 sm:px-4 py-2 sm:py-3 rounded-tl-xl whitespace-nowrap sticky left-0 top-0 z-40"
-                style={{
-                  backgroundColor: '#222E6A',
-                  width: `${stickyNameWidth}px`,
-                  minWidth: `${stickyNameWidth}px`,
-                  maxWidth: `${stickyNameWidth}px`,
-                  boxSizing: 'border-box',
-                }}
-              >
-                Name
-              </th>
-              <th
-                className={`text-center text-[11px] sm:text-xs lg:text-sm font-semibold text-white px-2 sm:px-3 py-2 sm:py-3 whitespace-nowrap top-0 ${shouldStickyMetaColumns ? 'sticky z-40' : 'z-30'}`}
-                style={{
-                  backgroundColor: '#222E6A',
-                  ...(shouldStickyMetaColumns ? { left: `${stickyGradeLeft}px` } : {}),
-                  width: `${stickyGradeWidth}px`,
-                  minWidth: `${stickyGradeWidth}px`,
-                  maxWidth: `${stickyGradeWidth}px`,
-                  boxSizing: 'border-box',
-                }}
-              >
-                Kelas
-              </th>
-              <th
-                className={`text-center text-[11px] sm:text-xs lg:text-sm font-semibold text-white px-2 sm:px-3 py-2 sm:py-3 whitespace-nowrap top-0 ${shouldStickyMetaColumns ? 'sticky z-40' : 'z-30'}`}
-                style={{
-                  backgroundColor: '#222E6A',
-                  ...(shouldStickyMetaColumns ? { left: `${stickyRoleLeft}px` } : {}),
-                  width: `${stickyRoleWidth}px`,
-                  minWidth: `${stickyRoleWidth}px`,
-                  maxWidth: `${stickyRoleWidth}px`,
-                  boxSizing: 'border-box',
-                }}
-              >
-                Jabatan
-              </th>
-              {displayedDays.map((day) => (
+          {shouldShowMainHeader && (
+            <thead className="sticky top-0 z-30">
+              <tr>
                 <th
-                  key={day}
-                  className={`text-center font-semibold text-white sticky top-0 z-30 ${showFullMonth ? 'px-1 py-2 text-[10px]' : 'px-1.5 py-2 text-[9px] sm:text-xs lg:text-sm sm:px-3 sm:py-3'} ${shortageDays.has(day) ? 'cursor-pointer' : ''}`}
-                  style={{ 
-                    backgroundColor: shortageDays.has(day) ? '#dc2626' : '#222E6A',
-                    width: `${dayColumnWidth}px`,
-                    minWidth: `${dayColumnWidth}px`,
-                    maxWidth: `${dayColumnWidth}px`,
+                  className="text-left text-[11px] sm:text-xs lg:text-sm font-semibold text-white px-3 sm:px-4 py-2 sm:py-3 rounded-tl-xl whitespace-nowrap sticky left-0 top-0 z-40"
+                  style={{
+                    backgroundColor: '#222E6A',
+                    width: `${stickyNameWidth}px`,
+                    minWidth: `${stickyNameWidth}px`,
+                    maxWidth: `${stickyNameWidth}px`,
                     boxSizing: 'border-box',
                   }}
-                  onClick={() => {
-                    if (shortageDays.has(day)) {
-                      handleShortageDayClick(day);
-                    }
-                  }}
-                  title={shortageDays.has(day)
-                    ? `Klik untuk lihat kekurangan: ${(
-                        shortageDetailsByDay.get(day) || []
-                      )
-                        .map((item) => `${item.shiftLabel} (${item.missingRoles.join(', ')})`)
-                        .join(' | ')}`
-                    : undefined}
                 >
-                  <div className={`${showFullMonth ? 'text-[8px]' : 'text-[7px] sm:text-[10px]'} text-white/70 leading-none`}>{getDayName(roster.year, roster.month, day)}</div>
-                  <div className="font-bold leading-none mt-0.5">{day}</div>
+                  Name
                 </th>
-              ))}
-              <th className="w-6 sm:w-12 rounded-tr-xl sticky top-0 z-30" style={{ backgroundColor: '#222E6A' }}></th>
-            </tr>
-          </thead>
+                <th
+                  className={`text-center text-[11px] sm:text-xs lg:text-sm font-semibold text-white px-2 sm:px-3 py-2 sm:py-3 whitespace-nowrap top-0 ${shouldStickyMetaColumns ? 'sticky z-40' : 'z-30'}`}
+                  style={{
+                    backgroundColor: '#222E6A',
+                    ...(shouldStickyMetaColumns ? { left: `${stickyGradeLeft}px` } : {}),
+                    width: `${stickyGradeWidth}px`,
+                    minWidth: `${stickyGradeWidth}px`,
+                    maxWidth: `${stickyGradeWidth}px`,
+                    boxSizing: 'border-box',
+                  }}
+                >
+                  Kelas
+                </th>
+                <th
+                  className={`text-center text-[11px] sm:text-xs lg:text-sm font-semibold text-white px-2 sm:px-3 py-2 sm:py-3 whitespace-nowrap top-0 ${shouldStickyMetaColumns ? 'sticky z-40' : 'z-30'}`}
+                  style={{
+                    backgroundColor: '#222E6A',
+                    ...(shouldStickyMetaColumns ? { left: `${stickyRoleLeft}px` } : {}),
+                    width: `${stickyRoleWidth}px`,
+                    minWidth: `${stickyRoleWidth}px`,
+                    maxWidth: `${stickyRoleWidth}px`,
+                    boxSizing: 'border-box',
+                  }}
+                >
+                  Jabatan
+                </th>
+                {displayedDays.map((day) => (
+                  <th
+                    key={day}
+                    className={`text-center font-semibold text-white sticky top-0 z-30 ${showFullMonth ? 'px-1 py-2 text-[10px]' : 'px-1.5 py-2 text-[9px] sm:text-xs lg:text-sm sm:px-3 sm:py-3'} ${shortageDays.has(day) ? 'cursor-pointer' : ''}`}
+                    style={{ 
+                      backgroundColor: shortageDays.has(day) ? '#dc2626' : '#222E6A',
+                      width: `${dayColumnWidth}px`,
+                      minWidth: `${dayColumnWidth}px`,
+                      maxWidth: `${dayColumnWidth}px`,
+                      boxSizing: 'border-box',
+                    }}
+                    onClick={() => {
+                      if (shortageDays.has(day)) {
+                        handleShortageDayClick(day);
+                      }
+                    }}
+                    title={shortageDays.has(day)
+                      ? `Klik untuk lihat kekurangan: ${(
+                          shortageDetailsByDay.get(day) || []
+                        )
+                          .map((item) => `${item.shiftLabel} (${item.missingRoles.join(', ')})`)
+                          .join(' | ')}`
+                      : undefined}
+                  >
+                    <div className={`${showFullMonth ? 'text-[8px]' : 'text-[7px] sm:text-[10px]'} text-white/70 leading-none`}>{getDayName(roster.year, roster.month, day)}</div>
+                    <div className="font-bold leading-none mt-0.5">{day}</div>
+                  </th>
+                ))}
+                <th className="w-6 sm:w-12 rounded-tr-xl sticky top-0 z-30" style={{ backgroundColor: '#222E6A' }}></th>
+              </tr>
+            </thead>
+          )}
           <tbody>
             {allGroupedData.length === 0 ? (
               <tr>
@@ -2418,7 +2506,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
 
                   <SectionTableDividerRows
                     isFirstSection={typeIndex === 0}
-                    showColumnsHeader={typeGroup.type === 'CNS' || typeGroup.type === 'Support'}
+                    showColumnsHeader={false}
                     totalColSpan={displayedDays.length + 4}
                     displayedDays={displayedDays}
                     dayNames={displayedDayNames}
@@ -2487,6 +2575,7 @@ const RosteredStaffPersonView: React.FC<RosteredStaffPersonViewProps> = ({
                             ></td>
                           </tr>
                         )}
+                        {renderGroupDateHeader(`${typeGroup.type}-${actualGroupNumber}-${groupIndex}`)}
                       
                       {/* Employee Rows in Group */}
                       {group.map((row, rowIndexInGroup) => {
